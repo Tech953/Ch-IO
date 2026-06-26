@@ -38,6 +38,7 @@ export interface Engram {
   isChatActive: boolean;
   mode: EngramMode;
   humanContactEnabled: boolean;
+  simulationEnabled: boolean;
   createdAt: string;
   updatedAt: string;
 }

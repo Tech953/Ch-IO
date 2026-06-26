@@ -61,6 +61,7 @@ function makeEngram(overrides: Partial<Engram> = {}): Engram {
     initiationThreshold: 0.6,
     mode: "full_bounded",
     humanContactEnabled: true,
+    simulationEnabled: true,
     driveState: {},
     currentMood: null,
     lastTickAt: null,

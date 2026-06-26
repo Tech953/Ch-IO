@@ -8,6 +8,7 @@ import Layout from "@/components/layout";
 import Home from "@/pages/home";
 import Hub from "@/pages/hub";
 import Commons from "@/pages/commons";
+import Simulations from "@/pages/simulations";
 import Terminal from "@/pages/terminal";
 import Personality from "@/pages/personality";
 import Memory from "@/pages/memory";
@@ -31,6 +32,7 @@ function Router() {
         <Route path="/" component={Home} />
         <Route path="/hub" component={Hub} />
         <Route path="/commons" component={Commons} />
+        <Route path="/simulations" component={Simulations} />
         <Route path="/terminal" component={Terminal} />
         <Route path="/personality" component={Personality} />
         <Route path="/memory" component={Memory} />

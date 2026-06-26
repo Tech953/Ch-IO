@@ -542,6 +542,7 @@ export const ListEngramsResponseItem = zod.object({
   "isChatActive": zod.boolean(),
   "mode": zod.enum(['orientation', 'social', 'simulation', 'initiative_limited', 'full_bounded', 'quiescent']),
   "humanContactEnabled": zod.boolean(),
+  "simulationEnabled": zod.boolean(),
   "createdAt": zod.string(),
   "updatedAt": zod.string()
 })
@@ -633,6 +634,7 @@ export const GetEngramResponse = zod.object({
   "isChatActive": zod.boolean(),
   "mode": zod.enum(['orientation', 'social', 'simulation', 'initiative_limited', 'full_bounded', 'quiescent']),
   "humanContactEnabled": zod.boolean(),
+  "simulationEnabled": zod.boolean(),
   "createdAt": zod.string(),
   "updatedAt": zod.string()
 })
@@ -651,6 +653,7 @@ export const UpdateEngramConfigBody = zod.object({
   "initiationThreshold": zod.number().optional(),
   "mode": zod.enum(['orientation', 'social', 'simulation', 'initiative_limited', 'full_bounded', 'quiescent']).optional(),
   "humanContactEnabled": zod.boolean().optional(),
+  "simulationEnabled": zod.boolean().optional(),
   "focusThemes": zod.array(zod.string()).optional(),
   "emotionalBaseline": zod.object({
   "valence": zod.number(),
@@ -721,6 +724,7 @@ export const UpdateEngramConfigResponse = zod.object({
   "isChatActive": zod.boolean(),
   "mode": zod.enum(['orientation', 'social', 'simulation', 'initiative_limited', 'full_bounded', 'quiescent']),
   "humanContactEnabled": zod.boolean(),
+  "simulationEnabled": zod.boolean(),
   "createdAt": zod.string(),
   "updatedAt": zod.string()
 })
@@ -787,6 +791,7 @@ export const ActivateEngramResponse = zod.object({
   "isChatActive": zod.boolean(),
   "mode": zod.enum(['orientation', 'social', 'simulation', 'initiative_limited', 'full_bounded', 'quiescent']),
   "humanContactEnabled": zod.boolean(),
+  "simulationEnabled": zod.boolean(),
   "createdAt": zod.string(),
   "updatedAt": zod.string()
 })
@@ -870,7 +875,7 @@ export const ListEngramInquiriesResponseItem = zod.object({
   "kind": zod.string(),
   "question": zod.string(),
   "response": zod.string(),
-  "configDelta": zod.record(zod.string(), zod.unknown()).optional(),
+  "configDelta": zod.record(zod.string(), zod.unknown()).nullish(),
   "createdAt": zod.string()
 })
 export const ListEngramInquiriesResponse = zod.array(ListEngramInquiriesResponseItem)
@@ -894,7 +899,7 @@ export const CreateEngramInquiryResponse = zod.object({
   "kind": zod.string(),
   "question": zod.string(),
   "response": zod.string(),
-  "configDelta": zod.record(zod.string(), zod.unknown()).optional(),
+  "configDelta": zod.record(zod.string(), zod.unknown()).nullish(),
   "createdAt": zod.string()
 })
 
@@ -1127,6 +1132,82 @@ export const MarkEngramMessagesSeenBody = zod.object({
 
 export const MarkEngramMessagesSeenResponse = zod.object({
   "updated": zod.number()
+})
+
+
+/**
+ * @summary List bounded simulations, newest first
+ */
+export const ListSimulationsQueryParams = zod.object({
+  "engramId": zod.coerce.number().optional(),
+  "status": zod.enum(['proposed', 'running', 'paused', 'ended']).optional()
+})
+
+export const ListSimulationsResponseItem = zod.object({
+  "id": zod.number(),
+  "engramId": zod.number(),
+  "spaceId": zod.number(),
+  "premise": zod.string(),
+  "status": zod.enum(['proposed', 'running', 'paused', 'ended']),
+  "currentStep": zod.number(),
+  "maxSteps": zod.number(),
+  "stepCooldownSeconds": zod.number(),
+  "lastSteppedAt": zod.string().nullable(),
+  "exitSummary": zod.string().nullable(),
+  "startedAt": zod.string().nullable(),
+  "pausedAt": zod.string().nullable(),
+  "endedAt": zod.string().nullable(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+export const ListSimulationsResponse = zod.array(ListSimulationsResponseItem)
+
+
+/**
+ * @summary List a simulation's ordered steps
+ */
+export const ListSimulationStepsParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ListSimulationStepsResponseItem = zod.object({
+  "id": zod.number(),
+  "simulationId": zod.number(),
+  "stepNumber": zod.number(),
+  "narrative": zod.string(),
+  "worldModelEntryId": zod.number().nullable(),
+  "createdAt": zod.string()
+})
+export const ListSimulationStepsResponse = zod.array(ListSimulationStepsResponseItem)
+
+
+/**
+ * @summary Operator control of a simulation (start, pause, resume, end)
+ */
+export const ControlSimulationParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ControlSimulationBody = zod.object({
+  "action": zod.enum(['start', 'pause', 'resume', 'end'])
+})
+
+export const ControlSimulationResponse = zod.object({
+  "id": zod.number(),
+  "engramId": zod.number(),
+  "spaceId": zod.number(),
+  "premise": zod.string(),
+  "status": zod.enum(['proposed', 'running', 'paused', 'ended']),
+  "currentStep": zod.number(),
+  "maxSteps": zod.number(),
+  "stepCooldownSeconds": zod.number(),
+  "lastSteppedAt": zod.string().nullable(),
+  "exitSummary": zod.string().nullable(),
+  "startedAt": zod.string().nullable(),
+  "pausedAt": zod.string().nullable(),
+  "endedAt": zod.string().nullable(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
 })
 
 
