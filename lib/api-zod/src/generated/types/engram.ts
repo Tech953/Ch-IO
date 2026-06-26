@@ -8,6 +8,7 @@
 import type { EmotionalBaseline } from './emotionalBaseline';
 import type { EngramDrive } from './engramDrive';
 import type { EngramDriveState } from './engramDriveState';
+import type { EngramMode } from './engramMode';
 import type { EnvironmentAnchor } from './environmentAnchor';
 import type { Guardrails } from './guardrails';
 import type { MemorySeed } from './memorySeed';
@@ -35,6 +36,8 @@ export interface Engram {
   lastTickAt?: string;
   lastTransmissionAt?: string;
   isChatActive: boolean;
+  mode: EngramMode;
+  humanContactEnabled: boolean;
   createdAt: string;
   updatedAt: string;
 }

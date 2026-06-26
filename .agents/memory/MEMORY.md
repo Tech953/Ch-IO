@@ -1,1 +1,15 @@
-- [Engram engine test mock](engram-engine-test-mock.md) — engram-engine.test.ts fakes @workspace/db with a table-identity selectChain; new engine DB reads must be registered in two places or tests silently return wrong rows.
+- [Engram initiative & human-contact policy](engram-initiative-policy.md) — quiet mode raises bar to urgent (not silence); unknown mode fails closed; anti-coercion is structural first.
+- [Engram engine restart safety](engram-engine-restart-safety.md) — every autonomy guard in the engine must be DB-backed, not in-memory, so a restart can't reset limits.
+- [Engram engine test mock](engram-engine-test-mock.md) — new engine DB reads need schema vi.mock + selectChain resolver + beforeEach entries.
+- [api-server testing](api-server-testing.md) — conventions/constraints for unit-testing the api-server artifact.
+- [Offline LLM seam](offline-llm-seam.md) — model calls go through an app-level OpenAI-compatible client, not the Replit integration package, for local/offline.
+- [Engram authoring](engram-authoring.md) — non-obvious couplings when adding a new engram to the seed so it behaves as intended.
+- [Engram chat SSE](engram-chat-sse.md) — streaming chat uses raw fetch, not generated hooks.
+- [Engram DB table names](engram-db-table-names.md) — actual Drizzle table export names to use in route imports.
+- [Expression layer safety](expression-layer-safety.md) — how PYRI's QUERTY micro-expression vocabulary is kept safe (platonic) before the chat model.
+- [Engram AI lib fixes](engram-ai-lib-fixes.md) — two fixes to make the Replit OpenAI integration template libs typecheck cleanly here.
+- [OpenAPI codegen collisions](openapi-codegen-collisions.md) — an op with BOTH a path param and query params breaks Orval codegen; avoid it.
+- [Orval codegen gotchas](orval-codegen-gotchas.md) — non-obvious constraints when using the OpenAPI→Orval hooks/Zod codegen in this repo.
+- [Responsive portaled dialog](responsive-portaled-dialog.md) — mobile/desktop variants sharing a Radix Dialog/Sheet must branch via a JS breakpoint hook, not CSS hidden.
+- [Seeding](seeding.md) — how reference/lookup data gets into the DB (no auto-seed exists).
+- [PDF & install quirks](pdf-and-install-quirks.md) — generate/verify PDFs without Chromium; install fallback when package tool fails generically.

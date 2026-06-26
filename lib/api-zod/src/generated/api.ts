@@ -540,6 +540,8 @@ export const ListEngramsResponseItem = zod.object({
   "lastTickAt": zod.string().optional(),
   "lastTransmissionAt": zod.string().optional(),
   "isChatActive": zod.boolean(),
+  "mode": zod.enum(['orientation', 'social', 'simulation', 'initiative_limited', 'full_bounded', 'quiescent']),
+  "humanContactEnabled": zod.boolean(),
   "createdAt": zod.string(),
   "updatedAt": zod.string()
 })
@@ -629,6 +631,8 @@ export const GetEngramResponse = zod.object({
   "lastTickAt": zod.string().optional(),
   "lastTransmissionAt": zod.string().optional(),
   "isChatActive": zod.boolean(),
+  "mode": zod.enum(['orientation', 'social', 'simulation', 'initiative_limited', 'full_bounded', 'quiescent']),
+  "humanContactEnabled": zod.boolean(),
   "createdAt": zod.string(),
   "updatedAt": zod.string()
 })
@@ -645,6 +649,8 @@ export const UpdateEngramConfigBody = zod.object({
   "autonomyEnabled": zod.boolean().optional(),
   "tickCadenceSeconds": zod.number().optional(),
   "initiationThreshold": zod.number().optional(),
+  "mode": zod.enum(['orientation', 'social', 'simulation', 'initiative_limited', 'full_bounded', 'quiescent']).optional(),
+  "humanContactEnabled": zod.boolean().optional(),
   "focusThemes": zod.array(zod.string()).optional(),
   "emotionalBaseline": zod.object({
   "valence": zod.number(),
@@ -713,6 +719,8 @@ export const UpdateEngramConfigResponse = zod.object({
   "lastTickAt": zod.string().optional(),
   "lastTransmissionAt": zod.string().optional(),
   "isChatActive": zod.boolean(),
+  "mode": zod.enum(['orientation', 'social', 'simulation', 'initiative_limited', 'full_bounded', 'quiescent']),
+  "humanContactEnabled": zod.boolean(),
   "createdAt": zod.string(),
   "updatedAt": zod.string()
 })
@@ -777,6 +785,8 @@ export const ActivateEngramResponse = zod.object({
   "lastTickAt": zod.string().optional(),
   "lastTransmissionAt": zod.string().optional(),
   "isChatActive": zod.boolean(),
+  "mode": zod.enum(['orientation', 'social', 'simulation', 'initiative_limited', 'full_bounded', 'quiescent']),
+  "humanContactEnabled": zod.boolean(),
   "createdAt": zod.string(),
   "updatedAt": zod.string()
 })
@@ -1054,5 +1064,69 @@ export const ListHubActivityResponseItem = zod.object({
   "createdAt": zod.string()
 })
 export const ListHubActivityResponse = zod.array(ListHubActivityResponseItem)
+
+
+/**
+ * @summary Get the global autonomy controls (pause, quiet mode)
+ */
+export const GetHubControlsResponse = zod.object({
+  "id": zod.number(),
+  "paused": zod.boolean(),
+  "quietMode": zod.boolean(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary Update the global autonomy controls
+ */
+export const UpdateHubControlsBody = zod.object({
+  "paused": zod.boolean().optional(),
+  "quietMode": zod.boolean().optional()
+})
+
+export const UpdateHubControlsResponse = zod.object({
+  "id": zod.number(),
+  "paused": zod.boolean(),
+  "quietMode": zod.boolean(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary List bus messages (engram-to-engram and human-directed), newest first
+ */
+export const ListEngramMessagesQueryParams = zod.object({
+  "channel": zod.enum(['engram', 'human']).optional(),
+  "limit": zod.coerce.number().optional()
+})
+
+export const ListEngramMessagesResponseItem = zod.object({
+  "id": zod.number(),
+  "fromEngramId": zod.number(),
+  "toEngramId": zod.number().nullable(),
+  "spaceId": zod.number().nullable(),
+  "channel": zod.enum(['engram', 'human']),
+  "priority": zod.enum(['urgent', 'meaningful', 'social']),
+  "status": zod.enum(['delivered', 'queued', 'digest', 'blocked']),
+  "content": zod.string(),
+  "reason": zod.string().nullable(),
+  "seen": zod.boolean(),
+  "deliveredAt": zod.string().nullable(),
+  "createdAt": zod.string()
+})
+export const ListEngramMessagesResponse = zod.array(ListEngramMessagesResponseItem)
+
+
+/**
+ * @summary Mark human-channel messages as seen by the operator
+ */
+export const MarkEngramMessagesSeenBody = zod.object({
+  "ids": zod.array(zod.number())
+})
+
+export const MarkEngramMessagesSeenResponse = zod.object({
+  "updated": zod.number()
+})
 
 

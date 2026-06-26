@@ -913,6 +913,82 @@ paths:
                 items:
                   $ref: "#/components/schemas/HubActivityEntry"
 
+  /hub/controls:
+    get:
+      operationId: getHubControls
+      tags: [hub]
+      summary: Get the global autonomy controls (pause, quiet mode)
+      responses:
+        "200":
+          description: Current global controls
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HubControls"
+    put:
+      operationId: updateHubControls
+      tags: [hub]
+      summary: Update the global autonomy controls
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HubControlsInput"
+      responses:
+        "200":
+          description: Updated global controls
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HubControls"
+
+  /messages:
+    get:
+      operationId: listEngramMessages
+      tags: [hub]
+      summary: List bus messages (engram-to-engram and human-directed), newest first
+      parameters:
+        - name: channel
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [engram, human]
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Recent bus messages
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EngramMessage"
+
+  /messages/mark-seen:
+    post:
+      operationId: markEngramMessagesSeen
+      tags: [hub]
+      summary: Mark human-channel messages as seen by the operator
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MarkMessagesSeenInput"
+      responses:
+        "200":
+          description: Count of updated messages
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarkMessagesSeenResult"
+
 components:
   schemas:
     HealthStatus:
@@ -1653,6 +1729,11 @@ components:
           type: string
         isChatActive:
           type: boolean
+        mode:
+          type: string
+          enum: [orientation, social, simulation, initiative_limited, full_bounded, quiescent]
+        humanContactEnabled:
+          type: boolean
         createdAt:
           type: string
         updatedAt:
@@ -1676,6 +1757,8 @@ components:
         - initiationThreshold
         - driveState
         - isChatActive
+        - mode
+        - humanContactEnabled
         - createdAt
         - updatedAt
 
@@ -1688,6 +1771,11 @@ components:
           type: integer
         initiationThreshold:
           type: number
+        mode:
+          type: string
+          enum: [orientation, social, simulation, initiative_limited, full_bounded, quiescent]
+        humanContactEnabled:
+          type: boolean
         focusThemes:
           type: array
           items:
@@ -1987,3 +2075,90 @@ components:
         - kind
         - summary
         - createdAt
+
+    HubControls:
+      type: object
+      properties:
+        id:
+          type: integer
+        paused:
+          type: boolean
+        quietMode:
+          type: boolean
+        updatedAt:
+          type: string
+      required:
+        - id
+        - paused
+        - quietMode
+        - updatedAt
+
+    HubControlsInput:
+      type: object
+      properties:
+        paused:
+          type: boolean
+        quietMode:
+          type: boolean
+
+    EngramMessage:
+      type: object
+      properties:
+        id:
+          type: integer
+        fromEngramId:
+          type: integer
+        toEngramId:
+          type: ["integer", "null"]
+        spaceId:
+          type: ["integer", "null"]
+        channel:
+          type: string
+          enum: [engram, human]
+        priority:
+          type: string
+          enum: [urgent, meaningful, social]
+        status:
+          type: string
+          enum: [delivered, queued, digest, blocked]
+        content:
+          type: string
+        reason:
+          type: ["string", "null"]
+        seen:
+          type: boolean
+        deliveredAt:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+      required:
+        - id
+        - fromEngramId
+        - toEngramId
+        - spaceId
+        - channel
+        - priority
+        - status
+        - content
+        - reason
+        - seen
+        - deliveredAt
+        - createdAt
+
+    MarkMessagesSeenInput:
+      type: object
+      properties:
+        ids:
+          type: array
+          items:
+            type: integer
+      required:
+        - ids
+
+    MarkMessagesSeenResult:
+      type: object
+      properties:
+        updated:
+          type: integer
+      required:
+        - updated

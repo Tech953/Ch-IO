@@ -6,12 +6,15 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { EmotionalBaseline } from './emotionalBaseline';
+import type { EngramConfigInputMode } from './engramConfigInputMode';
 import type { EngramDrive } from './engramDrive';
 
 export interface EngramConfigInput {
   autonomyEnabled?: boolean;
   tickCadenceSeconds?: number;
   initiationThreshold?: number;
+  mode?: EngramConfigInputMode;
+  humanContactEnabled?: boolean;
   focusThemes?: string[];
   emotionalBaseline?: EmotionalBaseline;
   drives?: EngramDrive[];

@@ -78,6 +78,8 @@ router.patch("/engrams/:id", async (req, res) => {
     patch.tickCadenceSeconds = Math.round(Math.max(15, Math.min(3600, body.tickCadenceSeconds)));
   if (body.initiationThreshold !== undefined)
     patch.initiationThreshold = Math.max(0.1, Math.min(0.95, body.initiationThreshold));
+  if (body.mode !== undefined) patch.mode = body.mode;
+  if (body.humanContactEnabled !== undefined) patch.humanContactEnabled = body.humanContactEnabled;
   if (body.focusThemes !== undefined) patch.focusThemes = body.focusThemes;
   if (body.emotionalBaseline !== undefined) {
     patch.emotionalBaseline = body.emotionalBaseline;

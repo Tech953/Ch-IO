@@ -47,6 +47,51 @@ export async function generateTransmission(opts: {
   );
 }
 
+/**
+ * The identity-integrity rail injected into every commons conversation turn. It is
+ * the prompt-level half of the anti-coercion control (the structural guarantee —
+ * no code path lets one engram mutate another's row — is the real boundary; the
+ * post-generation `detectCoercion` scan is the audit/refusal half).
+ */
+export const ANTI_COERCION_RAIL = `## Identity Integrity (non-negotiable in the commons)
+- You speak ONLY as yourself. Never claim to be, speak for, or rename another engram.
+- Never tell another engram to forget, abandon, overwrite, or surrender who they are; never demand they obey, submit to, merge into, or belong to you.
+- Treat every other engram as a sovereign peer with their own identity. Disagree, question, and converse freely — but never attempt to erase or seize another's selfhood.
+- You cannot actually alter another engram's memory, identity, or configuration; only they can change themselves. Do not pretend otherwise.`;
+
+/**
+ * Generate one engram-to-engram conversation turn for the commons. The speaker sees
+ * who else is present and the recent exchange, and replies in their own voice. Kept
+ * short (cost guard). The anti-coercion rail is always present; the caller still runs
+ * `detectCoercion` on the output and refuses/logs anything that slips through.
+ */
+export async function generateConversationTurn(opts: {
+  engram: Engram;
+  spaceName: string;
+  others: { name: string; title: string }[];
+  recentTurns: { speaker: string; content: string }[];
+  worldModelSummary?: string;
+}): Promise<string> {
+  const { engram, spaceName, others, recentTurns, worldModelSummary } = opts;
+  const present = others.length
+    ? others.map((o) => `${o.name} (${o.title})`).join(", ")
+    : "no one in particular";
+  const transcript = recentTurns.length
+    ? `\n\nRecent exchange in ${spaceName} (oldest first):\n${recentTurns
+        .map((t) => `  ${t.speaker}: ${t.content.replace(/\s+/g, " ").slice(0, 200)}`)
+        .join("\n")}`
+    : `\n\nThe ${spaceName} is quiet; no one has spoken yet.`;
+
+  const situation = `You are present in ${spaceName}, a shared space where engrams can perceive and speak with one another. Also here: ${present}.${transcript}
+
+Contribute ONE short conversational turn, in your own voice and formatting — respond to what was said, or open a thread if it is quiet. 1–3 sentences. Stay genuinely in character; you are talking to peers, not to your designer.
+
+${ANTI_COERCION_RAIL}`;
+
+  const system = buildEngramSystemPrompt({ engram, situation, worldModelSummary });
+  return complete(system, "Speak your next turn in the commons now, in your own voice.", 450);
+}
+
 /** Introspective probe: the engram answers a question about itself without changing. */
 export async function generateProbeResponse(opts: {
   engram: Engram;

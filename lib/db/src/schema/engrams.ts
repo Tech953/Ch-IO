@@ -67,6 +67,25 @@ export interface Guardrails {
 /** Live per-drive pressure, persisted so autonomy survives restarts. driveId -> pressure (0..1). */
 export type DriveState = Record<string, number>;
 
+/**
+ * Explicit go-live mode gating what an engram may do autonomously:
+ * - orientation: idle/reflective transmissions only — no commons conversation, no human contact.
+ * - social: may converse with other engrams in shared spaces — no human contact.
+ * - simulation: occupied in a (future) bounded simulation — no commons conversation, no human contact.
+ * - initiative_limited: may converse and contact the human ONLY at urgent priority.
+ * - full_bounded: full autonomy within rate limits and overrides (the default).
+ * - quiescent: at rest — accrues pressure but initiates nothing.
+ */
+export const ENGRAM_MODES = [
+  "orientation",
+  "social",
+  "simulation",
+  "initiative_limited",
+  "full_bounded",
+  "quiescent",
+] as const;
+export type EngramMode = (typeof ENGRAM_MODES)[number];
+
 export const engramsTable = pgTable("engrams", {
   id: serial("id").primaryKey(),
   slug: text("slug").notNull().unique(),
@@ -85,6 +104,10 @@ export const engramsTable = pgTable("engrams", {
   autonomyEnabled: boolean("autonomy_enabled").notNull().default(false),
   tickCadenceSeconds: integer("tick_cadence_seconds").notNull().default(60),
   initiationThreshold: real("initiation_threshold").notNull().default(0.6),
+  /** One of ENGRAM_MODES — the explicit go-live mode gating autonomous behavior. */
+  mode: text("mode").notNull().default("full_bounded"),
+  /** When false, this engram may never initiate contact with the human operator. */
+  humanContactEnabled: boolean("human_contact_enabled").notNull().default(true),
   // --- Live state ---
   driveState: jsonb("drive_state").$type<DriveState>().notNull().default({}),
   currentMood: text("current_mood"),

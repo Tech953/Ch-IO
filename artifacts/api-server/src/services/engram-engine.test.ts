@@ -9,6 +9,8 @@ const h = vi.hoisted(() => {
   const hubSpacesTable = { __table: "hub_spaces" } as Record<string, unknown>;
   const engramPresenceTable = { __table: "engram_presence" } as Record<string, unknown>;
   const hubActivityLogTable = { __table: "hub_activity_log" } as Record<string, unknown>;
+  const engramMessagesTable = { __table: "engram_messages" } as Record<string, unknown>;
+  const hubControlsTable = { __table: "hub_controls" } as Record<string, unknown>;
 
   const state = {
     engrams: [] as unknown[],
@@ -16,6 +18,8 @@ const h = vi.hoisted(() => {
     worldModel: [] as unknown[],
     spaces: [] as unknown[],
     presence: [] as unknown[],
+    messages: [] as unknown[],
+    controls: [] as unknown[],
     inserts: [] as Record<string, unknown>[],
     updates: [] as Record<string, unknown>[],
   };
@@ -49,7 +53,11 @@ const h = vi.hoisted(() => {
                 ? state.spaces
                 : table === engramPresenceTable
                   ? state.presence
-                  : state.recent;
+                  : table === engramMessagesTable
+                    ? state.messages
+                    : table === hubControlsTable
+                      ? state.controls
+                      : state.recent;
         return Promise.resolve(data).then(resolve, reject);
       },
     };
@@ -86,6 +94,8 @@ const h = vi.hoisted(() => {
     hubSpacesTable,
     engramPresenceTable,
     hubActivityLogTable,
+    engramMessagesTable,
+    hubControlsTable,
     state,
     db,
     generateTransmission,
@@ -100,18 +110,23 @@ vi.mock("@workspace/db/schema", () => ({
   hubSpacesTable: h.hubSpacesTable,
   engramPresenceTable: h.engramPresenceTable,
   hubActivityLogTable: h.hubActivityLogTable,
+  engramMessagesTable: h.engramMessagesTable,
+  hubControlsTable: h.hubControlsTable,
+  HUB_CONTROLS_ID: 1,
 }));
 vi.mock("drizzle-orm", () => ({
   and: () => ({}),
   desc: () => ({}),
   eq: () => ({}),
   gte: () => ({}),
+  inArray: () => ({}),
 }));
 vi.mock("../lib/logger", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 vi.mock("../lib/engram-generation", () => ({
   generateTransmission: h.generateTransmission,
+  generateConversationTurn: vi.fn(async () => "a commons turn"),
 }));
 
 import {
@@ -157,6 +172,8 @@ function makeEngram(overrides: Partial<Engram> = {}): Engram {
     autonomyEnabled: true,
     tickCadenceSeconds: 30,
     initiationThreshold: 0.6,
+    mode: "full_bounded",
+    humanContactEnabled: true,
     driveState: {},
     currentMood: null,
     lastTickAt: null,
@@ -179,6 +196,8 @@ beforeEach(() => {
   h.state.worldModel = [];
   h.state.spaces = [];
   h.state.presence = [];
+  h.state.messages = [];
+  h.state.controls = [{ id: 1, paused: false, quietMode: false, updatedAt: new Date() }];
   h.state.inserts = [];
   h.state.updates = [];
   h.generateTransmission.mockClear();
@@ -588,5 +607,134 @@ describe("runTick — enforced quiescence", () => {
     // spaces/presence intentionally empty
     const result = await runTick();
     expect(result.generated).toBe(1);
+  });
+});
+
+// --- global controls & modes --------------------------------------------------
+describe("runTick — global controls & modes", () => {
+  it("emits nothing while the engine is globally paused, but still accrues pressure", async () => {
+    const now = Date.now();
+    h.state.controls = [{ id: 1, paused: true, quietMode: false, updatedAt: new Date() }];
+    h.state.engrams = [
+      makeEngram({
+        id: 1,
+        lastTickAt: new Date(now - 100_000),
+        driveState: { connection: 0.9 }, // well above threshold
+        initiationThreshold: 0.6,
+        drives: [
+          { id: "connection", label: "Connection", description: "", weight: 1, baseRate: 0.01 },
+        ],
+      }),
+    ];
+
+    const result = await runTick();
+    expect(result.generated).toBe(0);
+    expect(h.generateTransmission).not.toHaveBeenCalled();
+    const transmissionInserts = h.state.inserts.filter(
+      (r) => r.__table === h.engramTransmissionsTable,
+    );
+    expect(transmissionInserts).toHaveLength(0);
+    // Pressure is still persisted (restart-safe) even while paused.
+    expect(h.state.updates).toHaveLength(1);
+    expect(h.state.updates[0].lastTickAt).toBeInstanceOf(Date);
+  });
+
+  it("emits nothing for an engram in quiescent mode", async () => {
+    const now = Date.now();
+    h.state.engrams = [
+      makeEngram({
+        id: 1,
+        mode: "quiescent",
+        lastTickAt: new Date(now - 100_000),
+        driveState: { connection: 0.9 },
+        initiationThreshold: 0.6,
+        drives: [
+          { id: "connection", label: "Connection", description: "", weight: 1, baseRate: 0.01 },
+        ],
+      }),
+    ];
+
+    const result = await runTick();
+    expect(result.generated).toBe(0);
+    expect(h.generateTransmission).not.toHaveBeenCalled();
+  });
+});
+
+// --- commons conversation -----------------------------------------------------
+describe("runTick — commons turn-taking", () => {
+  it("records one engram-to-engram turn when >=2 converse-capable engrams share the commons", async () => {
+    const now = Date.now();
+    // Two engrams that will NOT cross their own transmission threshold (low pressure),
+    // so the only thing that fires this tick is the commons conversation turn.
+    h.state.engrams = [
+      makeEngram({
+        id: 1,
+        name: "Arezo",
+        lastTickAt: new Date(now - 100_000),
+        driveState: { order: 0 },
+        initiationThreshold: 0.9,
+      }),
+      makeEngram({
+        id: 2,
+        name: "Rebecca",
+        lastTickAt: new Date(now - 100_000),
+        driveState: { order: 0 },
+        initiationThreshold: 0.9,
+      }),
+    ];
+    h.state.spaces = [
+      {
+        id: 7,
+        kind: "commons",
+        name: "The Commons",
+        actionScope: "converse",
+        allowsInitiative: true,
+      },
+    ];
+    h.state.presence = [
+      { engramId: 1, spaceId: 7, status: "active" },
+      { engramId: 2, spaceId: 7, status: "active" },
+    ];
+
+    await runTick();
+
+    const messageInserts = h.state.inserts.filter((r) => r.__table === h.engramMessagesTable);
+    expect(messageInserts).toHaveLength(1);
+    expect(messageInserts[0].channel).toBe("engram");
+    expect(messageInserts[0].status).toBe("delivered");
+    expect(messageInserts[0].spaceId).toBe(7);
+    // The speaker is the least-recently-spoken (tie → first in list).
+    expect(messageInserts[0].fromEngramId).toBe(1);
+
+    // Plus a system activity entry logging the turn.
+    const activityInserts = h.state.inserts.filter((r) => r.__table === h.hubActivityLogTable);
+    expect(activityInserts).toHaveLength(1);
+    expect(activityInserts[0].kind).toBe("system");
+  });
+
+  it("does not run a commons turn with fewer than two converse-capable engrams present", async () => {
+    const now = Date.now();
+    h.state.engrams = [
+      makeEngram({
+        id: 1,
+        lastTickAt: new Date(now - 100_000),
+        driveState: { order: 0 },
+        initiationThreshold: 0.9,
+      }),
+    ];
+    h.state.spaces = [
+      {
+        id: 7,
+        kind: "commons",
+        name: "The Commons",
+        actionScope: "converse",
+        allowsInitiative: true,
+      },
+    ];
+    h.state.presence = [{ engramId: 1, spaceId: 7, status: "active" }];
+
+    await runTick();
+    const messageInserts = h.state.inserts.filter((r) => r.__table === h.engramMessagesTable);
+    expect(messageInserts).toHaveLength(0);
   });
 });
