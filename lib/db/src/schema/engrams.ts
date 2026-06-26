@@ -90,6 +90,8 @@ export const engramsTable = pgTable("engrams", {
   currentMood: text("current_mood"),
   lastTickAt: timestamp("last_tick_at", { withTimezone: true }),
   lastTransmissionAt: timestamp("last_transmission_at", { withTimezone: true }),
+  /** When set in the future, the engine skips generation until then. Persisted so error backoff survives restarts. */
+  backoffUntil: timestamp("backoff_until", { withTimezone: true }),
   isChatActive: boolean("is_chat_active").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

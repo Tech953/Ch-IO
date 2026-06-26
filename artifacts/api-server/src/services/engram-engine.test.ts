@@ -128,6 +128,7 @@ function makeEngram(overrides: Partial<Engram> = {}): Engram {
     currentMood: null,
     lastTickAt: null,
     lastTransmissionAt: null,
+    backoffUntil: null,
     isChatActive: false,
     createdAt: new Date("2026-01-01T00:00:00Z"),
     updatedAt: new Date("2026-01-01T00:00:00Z"),
@@ -392,6 +393,68 @@ describe("runTick — cost guards", () => {
     const result = await runTick();
     expect(result.generated).toBe(0);
     expect(h.generateTransmission).not.toHaveBeenCalled();
+  });
+
+  it("persists error backoff to the DB when generation fails (survives restart)", async () => {
+    const now = Date.now();
+    h.generateTransmission.mockRejectedValueOnce(new Error("model unavailable"));
+    h.state.engrams = [
+      makeEngram({
+        lastTickAt: new Date(now - 100_000),
+        initiationThreshold: 0.6,
+        drives: [
+          { id: "connection", label: "Connection", description: "", weight: 1, baseRate: 0.01 },
+        ],
+      }),
+    ];
+    const result = await runTick();
+    expect(result.generated).toBe(0);
+    // No transmission row was inserted...
+    expect(h.state.inserts).toHaveLength(0);
+    // ...but the backoff was written to the DB so a restart can't bypass it.
+    const persisted = h.state.updates.at(-1) as Record<string, unknown>;
+    expect(persisted.backoffUntil).toBeInstanceOf(Date);
+    expect((persisted.backoffUntil as Date).getTime()).toBeGreaterThan(now);
+  });
+
+  it("respects a persisted backoff window after restart (in-memory state is gone)", async () => {
+    const now = Date.now();
+    h.state.engrams = [
+      makeEngram({
+        lastTickAt: new Date(now - 100_000),
+        // Reloaded from the DB after a restart: still within the backoff window.
+        backoffUntil: new Date(now + 60_000),
+        driveState: { connection: 0.9 }, // well above threshold
+        initiationThreshold: 0.6,
+        drives: [
+          { id: "connection", label: "Connection", description: "", weight: 1, baseRate: 0.01 },
+        ],
+      }),
+    ];
+    const result = await runTick();
+    expect(result.generated).toBe(0);
+    expect(h.generateTransmission).not.toHaveBeenCalled();
+    // Pressure is still persisted, but no new transmission.
+    expect(h.state.updates).toHaveLength(1);
+  });
+
+  it("clears a stale backoff on the next successful emit", async () => {
+    const now = Date.now();
+    h.state.engrams = [
+      makeEngram({
+        lastTickAt: new Date(now - 100_000),
+        backoffUntil: new Date(now - 1_000), // backoff already elapsed
+        driveState: { connection: 0.9 },
+        initiationThreshold: 0.6,
+        drives: [
+          { id: "connection", label: "Connection", description: "", weight: 1, baseRate: 0.01 },
+        ],
+      }),
+    ];
+    const result = await runTick();
+    expect(result.generated).toBe(1);
+    const persisted = h.state.updates.at(-1) as Record<string, unknown>;
+    expect(persisted.backoffUntil).toBeNull();
   });
 
   it("fires when recent counts are under both caps", async () => {

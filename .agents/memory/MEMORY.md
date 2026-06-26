@@ -6,3 +6,4 @@
 - [Engram chat SSE](engram-chat-sse.md) — how engram-scoped chat streams in-voice over SSE.
 - [Engram DB table names](engram-db-table-names.md) — table/export naming pointers for the engram schema.
 - [API server testing](api-server-testing.md) — vitest in api-server; must mock `@workspace/db` (eager pg pool) before import; HARD_SAFETY is one shared constant in both PYRI + engram prompts.
+- [Engram engine restart safety](engram-engine-restart-safety.md) — every engine guard (pressure, last-tick, backoff) must be DB-backed, not an in-memory Map, or a restart loop bypasses it.
