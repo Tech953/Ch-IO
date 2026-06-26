@@ -1,0 +1,26 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "f-hUiEFYn8IrciUuluv73"
+uri = "file://docs/01_ENGRAM_Proposal.pdf"
+type = "pdf"
+title = "Formalized Proposal"
+
+[[outputs]]
+id = "P-sv7qwF3IjjTwPIyU6fN"
+uri = "file://docs/02_ENGRAM_Developer_Guide.pdf"
+type = "pdf"
+title = "Developer Document"
+
+[[outputs]]
+id = "10vPZH5_JV4mdFmY1BuxU"
+uri = "file://docs/03_ENGRAM_README.pdf"
+type = "pdf"
+title = "README"
+
+[[outputs]]
+id = "Y-GEkJIGZB-ki3nRXt7IR"
+uri = "file://docs/04_ENGRAM_User_Manual.pdf"
+type = "pdf"
+title = "User Manual"
