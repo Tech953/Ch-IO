@@ -1,3 +1,3 @@
-- [api-routes test db/schema mock](api-routes-test-mock.md) — hand-rolled vitest mock must mirror every engine-path table + non-table export + builder method, else engine-touching route tests fail via swallowed 500/503.
-- [engram web typecheck @types/react dup](engram-typecheck-types-react-dup.md) — calendar.tsx/button-group.tsx TS errors are a pre-existing duplicate-@types/react artifact from the Expo app; environmental, not yours to fix.
-- [Simulation quarantine guarantee](simulation-quarantine.md) — simulated engram state stays simulated structurally: only appendSimulationStep writes world-model rows (hardcoded provenance "simulated"), no promote path.
+# Memory index
+
+- [Media perception invariants](media-perception.md) — uploads → OBSERVED world-model entries; provenance/source hardcoded (mirror of simulations' "simulated"), retries REPLACE not duplicate, deletion preserves observations, worker/route test mocking gotchas.

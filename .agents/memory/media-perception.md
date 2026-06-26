@@ -1,0 +1,25 @@
+---
+name: Media perception provenance & idempotency
+description: Invariants for the ENGRAM media-perception pipeline (operator uploads → OBSERVED world-model entries) — provenance hardcoding, retry idempotency, deletion policy, worker test mocking.
+---
+
+# Media perception pipeline invariants
+
+## Provenance is structural, not advisory
+Anything an engram "perceives" from uploaded media may enter its world model ONLY as `provenance: "observed"` with `source: "media:<assetId>"`. Both are hardcoded at the lowest write layer (the store's append helper); model output has no channel to set provenance or source.
+**Why:** this is the mirror of the simulation pipeline's hardcoded `"simulated"` provenance. The two opposite guarantees together mean reality-vs-simulation can never be forged by model text — perception can't masquerade as simulation and vice-versa.
+**How to apply:** never add a parameter that lets a caller (or model output) choose provenance/source on a world-model write; keep the hardcode in the append helper, not the worker.
+
+## Retry must REPLACE, not duplicate
+Re-processing the same bytes (a retry) must clear the asset's prior world-model entries + mapping rows BEFORE appending the fresh set — at the start of processing, after the blob check, before extraction. The retry status guard lives inside the UPDATE (`WHERE id AND status='failed'`), not a separate read, so a concurrent retry loser updates zero rows and the route returns 409.
+**Why:** without the up-front clear, a retry stacks duplicate observations on top of a prior partial run; without the atomic guard, two retries both requeue.
+**How to apply:** any reprocessing path for provenance-tagged derived rows needs an idempotent clear keyed by the same `source` tag, plus a status-guarded atomic requeue.
+
+## Deletion preserves observations
+Deleting a media asset cascades the blob + observation MAPPING rows but PRESERVES the world-model entries — they are genuine observations that outlive the source file (entries are not FK-owned by the asset; only the mapping table is).
+
+## Bytes live apart from metadata
+Raw bytes are in a separate 1:1 `media_blobs` table so list/status/poll queries never load megabytes. Only the `/raw` streaming route loads bytes.
+
+## Vitest mocking gotcha (worker/route tests)
+All `vi.fn()` mocks referenced inside `vi.mock(...)` factories must be created inside `vi.hoisted(() => ...)` and referenced via the returned handle, or you hit a TDZ error (the factory is hoisted above the consts). When a test destructures `mock.calls[0]` (e.g. `const [id, patch] = updateMediaAsset.mock.calls[0]`), give the mock an explicit arg signature (`vi.fn(async (_id: number, _patch: Record<string, unknown>) => ...)`) — otherwise tsc infers an empty-tuple call type and the destructure fails the api-server typecheck even though the test runs green. `await res.json()` from `fetch` is typed `unknown`; cast it in route tests.

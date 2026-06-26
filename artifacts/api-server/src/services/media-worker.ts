@@ -1,0 +1,160 @@
+import { db } from "@workspace/db";
+import { engramsTable } from "@workspace/db/schema";
+import type { Engram, MediaAsset } from "@workspace/db";
+import { eq } from "drizzle-orm";
+import { logger } from "../lib/logger";
+import {
+  claimNextPendingJob,
+  loadMediaBlob,
+  updateMediaAsset,
+  appendMediaObservation,
+  clearMediaObservations,
+  recoverStuckJobs,
+} from "../lib/media-store";
+import { extractFromMedia } from "../lib/media-extraction";
+import { generateMediaCommentary } from "../lib/engram-generation";
+import { summarizeWorldModel } from "../lib/world-model";
+import { loadRecentWorldModel } from "../lib/world-model-store";
+
+const WORKER_INTERVAL_MS = Number(process.env.MEDIA_WORKER_INTERVAL_MS) || 5_000;
+/** A job stuck "processing" longer than this (e.g. a crash mid-job) is failed and unwedged. */
+const STUCK_JOB_MS = 5 * 60_000;
+/** Confidence assigned to OBSERVED-from-media world-model entries. */
+const OBSERVATION_CONFIDENCE = 0.85;
+
+let ticking = false; // re-entrancy guard: never run two ticks (or two jobs) at once
+let started = false; // lifecycle guard so the worker only starts once
+let timer: NodeJS.Timeout | null = null;
+
+async function loadEngram(id: number): Promise<Engram | undefined> {
+  const [row] = await db.select().from(engramsTable).where(eq(engramsTable.id, id));
+  return row;
+}
+
+/**
+ * Process one claimed media job end-to-end: extract observations via the modality
+ * dispatcher, persist each as an OBSERVED world-model entry (source media:<id>, both
+ * hardcoded in the store), store the summary/transcript, and generate the engram's
+ * in-voice commentary. Throws on hard failure so the caller marks the job failed.
+ */
+async function processAsset(asset: MediaAsset): Promise<void> {
+  const blob = await loadMediaBlob(asset.id);
+  if (!blob) throw new Error("Media bytes are missing for this asset.");
+
+  // Idempotency: re-processing (a retry) re-perceives the same bytes, so drop any
+  // observations a prior partial run left behind before writing the fresh set.
+  // This makes a retry REPLACE its earlier result rather than duplicate it.
+  await clearMediaObservations(asset.id);
+
+  const extraction = await extractFromMedia(
+    { modality: asset.modality, mimeType: asset.mimeType, filename: asset.filename },
+    blob.data,
+  );
+
+  // Persist each extracted observation as a provenance-tagged OBSERVED world-model
+  // entry. There is no path here to choose a different provenance or source.
+  let written = 0;
+  for (const content of extraction.observations) {
+    const trimmed = content.trim();
+    if (!trimmed) continue;
+    await appendMediaObservation({
+      assetId: asset.id,
+      engramId: asset.engramId,
+      content: trimmed,
+      confidence: OBSERVATION_CONFIDENCE,
+    });
+    written++;
+  }
+
+  // In-voice reaction. Best-effort: extraction already succeeded and observations are
+  // persisted, so a commentary failure must not fail the whole job.
+  let commentary = "";
+  const engram = await loadEngram(asset.engramId);
+  if (engram) {
+    try {
+      const worldModelSummary = summarizeWorldModel(
+        await loadRecentWorldModel(engram.id),
+      );
+      commentary = await generateMediaCommentary({
+        engram,
+        modality: asset.modality,
+        filename: asset.filename,
+        summary: extraction.summary,
+        observations: extraction.observations,
+        worldModelSummary,
+      });
+    } catch (err) {
+      logger.error({ err, assetId: asset.id }, "media commentary generation failed");
+    }
+  }
+
+  await updateMediaAsset(asset.id, {
+    status: "completed",
+    summary: extraction.summary || null,
+    transcript: extraction.transcript,
+    commentary: commentary || null,
+    observationCount: written,
+    completedAt: new Date(),
+    error: null,
+  });
+
+  logger.info(
+    {
+      assetId: asset.id,
+      engramId: asset.engramId,
+      modality: asset.modality,
+      observations: written,
+    },
+    "media asset perceived",
+  );
+}
+
+/**
+ * One worker tick: recover any stuck jobs, then claim and process at most ONE pending
+ * job. The re-entrancy guard means a long extraction simply causes subsequent ticks
+ * to no-op until it finishes, so only one job runs at a time.
+ */
+export async function runMediaTick(): Promise<{ processed: number }> {
+  if (ticking) return { processed: 0 };
+  ticking = true;
+  try {
+    const recovered = await recoverStuckJobs(STUCK_JOB_MS);
+    if (recovered) logger.warn({ recovered }, "recovered stuck media jobs");
+
+    const asset = await claimNextPendingJob();
+    if (!asset) return { processed: 0 };
+
+    try {
+      await processAsset(asset);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      logger.error({ err, assetId: asset.id }, "media perception failed");
+      await updateMediaAsset(asset.id, {
+        status: "failed",
+        error: message.slice(0, 500),
+        completedAt: new Date(),
+      });
+    }
+    return { processed: 1 };
+  } finally {
+    ticking = false;
+  }
+}
+
+export function startMediaWorker(): void {
+  if (started) return;
+  started = true;
+  timer = setInterval(() => {
+    runMediaTick().catch((err) => logger.error({ err }, "media worker tick failed"));
+  }, WORKER_INTERVAL_MS);
+  if (typeof timer.unref === "function") timer.unref();
+  logger.info({ intervalMs: WORKER_INTERVAL_MS }, "media worker started");
+}
+
+export function stopMediaWorker(): void {
+  if (timer) {
+    clearInterval(timer);
+    timer = null;
+  }
+  started = false;
+}

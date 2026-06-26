@@ -539,6 +539,7 @@ export const ListEngramsResponseItem = zod.object({
   "currentMood": zod.string().optional(),
   "lastTickAt": zod.string().optional(),
   "lastTransmissionAt": zod.string().optional(),
+  "backoffUntil": zod.string().nullish(),
   "isChatActive": zod.boolean(),
   "mode": zod.enum(['orientation', 'social', 'simulation', 'initiative_limited', 'full_bounded', 'quiescent']),
   "humanContactEnabled": zod.boolean(),
@@ -571,6 +572,34 @@ export const TickEngramsResponse = zod.object({
   "createdAt": zod.string()
 }))
 })
+
+
+/**
+ * @summary Live autonomy state (per-drive pressure, cooldown, backoff) for every engram
+ */
+export const GetEngramStatesResponseItem = zod.object({
+  "engramId": zod.number(),
+  "autonomyEnabled": zod.boolean(),
+  "currentMood": zod.string().nullish(),
+  "initiationThreshold": zod.number(),
+  "tickCadenceSeconds": zod.number(),
+  "lastTickAt": zod.string().nullish(),
+  "lastTransmissionAt": zod.string().nullish(),
+  "backoffUntil": zod.string().nullish(),
+  "inBackoff": zod.boolean(),
+  "cooldownUntil": zod.string().nullish(),
+  "inCooldown": zod.boolean(),
+  "topCharge": zod.number(),
+  "ready": zod.boolean(),
+  "drives": zod.array(zod.object({
+  "id": zod.string(),
+  "label": zod.string(),
+  "pressure": zod.number(),
+  "weight": zod.number(),
+  "charge": zod.number()
+}))
+})
+export const GetEngramStatesResponse = zod.array(GetEngramStatesResponseItem)
 
 
 /**
@@ -631,6 +660,7 @@ export const GetEngramResponse = zod.object({
   "currentMood": zod.string().optional(),
   "lastTickAt": zod.string().optional(),
   "lastTransmissionAt": zod.string().optional(),
+  "backoffUntil": zod.string().nullish(),
   "isChatActive": zod.boolean(),
   "mode": zod.enum(['orientation', 'social', 'simulation', 'initiative_limited', 'full_bounded', 'quiescent']),
   "humanContactEnabled": zod.boolean(),
@@ -721,6 +751,7 @@ export const UpdateEngramConfigResponse = zod.object({
   "currentMood": zod.string().optional(),
   "lastTickAt": zod.string().optional(),
   "lastTransmissionAt": zod.string().optional(),
+  "backoffUntil": zod.string().nullish(),
   "isChatActive": zod.boolean(),
   "mode": zod.enum(['orientation', 'social', 'simulation', 'initiative_limited', 'full_bounded', 'quiescent']),
   "humanContactEnabled": zod.boolean(),
@@ -788,6 +819,7 @@ export const ActivateEngramResponse = zod.object({
   "currentMood": zod.string().optional(),
   "lastTickAt": zod.string().optional(),
   "lastTransmissionAt": zod.string().optional(),
+  "backoffUntil": zod.string().nullish(),
   "isChatActive": zod.boolean(),
   "mode": zod.enum(['orientation', 'social', 'simulation', 'initiative_limited', 'full_bounded', 'quiescent']),
   "humanContactEnabled": zod.boolean(),
@@ -1206,6 +1238,112 @@ export const ControlSimulationResponse = zod.object({
   "startedAt": zod.string().nullable(),
   "pausedAt": zod.string().nullable(),
   "endedAt": zod.string().nullable(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary List uploaded media assets, newest first
+ */
+export const ListMediaQueryParams = zod.object({
+  "engramId": zod.coerce.number().optional(),
+  "status": zod.enum(['pending', 'processing', 'completed', 'failed']).optional()
+})
+
+export const ListMediaResponseItem = zod.object({
+  "id": zod.number(),
+  "engramId": zod.number(),
+  "filename": zod.string(),
+  "mimeType": zod.string(),
+  "modality": zod.enum(['text', 'image', 'audio', 'video']),
+  "sizeBytes": zod.number(),
+  "status": zod.enum(['pending', 'processing', 'completed', 'failed']),
+  "summary": zod.string().nullable(),
+  "commentary": zod.string().nullable(),
+  "transcript": zod.string().nullable(),
+  "error": zod.string().nullable(),
+  "observationCount": zod.number(),
+  "startedAt": zod.string().nullable(),
+  "completedAt": zod.string().nullable(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+export const ListMediaResponse = zod.array(ListMediaResponseItem)
+
+
+/**
+ * @summary Get one media asset with the world-model observations it produced
+ */
+export const GetMediaAssetParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetMediaAssetResponse = zod.object({
+  "asset": zod.object({
+  "id": zod.number(),
+  "engramId": zod.number(),
+  "filename": zod.string(),
+  "mimeType": zod.string(),
+  "modality": zod.enum(['text', 'image', 'audio', 'video']),
+  "sizeBytes": zod.number(),
+  "status": zod.enum(['pending', 'processing', 'completed', 'failed']),
+  "summary": zod.string().nullable(),
+  "commentary": zod.string().nullable(),
+  "transcript": zod.string().nullable(),
+  "error": zod.string().nullable(),
+  "observationCount": zod.number(),
+  "startedAt": zod.string().nullable(),
+  "completedAt": zod.string().nullable(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+}),
+  "observations": zod.array(zod.object({
+  "id": zod.number(),
+  "provenance": zod.string(),
+  "content": zod.string(),
+  "confidence": zod.number(),
+  "scope": zod.string(),
+  "source": zod.string().nullable(),
+  "createdAt": zod.string()
+}))
+})
+
+
+/**
+ * @summary Delete a media asset and its bytes (world-model observations are preserved)
+ */
+export const DeleteMediaAssetParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DeleteMediaAssetResponse = zod.object({
+  "deleted": zod.boolean()
+})
+
+
+/**
+ * @summary Re-queue a failed media asset for perception
+ */
+export const RetryMediaAssetParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const RetryMediaAssetResponse = zod.object({
+  "id": zod.number(),
+  "engramId": zod.number(),
+  "filename": zod.string(),
+  "mimeType": zod.string(),
+  "modality": zod.enum(['text', 'image', 'audio', 'video']),
+  "sizeBytes": zod.number(),
+  "status": zod.enum(['pending', 'processing', 'completed', 'failed']),
+  "summary": zod.string().nullable(),
+  "commentary": zod.string().nullable(),
+  "transcript": zod.string().nullable(),
+  "error": zod.string().nullable(),
+  "observationCount": zod.number(),
+  "startedAt": zod.string().nullable(),
+  "completedAt": zod.string().nullable(),
   "createdAt": zod.string(),
   "updatedAt": zod.string()
 })

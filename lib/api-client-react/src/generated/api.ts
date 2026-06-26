@@ -23,10 +23,12 @@ import type {
   Belief,
   BeliefInput,
   BeliefUpdate,
+  DeleteMediaResult,
   Engram,
   EngramConfigInput,
   EngramInquiry,
   EngramInquiryInput,
+  EngramLiveState,
   EngramMessage,
   EngramPresence,
   EngramTickResult,
@@ -45,12 +47,15 @@ import type {
   JournalInput,
   ListEngramMessagesParams,
   ListHubActivityParams,
+  ListMediaParams,
   ListMemoriesParams,
   ListSimulationsParams,
   MarkMessagesSeenInput,
   MarkMessagesSeenResult,
   MarkSeenInput,
   MarkSeenResult,
+  MediaAsset,
+  MediaAssetDetail,
   MemoryEntry,
   MemoryInput,
   MovePresenceInput,
@@ -2176,6 +2181,83 @@ export const useTickEngrams = <TError = ErrorType<unknown>,
       return useMutation(getTickEngramsMutationOptions(options));
     }
 
+export const getGetEngramStatesUrl = () => {
+
+
+
+
+  return `/api/engrams/state`
+}
+
+/**
+ * @summary Live autonomy state (per-drive pressure, cooldown, backoff) for every engram
+ */
+export const getEngramStates = async ( options?: RequestInit): Promise<EngramLiveState[]> => {
+
+  return customFetch<EngramLiveState[]>(getGetEngramStatesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetEngramStatesQueryKey = () => {
+    return [
+    `/api/engrams/state`
+    ] as const;
+    }
+
+
+export const getGetEngramStatesQueryOptions = <TData = Awaited<ReturnType<typeof getEngramStates>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getEngramStates>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetEngramStatesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getEngramStates>>> = ({ signal }) => getEngramStates({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getEngramStates>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetEngramStatesQueryResult = NonNullable<Awaited<ReturnType<typeof getEngramStates>>>
+export type GetEngramStatesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Live autonomy state (per-drive pressure, cooldown, backoff) for every engram
+ */
+
+export function useGetEngramStates<TData = Awaited<ReturnType<typeof getEngramStates>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getEngramStates>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetEngramStatesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
 export const getGetEngramUrl = (id: number,) => {
 
 
@@ -3893,5 +3975,306 @@ export const useControlSimulation = <TError = ErrorType<OpenaiError>,
         TContext
       > => {
       return useMutation(getControlSimulationMutationOptions(options));
+    }
+
+export const getListMediaUrl = (params?: ListMediaParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/media?${stringifiedParams}` : `/api/media`
+}
+
+/**
+ * @summary List uploaded media assets, newest first
+ */
+export const listMedia = async (params?: ListMediaParams, options?: RequestInit): Promise<MediaAsset[]> => {
+
+  return customFetch<MediaAsset[]>(getListMediaUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListMediaQueryKey = (params?: ListMediaParams,) => {
+    return [
+    `/api/media`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListMediaQueryOptions = <TData = Awaited<ReturnType<typeof listMedia>>, TError = ErrorType<unknown>>(params?: ListMediaParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listMedia>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListMediaQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listMedia>>> = ({ signal }) => listMedia(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listMedia>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListMediaQueryResult = NonNullable<Awaited<ReturnType<typeof listMedia>>>
+export type ListMediaQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List uploaded media assets, newest first
+ */
+
+export function useListMedia<TData = Awaited<ReturnType<typeof listMedia>>, TError = ErrorType<unknown>>(
+ params?: ListMediaParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listMedia>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListMediaQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetMediaAssetUrl = (id: number,) => {
+
+
+
+
+  return `/api/media/${id}`
+}
+
+/**
+ * @summary Get one media asset with the world-model observations it produced
+ */
+export const getMediaAsset = async (id: number, options?: RequestInit): Promise<MediaAssetDetail> => {
+
+  return customFetch<MediaAssetDetail>(getGetMediaAssetUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetMediaAssetQueryKey = (id: number,) => {
+    return [
+    `/api/media/${id}`
+    ] as const;
+    }
+
+
+export const getGetMediaAssetQueryOptions = <TData = Awaited<ReturnType<typeof getMediaAsset>>, TError = ErrorType<OpenaiError>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMediaAsset>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetMediaAssetQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getMediaAsset>>> = ({ signal }) => getMediaAsset(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getMediaAsset>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetMediaAssetQueryResult = NonNullable<Awaited<ReturnType<typeof getMediaAsset>>>
+export type GetMediaAssetQueryError = ErrorType<OpenaiError>
+
+
+/**
+ * @summary Get one media asset with the world-model observations it produced
+ */
+
+export function useGetMediaAsset<TData = Awaited<ReturnType<typeof getMediaAsset>>, TError = ErrorType<OpenaiError>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMediaAsset>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetMediaAssetQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getDeleteMediaAssetUrl = (id: number,) => {
+
+
+
+
+  return `/api/media/${id}`
+}
+
+/**
+ * @summary Delete a media asset and its bytes (world-model observations are preserved)
+ */
+export const deleteMediaAsset = async (id: number, options?: RequestInit): Promise<DeleteMediaResult> => {
+
+  return customFetch<DeleteMediaResult>(getDeleteMediaAssetUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getDeleteMediaAssetMutationOptions = <TError = ErrorType<OpenaiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteMediaAsset>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteMediaAsset>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['deleteMediaAsset'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteMediaAsset>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteMediaAsset(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteMediaAssetMutationResult = NonNullable<Awaited<ReturnType<typeof deleteMediaAsset>>>
+
+    export type DeleteMediaAssetMutationError = ErrorType<OpenaiError>
+
+    /**
+ * @summary Delete a media asset and its bytes (world-model observations are preserved)
+ */
+export const useDeleteMediaAsset = <TError = ErrorType<OpenaiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteMediaAsset>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteMediaAsset>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDeleteMediaAssetMutationOptions(options));
+    }
+
+export const getRetryMediaAssetUrl = (id: number,) => {
+
+
+
+
+  return `/api/media/${id}/retry`
+}
+
+/**
+ * @summary Re-queue a failed media asset for perception
+ */
+export const retryMediaAsset = async (id: number, options?: RequestInit): Promise<MediaAsset> => {
+
+  return customFetch<MediaAsset>(getRetryMediaAssetUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getRetryMediaAssetMutationOptions = <TError = ErrorType<OpenaiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof retryMediaAsset>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof retryMediaAsset>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['retryMediaAsset'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof retryMediaAsset>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  retryMediaAsset(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RetryMediaAssetMutationResult = NonNullable<Awaited<ReturnType<typeof retryMediaAsset>>>
+
+    export type RetryMediaAssetMutationError = ErrorType<OpenaiError>
+
+    /**
+ * @summary Re-queue a failed media asset for perception
+ */
+export const useRetryMediaAsset = <TError = ErrorType<OpenaiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof retryMediaAsset>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof retryMediaAsset>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getRetryMediaAssetMutationOptions(options));
     }
 

@@ -35,6 +35,7 @@ export interface Engram {
   currentMood?: string;
   lastTickAt?: string;
   lastTransmissionAt?: string;
+  backoffUntil?: string | null;
   isChatActive: boolean;
   mode: EngramMode;
   humanContactEnabled: boolean;
