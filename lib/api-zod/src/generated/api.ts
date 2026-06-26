@@ -977,3 +977,82 @@ export const DeleteEngramWorldModelEntryParams = zod.object({
 export const DeleteEngramWorldModelEntryResponse = zod.void()
 
 
+/**
+ * @summary List all Hub spaces (display order)
+ */
+export const ListHubSpacesResponseItem = zod.object({
+  "id": zod.number(),
+  "slug": zod.string(),
+  "name": zod.string(),
+  "kind": zod.enum(['commons', 'private_room', 'simulation_chamber', 'archive', 'terminal', 'quiescence']),
+  "description": zod.string(),
+  "visibilityScope": zod.enum(['public', 'occupants', 'operators']),
+  "actionScope": zod.enum(['converse', 'reflect', 'simulate', 'contact', 'observe', 'rest']),
+  "logged": zod.boolean(),
+  "allowsInitiative": zod.boolean(),
+  "sortOrder": zod.number(),
+  "ambient": zod.string().nullable(),
+  "accent": zod.string().nullable(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+export const ListHubSpacesResponse = zod.array(ListHubSpacesResponseItem)
+
+
+/**
+ * @summary List every engram's current presence in the Hub
+ */
+export const ListHubPresenceResponseItem = zod.object({
+  "id": zod.number(),
+  "engramId": zod.number(),
+  "spaceId": zod.number(),
+  "status": zod.enum(['active', 'resting']),
+  "note": zod.string().nullable(),
+  "enteredAt": zod.string(),
+  "updatedAt": zod.string()
+})
+export const ListHubPresenceResponse = zod.array(ListHubPresenceResponseItem)
+
+
+/**
+ * @summary Move (or place) an engram into a Hub space
+ */
+export const MoveEngramPresenceParams = zod.object({
+  "engramId": zod.coerce.number()
+})
+
+export const MoveEngramPresenceBody = zod.object({
+  "spaceId": zod.number(),
+  "note": zod.string().optional()
+})
+
+export const MoveEngramPresenceResponse = zod.object({
+  "id": zod.number(),
+  "engramId": zod.number(),
+  "spaceId": zod.number(),
+  "status": zod.enum(['active', 'resting']),
+  "note": zod.string().nullable(),
+  "enteredAt": zod.string(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary List recent Hub activity (most recent first)
+ */
+export const ListHubActivityQueryParams = zod.object({
+  "spaceId": zod.coerce.number().optional(),
+  "limit": zod.coerce.number().optional()
+})
+
+export const ListHubActivityResponseItem = zod.object({
+  "id": zod.number(),
+  "spaceId": zod.number(),
+  "engramId": zod.number().nullable(),
+  "kind": zod.enum(['enter', 'move', 'rest', 'wake', 'system']),
+  "summary": zod.string(),
+  "createdAt": zod.string()
+})
+export const ListHubActivityResponse = zod.array(ListHubActivityResponseItem)
+
+

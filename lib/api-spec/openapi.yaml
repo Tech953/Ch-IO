@@ -826,6 +826,93 @@ paths:
               schema:
                 $ref: "#/components/schemas/OpenaiError"
 
+  /hub/spaces:
+    get:
+      operationId: listHubSpaces
+      tags: [hub]
+      summary: List all Hub spaces (display order)
+      responses:
+        "200":
+          description: List of Hub spaces
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/HubSpace"
+
+  /hub/presence:
+    get:
+      operationId: listHubPresence
+      tags: [hub]
+      summary: List every engram's current presence in the Hub
+      responses:
+        "200":
+          description: List of engram presence records
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EngramPresence"
+
+  /hub/presence/{engramId}:
+    put:
+      operationId: moveEngramPresence
+      tags: [hub]
+      summary: Move (or place) an engram into a Hub space
+      parameters:
+        - name: engramId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MovePresenceInput"
+      responses:
+        "200":
+          description: Updated presence
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EngramPresence"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpenaiError"
+
+  /hub/activity:
+    get:
+      operationId: listHubActivity
+      tags: [hub]
+      summary: List recent Hub activity (most recent first)
+      parameters:
+        - name: spaceId
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Recent Hub activity entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/HubActivityEntry"
+
 components:
   schemas:
     HealthStatus:
@@ -1789,3 +1876,114 @@ components:
           enum: [private, shared]
         source:
           type: string
+
+    HubSpace:
+      type: object
+      properties:
+        id:
+          type: integer
+        slug:
+          type: string
+        name:
+          type: string
+        kind:
+          type: string
+          enum: [commons, private_room, simulation_chamber, archive, terminal, quiescence]
+        description:
+          type: string
+        visibilityScope:
+          type: string
+          enum: [public, occupants, operators]
+        actionScope:
+          type: string
+          enum: [converse, reflect, simulate, contact, observe, rest]
+        logged:
+          type: boolean
+        allowsInitiative:
+          type: boolean
+        sortOrder:
+          type: integer
+        ambient:
+          type: ["string", "null"]
+        accent:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - slug
+        - name
+        - kind
+        - description
+        - visibilityScope
+        - actionScope
+        - logged
+        - allowsInitiative
+        - sortOrder
+        - ambient
+        - accent
+        - createdAt
+        - updatedAt
+
+    EngramPresence:
+      type: object
+      properties:
+        id:
+          type: integer
+        engramId:
+          type: integer
+        spaceId:
+          type: integer
+        status:
+          type: string
+          enum: [active, resting]
+        note:
+          type: ["string", "null"]
+        enteredAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - engramId
+        - spaceId
+        - status
+        - note
+        - enteredAt
+        - updatedAt
+
+    MovePresenceInput:
+      type: object
+      properties:
+        spaceId:
+          type: integer
+        note:
+          type: string
+      required:
+        - spaceId
+
+    HubActivityEntry:
+      type: object
+      properties:
+        id:
+          type: integer
+        spaceId:
+          type: integer
+        engramId:
+          type: ["integer", "null"]
+        kind:
+          type: string
+          enum: [enter, move, rest, wake, system]
+        summary:
+          type: string
+        createdAt:
+          type: string
+      required:
+        - id
+        - spaceId
+        - engramId
+        - kind
+        - summary
+        - createdAt

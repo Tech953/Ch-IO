@@ -6,6 +6,7 @@ import NotFound from "@/pages/not-found";
 import Layout from "@/components/layout";
 
 import Home from "@/pages/home";
+import Hub from "@/pages/hub";
 import Personality from "@/pages/personality";
 import Memory from "@/pages/memory";
 import WorldModel from "@/pages/world-model";
@@ -26,6 +27,7 @@ function Router() {
     <Layout>
       <Switch>
         <Route path="/" component={Home} />
+        <Route path="/hub" component={Hub} />
         <Route path="/personality" component={Personality} />
         <Route path="/memory" component={Memory} />
         <Route path="/world-model" component={WorldModel} />

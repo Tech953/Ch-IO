@@ -474,6 +474,103 @@ export interface WorldModelPatch {
   source?: string;
 }
 
+export type HubSpaceKind = typeof HubSpaceKind[keyof typeof HubSpaceKind];
+
+
+export const HubSpaceKind = {
+  commons: 'commons',
+  private_room: 'private_room',
+  simulation_chamber: 'simulation_chamber',
+  archive: 'archive',
+  terminal: 'terminal',
+  quiescence: 'quiescence',
+} as const;
+
+export type HubSpaceVisibilityScope = typeof HubSpaceVisibilityScope[keyof typeof HubSpaceVisibilityScope];
+
+
+export const HubSpaceVisibilityScope = {
+  public: 'public',
+  occupants: 'occupants',
+  operators: 'operators',
+} as const;
+
+export type HubSpaceActionScope = typeof HubSpaceActionScope[keyof typeof HubSpaceActionScope];
+
+
+export const HubSpaceActionScope = {
+  converse: 'converse',
+  reflect: 'reflect',
+  simulate: 'simulate',
+  contact: 'contact',
+  observe: 'observe',
+  rest: 'rest',
+} as const;
+
+export interface HubSpace {
+  id: number;
+  slug: string;
+  name: string;
+  kind: HubSpaceKind;
+  description: string;
+  visibilityScope: HubSpaceVisibilityScope;
+  actionScope: HubSpaceActionScope;
+  logged: boolean;
+  allowsInitiative: boolean;
+  sortOrder: number;
+  /** @nullable */
+  ambient: string | null;
+  /** @nullable */
+  accent: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type EngramPresenceStatus = typeof EngramPresenceStatus[keyof typeof EngramPresenceStatus];
+
+
+export const EngramPresenceStatus = {
+  active: 'active',
+  resting: 'resting',
+} as const;
+
+export interface EngramPresence {
+  id: number;
+  engramId: number;
+  spaceId: number;
+  status: EngramPresenceStatus;
+  /** @nullable */
+  note: string | null;
+  enteredAt: string;
+  updatedAt: string;
+}
+
+export interface MovePresenceInput {
+  spaceId: number;
+  note?: string;
+}
+
+export type HubActivityEntryKind = typeof HubActivityEntryKind[keyof typeof HubActivityEntryKind];
+
+
+export const HubActivityEntryKind = {
+  enter: 'enter',
+  move: 'move',
+  rest: 'rest',
+  wake: 'wake',
+  system: 'system',
+} as const;
+
+export interface HubActivityEntry {
+  id: number;
+  spaceId: number;
+  /** @nullable */
+  engramId: number | null;
+  kind: HubActivityEntryKind;
+  summary: string;
+  createdAt: string;
+}
+
 export type ListMemoriesParams = {
 layer?: ListMemoriesLayer;
 };
@@ -489,4 +586,9 @@ export const ListMemoriesLayer = {
   reflective: 'reflective',
   procedural: 'procedural',
 } as const;
+
+export type ListHubActivityParams = {
+spaceId?: number;
+limit?: number;
+};
 

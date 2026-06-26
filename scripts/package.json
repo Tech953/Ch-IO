@@ -7,10 +7,12 @@
     "hello": "tsx ./src/hello.ts",
     "seed:expressions": "tsx ./src/seed-expressions.ts",
     "seed:engrams": "tsx ./src/seed-engrams.ts",
+    "seed:hub": "tsx ./src/seed-hub.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
     "@workspace/db": "workspace:*",
+    "drizzle-orm": "catalog:",
     "pdfkit": "^0.19.1"
   },
   "devDependencies": {
