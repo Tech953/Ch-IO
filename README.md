@@ -5,13 +5,76 @@ cognitive architecture: layered memory, a belief registry, personas, a symbolic
 Hiero-Code language, an emotive micro-expression layer, autonomous engrams, bounded
 simulations, media perception, and a multi-mode streaming chat.
 
-It runs two ways:
+It runs three ways:
 
-- **Fully local / offline** — one command builds and runs the whole app (dashboard
-  + API) on a single port, backed by a local PostgreSQL database and a local
-  language model. After the one-time install, it needs no internet.
+- **Desktop app (clickable installer)** — a native, self-contained build
+  (`.AppImage`/`.deb` on Linux, `.dmg` on macOS, `.exe` on Windows) that bundles
+  the dashboard, the API, **an embedded database (no PostgreSQL to install)**, and
+  the schema/seed data. Double-click to run; works fully offline against a local
+  model, or switch to an online/cloud model from the in-app settings.
+- **Fully local / offline (from source)** — one command builds and runs the whole
+  app (dashboard + API) on a single port, backed by a local PostgreSQL database and
+  a local language model. After the one-time install, it needs no internet.
 - **On Replit** — the API and the dashboard run as separate workflows/artifacts
-  (unchanged by the local packaging below).
+  (unchanged by the packaging below; the desktop build is additive).
+
+---
+
+## Desktop app (installable)
+
+The `artifacts/desktop` package wraps the dashboard + API in [Electron](https://www.electronjs.org)
+and produces native installers. The desktop build needs **no PostgreSQL and no
+separate setup** — it embeds [PGlite](https://pglite.dev) (Postgres compiled to
+WebAssembly), creates its database under the OS user-data directory on first launch,
+runs migrations, and seeds reference data automatically.
+
+**Offline vs. online model.** The app opens a Settings window where you choose:
+
+- **Offline** — point at a local OpenAI-compatible runtime (Ollama, LM Studio,
+  llama.cpp, vLLM). No outbound network beyond your machine.
+- **Online** — provide a cloud base URL + API key. The key is encrypted with the
+  OS keychain via Electron `safeStorage` and only ever decrypted in-process. If no
+  keychain is available, the key is kept in memory for the current session only and
+  **never written to disk in plaintext** (you re-enter it next launch).
+
+### Build the installer for your OS
+
+```bash
+pnpm install
+pnpm --filter @workspace/api-spec run codegen   # generate API client + Zod
+pnpm run typecheck:libs                          # build shared libraries
+pnpm --filter @workspace/api-server run build     # bundle the API
+PORT=5000 BASE_PATH=/ pnpm --filter @workspace/engram run build   # build the dashboard
+pnpm --filter @workspace/desktop run build        # bundle Electron main + stage resources
+
+# then package for the current OS:
+pnpm --filter @workspace/desktop exec electron-builder --linux   # or --mac / --win
+```
+
+Installers are written to `artifacts/desktop/release/`. **electron-builder must run
+on the target OS** (you cannot build a signed `.dmg` on Linux), so cross-OS builds
+go through CI — see [Building for all platforms (CI)](#building-for-all-platforms-ci).
+
+> **Note:** the **video** media modality still needs `ffmpeg` + `ffprobe` on `PATH`
+> at runtime; all other features (including text/image/audio perception) are
+> self-contained in the installer.
+
+### Building for all platforms (CI)
+
+`.github/workflows/desktop-build.yml` builds the installers on a matrix of
+`ubuntu-latest` (AppImage + deb), `macos-latest` (dmg), and `windows-latest` (exe),
+then uploads them as workflow artifacts. It runs on a `v*` tag push or manually
+(`workflow_dispatch`).
+
+Code signing and notarization are **optional** — set these repository secrets and
+electron-builder picks them up automatically; with none set, each OS still produces
+a working unsigned installer:
+
+| Secret | Platform | Purpose |
+| --- | --- | --- |
+| `CSC_LINK`, `CSC_KEY_PASSWORD` | macOS | Developer ID signing certificate (base64) + password. |
+| `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID` | macOS | Notarization credentials. |
+| `WIN_CSC_LINK`, `WIN_CSC_KEY_PASSWORD` | Windows | Authenticode signing certificate (base64) + password. |
 
 ---
 
@@ -135,6 +198,7 @@ pnpm --filter @workspace/engram run dev
 artifacts/engram        # React + Vite dashboard (the UI)
 artifacts/api-server    # Express API + autonomy/media engines (serves the UI in local mode)
 artifacts/engram-mobile # Expo mobile app
+artifacts/desktop       # Electron wrapper → native installers (embeds API + UI + PGlite DB)
 lib/api-spec            # OpenAPI source of truth
 lib/api-zod             # generated Zod schemas
 lib/api-client-react    # generated React Query hooks
@@ -149,6 +213,7 @@ docs                    # generated PDFs (proposal, developer guide, readme, use
 | Task | Command |
 | --- | --- |
 | Run fully local | `./scripts/local/start.sh` (Windows: `.\scripts\local\start.ps1`) |
+| Build the desktop app (current OS) | `pnpm --filter @workspace/desktop run build` then `pnpm --filter @workspace/desktop exec electron-builder --linux` (or `--mac` / `--win`) |
 | Typecheck | `pnpm run typecheck` |
 | Build everything | `pnpm run build` |
 | Regenerate API artifacts | `pnpm --filter @workspace/api-spec run codegen` |

@@ -1,0 +1,98 @@
+name: Desktop installers
+
+# Builds the ENGRAM desktop app (Electron) on each native OS so the produced
+# installers match their platform:
+#   - ubuntu-latest  -> .AppImage + .deb
+#   - macos-latest   -> .dmg
+#   - windows-latest -> .exe (NSIS)
+#
+# Code signing / notarization are opt-in: set the documented repository secrets
+# and electron-builder picks them up automatically. With no secrets set, each
+# OS still produces a working (unsigned) installer.
+
+on:
+  workflow_dispatch: {}
+  push:
+    tags:
+      - "v*"
+
+concurrency:
+  group: desktop-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: ${{ matrix.platform }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux
+          - os: macos-latest
+            platform: mac
+          - os: windows-latest
+            platform: win
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate API client + Zod (codegen)
+        run: pnpm --filter @workspace/api-spec run codegen
+
+      - name: Build shared libraries
+        run: pnpm run typecheck:libs
+
+      - name: Build API server bundle
+        run: pnpm --filter @workspace/api-server run build
+
+      - name: Build web dashboard
+        env:
+          PORT: "5000"
+          BASE_PATH: "/"
+          NODE_ENV: "production"
+        run: pnpm --filter @workspace/engram run build
+
+      - name: Build desktop main + stage resources
+        run: pnpm --filter @workspace/desktop run build
+
+      - name: Package installer (${{ matrix.platform }})
+        env:
+          # macOS signing + notarization (optional)
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # Windows signing (optional)
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+          # Avoids GitHub API rate limits when electron-builder fetches tooling
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: pnpm --filter @workspace/desktop exec electron-builder --${{ matrix.platform }} --publish never
+
+      - name: Upload installers
+        uses: actions/upload-artifact@v4
+        with:
+          name: engram-${{ matrix.platform }}
+          if-no-files-found: error
+          path: |
+            artifacts/desktop/release/*.AppImage
+            artifacts/desktop/release/*.deb
+            artifacts/desktop/release/*.dmg
+            artifacts/desktop/release/*.exe

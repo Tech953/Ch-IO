@@ -1,0 +1,24 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0a121d"/>
+      <stop offset="1" stop-color="#05080d"/>
+    </linearGradient>
+    <linearGradient id="cy" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#5cf2f2"/>
+      <stop offset="1" stop-color="#22a7b3"/>
+    </linearGradient>
+  </defs>
+  <rect x="32" y="32" width="960" height="960" rx="200" fill="url(#bg)" stroke="#16384a" stroke-width="8"/>
+  <!-- hexagon -->
+  <polygon points="512,180 800,346 800,678 512,844 224,678 224,346"
+           fill="none" stroke="url(#cy)" stroke-width="26" stroke-linejoin="round"/>
+  <!-- layered memory lines -->
+  <rect x="360" y="430" width="304" height="26" rx="13" fill="url(#cy)" opacity="0.95"/>
+  <rect x="392" y="512" width="240" height="26" rx="13" fill="url(#cy)" opacity="0.7"/>
+  <rect x="424" y="594" width="176" height="26" rx="13" fill="url(#cy)" opacity="0.45"/>
+  <!-- central node -->
+  <circle cx="512" cy="512" r="0" />
+  <circle cx="512" cy="346" r="34" fill="#5cf2f2"/>
+  <circle cx="512" cy="346" r="58" fill="none" stroke="#5cf2f2" stroke-width="10" opacity="0.5"/>
+</svg>

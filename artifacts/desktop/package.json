@@ -1,0 +1,27 @@
+{
+  "name": "@workspace/desktop",
+  "version": "0.0.0",
+  "private": true,
+  "description": "ENGRAM — PYRI AI Persona Framework, packaged as a native desktop app (Electron).",
+  "author": {
+    "name": "ENGRAM",
+    "email": "support@pyri.ai"
+  },
+  "homepage": "https://pyri.ai",
+  "main": "dist/main.cjs",
+  "scripts": {
+    "build:main": "node ./build.mjs",
+    "prepare:resources": "node ./scripts/prepare-resources.mjs",
+    "build": "node ./build.mjs && node ./scripts/prepare-resources.mjs",
+    "dist": "pnpm run build && electron-builder --linux",
+    "dist:all": "pnpm run build && electron-builder -mwl",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "electron": "^42.5.0",
+    "electron-builder": "^26.15.3",
+    "esbuild": "0.27.3",
+    "typescript": "^5.9.0"
+  }
+}
