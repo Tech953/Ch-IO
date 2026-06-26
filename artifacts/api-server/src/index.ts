@@ -1,4 +1,5 @@
 import app from "./app";
+import { ensureDatabaseReady } from "@workspace/db";
 import { logger } from "./lib/logger";
 import { startEngramEngine, stopEngramEngine } from "./services/engram-engine";
 import { startMediaWorker, stopMediaWorker } from "./services/media-worker";
@@ -17,25 +18,47 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-const server = app.listen(port, (err) => {
-  if (err) {
+async function main(): Promise<void> {
+  // Embedded (desktop / pglite) boot: run migrations + idempotent seeds before
+  // serving. This is a NO-OP for the default node-postgres driver (Replit/dev),
+  // where schema is managed by `drizzle-kit push` and the seed scripts — so it
+  // is safe to call unconditionally on every startup.
+  await ensureDatabaseReady();
+
+  // Optional explicit bind host. Unset on Replit/dev (binds all interfaces,
+  // unchanged); the desktop build sets HOST=127.0.0.1 to keep the embedded
+  // server loopback-only.
+  const host = process.env["HOST"];
+
+  const onListening = (): void => {
+    logger.info({ port, host: host ?? "0.0.0.0" }, "Server listening");
+    startEngramEngine();
+    startMediaWorker();
+  };
+
+  const server = host
+    ? app.listen(port, host, onListening)
+    : app.listen(port, onListening);
+
+  server.on("error", (err) => {
     logger.error({ err }, "Error listening on port");
     process.exit(1);
+  });
+
+  function shutdown(signal: string): void {
+    logger.info({ signal }, "Shutting down");
+    stopEngramEngine();
+    stopMediaWorker();
+    server.close(() => process.exit(0));
+    // Force-exit if connections do not drain promptly.
+    setTimeout(() => process.exit(0), 5000).unref();
   }
 
-  logger.info({ port }, "Server listening");
-  startEngramEngine();
-  startMediaWorker();
-});
-
-function shutdown(signal: string): void {
-  logger.info({ signal }, "Shutting down");
-  stopEngramEngine();
-  stopMediaWorker();
-  server.close(() => process.exit(0));
-  // Force-exit if connections do not drain promptly.
-  setTimeout(() => process.exit(0), 5000).unref();
+  process.on("SIGTERM", () => shutdown("SIGTERM"));
+  process.on("SIGINT", () => shutdown("SIGINT"));
 }
 
-process.on("SIGTERM", () => shutdown("SIGTERM"));
-process.on("SIGINT", () => shutdown("SIGINT"));
+main().catch((err) => {
+  logger.error({ err }, "Fatal error during startup");
+  process.exit(1);
+});

@@ -1,0 +1,71 @@
+appId: ai.pyri.engram
+productName: ENGRAM
+executableName: engram
+copyright: ENGRAM — PYRI AI Persona Framework
+
+directories:
+  output: release
+  buildResources: build
+
+artifactName: ${productName}-${version}-${arch}.${ext}
+
+# Native modules: none. PGlite ships as prebuilt wasm via extraResources.
+npmRebuild: false
+asar: true
+
+# Only the Electron main/preload bundle goes inside the asar archive.
+files:
+  - dist/**/*
+  - package.json
+
+# Everything the embedded server needs lives outside the asar, under
+# process.resourcesPath at runtime (server/, web/, drizzle/).
+extraResources:
+  - from: resources/server
+    to: server
+  # The server bundle externalizes @electric-sql/pglite and imports it as a bare
+  # ESM specifier, so it must resolve from a real node_modules dir next to the
+  # bundle. electron-builder strips `node_modules` when copying a directory
+  # `from`, so the pglite package is copied via its own entry (whose `from` is
+  # the package dir itself, not a node_modules dir) to land it in place.
+  - from: resources/server/node_modules/@electric-sql/pglite
+    to: server/node_modules/@electric-sql/pglite
+  - from: resources/web
+    to: web
+  - from: resources/drizzle
+    to: drizzle
+
+linux:
+  target:
+    - AppImage
+    - deb
+  category: Science
+  synopsis: PYRI — AI persona framework (offline-capable)
+
+deb:
+  depends:
+    - libgtk-3-0
+    - libnotify4
+    - libnss3
+    - libxss1
+    - libxtst6
+    - xdg-utils
+
+mac:
+  target:
+    - dmg
+  category: public.app-category.productivity
+  # Signing/notarization are opt-in via env (see .github/workflows + docs):
+  # CSC_LINK / CSC_KEY_PASSWORD and APPLE_ID / APPLE_APP_SPECIFIC_PASSWORD / APPLE_TEAM_ID.
+
+win:
+  target:
+    - nsis
+  # Windows signing is opt-in via WIN_CSC_LINK / WIN_CSC_KEY_PASSWORD.
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true

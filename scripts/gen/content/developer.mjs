@@ -40,6 +40,7 @@ export function DEVELOPER(h) {
       "artifacts/",
       "  engram/          # React + Vite dashboard (the UI)",
       "  api-server/      # Express API + autonomy engine",
+      "  desktop/         # Electron wrapper → native installers (embeds API+UI+DB)",
       "  mockup-sandbox/  # component preview sandbox",
       "lib/",
       "  api-spec/        # OpenAPI source of truth + codegen config",
@@ -156,6 +157,10 @@ export function DEVELOPER(h) {
       ["PORT", "Port the API listens on. Provided by the platform workflow on Replit; set in .env for local runs (default 5000)."],
       ["BASE_PATH", "Base path the frontend is built against (\"/\" for local single-port runs)."],
       ["WEB_DIST", "Optional. Absolute path to the built dashboard (artifacts/engram/dist/public). When set, the API also serves the dashboard so the whole app runs on one port. Left unset on Replit, where the web is a separate static artifact."],
+      ["ENGRAM_DB_DRIVER", "Optional. Selects the database driver. Unset/\"pg\" (default) uses node-postgres with DATABASE_URL — unchanged for Replit, dev, and scripts. \"pglite\" uses an embedded PostgreSQL (WebAssembly) and requires no DATABASE_URL; used by the desktop build."],
+      ["PGLITE_DATA_DIR", "Optional. Directory where the embedded PGlite database is stored (used only when ENGRAM_DB_DRIVER=pglite). The desktop app points this at its per-user data directory."],
+      ["DRIZZLE_MIGRATIONS_DIR", "Optional. Absolute path to the generated SQL migrations (lib/db/drizzle). Set by the desktop bootstrap so migrations run from the packaged resources; defaults to the in-repo location otherwise."],
+      ["HOST", "Optional. Interface the API binds to. Unset binds all interfaces (unchanged); the desktop app sets 127.0.0.1 so the embedded server is loopback-only."],
     ]),
 
     H1("12. Local / Offline Operation"),
@@ -192,10 +197,35 @@ export function DEVELOPER(h) {
     WARN(
       "Video media perception additionally needs ffmpeg + ffprobe on PATH; image/video vision and audio/video transcription need a model that supports those modalities. A text-only local model still handles chat and autonomous transmissions.",
     ),
+    H2("12.3 Desktop installers (Electron + embedded database)"),
+    P(
+      "artifacts/desktop wraps the exact same dashboard and API in an Electron shell and produces native installers (.AppImage and .deb on Linux, .dmg on macOS, .exe on Windows). The goal is a clickable, fully self-contained app: the end user installs nothing else — no PostgreSQL, no Node toolchain, no separate setup step.",
+    ),
+    P(
+      "The key enabler is the database driver seam in lib/db. By default the client uses node-postgres against DATABASE_URL, which keeps Replit, local-from-source, and the seed scripts byte-for-byte unchanged. When ENGRAM_DB_DRIVER=pglite, the same client instead uses PGlite — PostgreSQL compiled to WebAssembly — backed by a directory (PGLITE_DATA_DIR). PGlite ships as a prebuilt wasm with no native module to compile, so the build is identical across operating systems and needs no per-OS rebuild.",
+    ),
+    P("On launch the Electron main process:"),
+    UL([
+      "Picks a free loopback port and sets HOST=127.0.0.1 so the embedded server is reachable only from the machine.",
+      "Sets ENGRAM_DB_DRIVER=pglite and points PGLITE_DATA_DIR, WEB_DIST, and DRIZZLE_MIGRATIONS_DIR at the packaged resources and the per-user data directory.",
+      "Runs migrations and idempotent seeds (the same importable functions the CLI seeds wrap), then spawns the API-server bundle and waits for /api/healthz before opening the window.",
+      "Offers a Settings window to switch between an offline local model and an online cloud endpoint; the cloud API key is encrypted with the OS keychain (Electron safeStorage) and only decrypted in-process. If no keychain is available the key is held in memory for the session only and is never written to disk in plaintext.",
+    ]),
+    P(
+      "Packaging detail worth knowing: the server, the built web, the SQL migrations, and the PGlite package are shipped outside the asar via extraResources. Because the server bundle imports @electric-sql/pglite as a bare ESM specifier, the PGlite package is copied by an explicit extraResources entry into a real node_modules directory next to the bundle — electron-builder strips a node_modules directory when copying a folder wholesale, so the package is referenced by its own path instead.",
+    ),
+    NOTE(
+      "There is no promotion path from the embedded driver to the cloud one or vice versa beyond the env switch — the driver is chosen once at process start. Importing lib/db under the pglite driver must not require DATABASE_URL, so driver construction is lazy and conditional.",
+      "Driver seam invariant",
+    ),
+    P(
+      "Cross-OS builds: electron-builder must run on the OS it targets (a signed .dmg cannot be produced on Linux). The repository therefore verifies the Linux installer locally and delegates macOS and Windows to GitHub Actions. .github/workflows/desktop-build.yml runs a ubuntu/macos/windows matrix that installs, runs codegen, builds the libs/API/web/desktop, runs electron-builder for that OS, and uploads the installers. Signing and notarization are opt-in via repository secrets (CSC_LINK/CSC_KEY_PASSWORD and APPLE_ID/APPLE_APP_SPECIFIC_PASSWORD/APPLE_TEAM_ID for macOS; WIN_CSC_LINK/WIN_CSC_KEY_PASSWORD for Windows); with none set, each OS still emits a working unsigned installer.",
+    ),
 
     H1("13. Build, Run & Common Commands"),
     KV([
       ["Run fully local (one port)", "./scripts/local/start.sh   (Windows: .\\scripts\\local\\start.ps1)"],
+      ["Build the desktop installer", "pnpm --filter @workspace/desktop run build, then pnpm --filter @workspace/desktop exec electron-builder --linux (or --mac / --win) on the matching OS"],
       ["Run the API (dev)", "pnpm --filter @workspace/api-server run dev"],
       ["Run the dashboard (dev)", "pnpm --filter @workspace/engram run dev"],
       ["Full typecheck", "pnpm run typecheck"],

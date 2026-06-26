@@ -1,3 +1,2 @@
-# Memory index
-
-- [Media perception invariants](media-perception.md) — uploads → OBSERVED world-model entries; provenance/source hardcoded (mirror of simulations' "simulated"), retries REPLACE not duplicate, deletion preserves observations, worker/route test mocking gotchas.
+- [Desktop embedded DB seam](desktop-embedded-db.md) — ENGRAM_DB_DRIVER switches pg↔pglite; pglite needs migrate+seed at boot; @electric-sql/pglite must be a DIRECT api-server dep.
+- [Desktop online API key storage](desktop-online-key-storage.md) — never persist the cloud API key in plaintext; safeStorage-encrypted on disk, else in-memory session-only.
