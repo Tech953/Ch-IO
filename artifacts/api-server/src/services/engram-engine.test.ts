@@ -1,0 +1,414 @@
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import type { Engram } from "@workspace/db";
+
+// --- Hoisted mock state (db, schema sentinels, generation) ---------------------
+const h = vi.hoisted(() => {
+  const engramsTable = { __table: "engrams" } as Record<string, unknown>;
+  const engramTransmissionsTable = { __table: "transmissions" } as Record<string, unknown>;
+
+  const state = {
+    engrams: [] as unknown[],
+    recent: [] as unknown[],
+    inserts: [] as Record<string, unknown>[],
+    updates: [] as Record<string, unknown>[],
+  };
+
+  function selectChain() {
+    let table: unknown;
+    const chain = {
+      from(t: unknown) {
+        table = t;
+        return chain;
+      },
+      where() {
+        return chain;
+      },
+      orderBy() {
+        return chain;
+      },
+      then(
+        resolve: (v: unknown[]) => unknown,
+        reject?: (e: unknown) => unknown,
+      ) {
+        const data = table === engramsTable ? state.engrams : state.recent;
+        return Promise.resolve(data).then(resolve, reject);
+      },
+    };
+    return chain;
+  }
+
+  const db = {
+    select: () => selectChain(),
+    insert: (_t: unknown) => ({
+      values: (v: Record<string, unknown>) => ({
+        returning: () => {
+          const row = { id: 1000 + state.inserts.length, createdAt: new Date(), ...v };
+          state.inserts.push(row);
+          return Promise.resolve([row]);
+        },
+      }),
+    }),
+    update: (_t: unknown) => ({
+      set: (s: Record<string, unknown>) => ({
+        where: () => {
+          state.updates.push(s);
+          return Promise.resolve(undefined);
+        },
+      }),
+    }),
+  };
+
+  const generateTransmission = vi.fn(async () => "an autonomous transmission");
+
+  return { engramsTable, engramTransmissionsTable, state, db, generateTransmission };
+});
+
+vi.mock("@workspace/db", () => ({ db: h.db }));
+vi.mock("@workspace/db/schema", () => ({
+  engramsTable: h.engramsTable,
+  engramTransmissionsTable: h.engramTransmissionsTable,
+}));
+vi.mock("drizzle-orm", () => ({
+  and: () => ({}),
+  desc: () => ({}),
+  eq: () => ({}),
+  gte: () => ({}),
+}));
+vi.mock("../lib/logger", () => ({
+  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+}));
+vi.mock("../lib/engram-generation", () => ({
+  generateTransmission: h.generateTransmission,
+}));
+
+import {
+  accrue,
+  pickKind,
+  runTick,
+  COOLDOWN_MS,
+  HOURLY_CAP,
+  DAILY_CAP,
+  MAX_ELAPSED_SEC,
+} from "./engram-engine";
+
+// --- Fixtures ------------------------------------------------------------------
+function makeEngram(overrides: Partial<Engram> = {}): Engram {
+  return {
+    id: 1,
+    slug: "test",
+    name: "Testra",
+    title: "Test Construct",
+    symbol: "◆",
+    origin: "fixture",
+    voiceProfile: {
+      speechStyle: "terse",
+      formatting: "plain",
+      vocabulary: [],
+      sampleLines: [],
+      narrationStyle: "first-person",
+    },
+    emotionalBaseline: { valence: 0, arousal: 0.3, volatility: 0.2, mood: "even" },
+    environmentAnchor: {
+      name: "The Vault",
+      description: "sandbox",
+      locations: [],
+      items: [],
+      ambient: "hum",
+    },
+    memorySeed: { relationship: "designer", facts: [], summary: "" },
+    guardrails: { framing: "", boundaries: [] },
+    drives: [
+      { id: "order", label: "Order", description: "tidiness", weight: 1, baseRate: 0.001 },
+    ],
+    focusThemes: [],
+    autonomyEnabled: true,
+    tickCadenceSeconds: 30,
+    initiationThreshold: 0.6,
+    driveState: {},
+    currentMood: null,
+    lastTickAt: null,
+    lastTransmissionAt: null,
+    isChatActive: false,
+    createdAt: new Date("2026-01-01T00:00:00Z"),
+    updatedAt: new Date("2026-01-01T00:00:00Z"),
+    ...overrides,
+  };
+}
+
+function makeTransmission(createdAt: Date) {
+  return { id: 1, engramId: 1, content: "prior", createdAt };
+}
+
+beforeEach(() => {
+  h.state.engrams = [];
+  h.state.recent = [];
+  h.state.inserts = [];
+  h.state.updates = [];
+  h.generateTransmission.mockClear();
+  h.generateTransmission.mockResolvedValue("an autonomous transmission");
+  // Deterministic jitter: 0.85 + 0.5*0.3 = 1.0
+  vi.spyOn(Math, "random").mockReturnValue(0.5);
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
+// --- pickKind ------------------------------------------------------------------
+describe("pickKind — outreach vs idle classification", () => {
+  it("classifies connection/relationship drives as outreach", () => {
+    expect(pickKind("connection", "Connection")).toBe("outreach");
+    expect(pickKind("devotion", "Devotion")).toBe("outreach");
+    expect(pickKind("loyalty", "Loyal to you")).toBe("outreach");
+    expect(pickKind("protect", "Protect them")).toBe("outreach");
+    expect(pickKind("chaos", "Chaos")).toBe("outreach");
+    expect(pickKind("fun", "Have fun")).toBe("outreach");
+    expect(pickKind("reach", "Reach out")).toBe("outreach");
+    expect(pickKind("company", "Seek company")).toBe("outreach");
+  });
+
+  it("classifies introspective/idle drives as idle", () => {
+    expect(pickKind("order", "Order")).toBe("idle");
+    expect(pickKind("analysis", "Study quietly")).toBe("idle");
+    expect(pickKind("rest", "Conserve energy")).toBe("idle");
+  });
+
+  it("matches the hint against both drive id and label", () => {
+    expect(pickKind("d1", "the urge for connection")).toBe("outreach");
+    expect(pickKind("protect", "guardian impulse")).toBe("outreach");
+  });
+});
+
+// --- accrue --------------------------------------------------------------------
+describe("accrue — pressure accrual over time", () => {
+  it("accrues pressure proportional to elapsed time and baseRate", () => {
+    const now = 1_000_000_000_000;
+    const engram = makeEngram({
+      lastTickAt: new Date(now - 100_000), // 100s ago
+      drives: [{ id: "order", label: "Order", description: "", weight: 1, baseRate: 0.001 }],
+    });
+    const { state, charges } = accrue(engram, now);
+    // gained = 0.001 * 100 * jitter(1.0) = 0.1
+    expect(state.order).toBeCloseTo(0.1, 5);
+    expect(charges[0].id).toBe("order");
+    expect(charges[0].pressure).toBeCloseTo(0.1, 5);
+    expect(charges[0].charge).toBeCloseTo(0.1, 5);
+  });
+
+  it("adds to existing stored pressure", () => {
+    const now = 1_000_000_000_000;
+    const engram = makeEngram({
+      lastTickAt: new Date(now - 50_000), // 50s
+      driveState: { order: 0.2 },
+      drives: [{ id: "order", label: "Order", description: "", weight: 1, baseRate: 0.001 }],
+    });
+    const { state } = accrue(engram, now);
+    // 0.2 + 0.001*50*1.0 = 0.25
+    expect(state.order).toBeCloseTo(0.25, 5);
+  });
+
+  it("clamps pressure to a maximum of 1", () => {
+    const now = 1_000_000_000_000;
+    const engram = makeEngram({
+      lastTickAt: new Date(now - 100_000),
+      drives: [{ id: "order", label: "Order", description: "", weight: 1, baseRate: 1 }],
+    });
+    const { state } = accrue(engram, now);
+    expect(state.order).toBe(1);
+  });
+
+  it("caps elapsed time at MAX_ELAPSED_SEC after long downtime", () => {
+    const now = 1_000_000_000_000;
+    const elapsedMs = (MAX_ELAPSED_SEC + 10_000) * 1000; // way over the cap
+    const engram = makeEngram({
+      lastTickAt: new Date(now - elapsedMs),
+      drives: [{ id: "order", label: "Order", description: "", weight: 1, baseRate: 0.0001 }],
+    });
+    const { state } = accrue(engram, now);
+    // capped: 0.0001 * MAX_ELAPSED_SEC * 1.0
+    expect(state.order).toBeCloseTo(0.0001 * MAX_ELAPSED_SEC, 6);
+  });
+
+  it("weights charges and ranks the highest-charge drive first", () => {
+    const now = 1_000_000_000_000;
+    const engram = makeEngram({
+      lastTickAt: new Date(now - 100_000),
+      drives: [
+        { id: "low", label: "Low", description: "", weight: 0.2, baseRate: 0.001 },
+        { id: "high", label: "High", description: "", weight: 0.9, baseRate: 0.001 },
+      ],
+    });
+    const { charges } = accrue(engram, now);
+    expect(charges[0].id).toBe("high");
+    expect(charges[1].id).toBe("low");
+    expect(charges[0].charge).toBeGreaterThan(charges[1].charge);
+  });
+});
+
+// --- runTick: threshold crossing & guards --------------------------------------
+describe("runTick — threshold crossing", () => {
+  it("fires exactly one transmission when the top drive crosses threshold", async () => {
+    const now = Date.now();
+    h.state.engrams = [
+      makeEngram({
+        lastTickAt: new Date(now - 100_000), // cadence (30s) satisfied
+        initiationThreshold: 0.6,
+        drives: [
+          { id: "connection", label: "Connection", description: "reach", weight: 1, baseRate: 0.01 },
+        ],
+      }),
+    ];
+    const result = await runTick();
+    expect(result.generated).toBe(1);
+    expect(result.transmissions).toHaveLength(1);
+    expect(h.state.inserts).toHaveLength(1);
+    expect(h.generateTransmission).toHaveBeenCalledTimes(1);
+    // connection drive => outreach kind
+    expect(h.state.inserts[0].kind).toBe("outreach");
+  });
+
+  it("does NOT fire when the top drive stays below threshold", async () => {
+    const now = Date.now();
+    h.state.engrams = [
+      makeEngram({
+        lastTickAt: new Date(now - 40_000), // cadence satisfied
+        initiationThreshold: 0.9,
+        driveState: {},
+        drives: [
+          { id: "order", label: "Order", description: "", weight: 1, baseRate: 0.0001 },
+        ],
+      }),
+    ];
+    const result = await runTick();
+    expect(result.generated).toBe(0);
+    expect(h.generateTransmission).not.toHaveBeenCalled();
+    // still persists accrued pressure (restart-safe)
+    expect(h.state.updates).toHaveLength(1);
+  });
+
+  it("skips engrams whose cadence has not elapsed", async () => {
+    const now = Date.now();
+    h.state.engrams = [
+      makeEngram({
+        lastTickAt: new Date(now - 5_000), // < 30s cadence
+        tickCadenceSeconds: 30,
+      }),
+    ];
+    const result = await runTick();
+    expect(result.ticked).toBe(0);
+    expect(result.generated).toBe(0);
+    expect(h.state.updates).toHaveLength(0);
+  });
+
+  it("force-ticks bypass cadence", async () => {
+    const now = Date.now();
+    h.state.engrams = [
+      makeEngram({
+        lastTickAt: new Date(now - 1_000), // cadence NOT elapsed
+        initiationThreshold: 0.6,
+        driveState: { connection: 0.7 }, // already above threshold
+        drives: [
+          { id: "connection", label: "Connection", description: "", weight: 1, baseRate: 0.01 },
+        ],
+      }),
+    ];
+    const result = await runTick({ force: true });
+    expect(result.ticked).toBe(1);
+    expect(result.generated).toBe(1);
+  });
+});
+
+// --- runTick: cost guards ------------------------------------------------------
+describe("runTick — cost guards", () => {
+  it("enforces the per-engram cooldown", async () => {
+    const now = Date.now();
+    h.state.engrams = [
+      makeEngram({
+        lastTickAt: new Date(now - 100_000), // cadence satisfied
+        lastTransmissionAt: new Date(now - (COOLDOWN_MS - 5_000)), // still cooling down
+        initiationThreshold: 0.6,
+        drives: [
+          { id: "connection", label: "Connection", description: "", weight: 1, baseRate: 0.01 },
+        ],
+      }),
+    ];
+    const result = await runTick();
+    expect(result.generated).toBe(0);
+    expect(h.generateTransmission).not.toHaveBeenCalled();
+    expect(h.state.updates).toHaveLength(1); // pressure still persisted
+  });
+
+  it("allows firing once the cooldown has fully elapsed", async () => {
+    const now = Date.now();
+    h.state.engrams = [
+      makeEngram({
+        lastTickAt: new Date(now - 100_000),
+        lastTransmissionAt: new Date(now - (COOLDOWN_MS + 5_000)), // cooldown over
+        initiationThreshold: 0.6,
+        drives: [
+          { id: "connection", label: "Connection", description: "", weight: 1, baseRate: 0.01 },
+        ],
+      }),
+    ];
+    const result = await runTick();
+    expect(result.generated).toBe(1);
+  });
+
+  it("enforces the rolling hourly cap", async () => {
+    const now = Date.now();
+    h.state.recent = Array.from({ length: HOURLY_CAP }, () =>
+      makeTransmission(new Date(now - 60_000)),
+    ); // all within the last hour
+    h.state.engrams = [
+      makeEngram({
+        lastTickAt: new Date(now - 100_000),
+        initiationThreshold: 0.6,
+        drives: [
+          { id: "connection", label: "Connection", description: "", weight: 1, baseRate: 0.01 },
+        ],
+      }),
+    ];
+    const result = await runTick();
+    expect(result.generated).toBe(0);
+    expect(h.generateTransmission).not.toHaveBeenCalled();
+    expect(h.state.updates).toHaveLength(1);
+  });
+
+  it("enforces the rolling daily cap (independent of the hourly cap)", async () => {
+    const now = Date.now();
+    // DAILY_CAP transmissions, all older than an hour so the hourly count is 0
+    h.state.recent = Array.from({ length: DAILY_CAP }, () =>
+      makeTransmission(new Date(now - 2 * 3600_000)),
+    );
+    h.state.engrams = [
+      makeEngram({
+        lastTickAt: new Date(now - 100_000),
+        initiationThreshold: 0.6,
+        drives: [
+          { id: "connection", label: "Connection", description: "", weight: 1, baseRate: 0.01 },
+        ],
+      }),
+    ];
+    const result = await runTick();
+    expect(result.generated).toBe(0);
+    expect(h.generateTransmission).not.toHaveBeenCalled();
+  });
+
+  it("fires when recent counts are under both caps", async () => {
+    const now = Date.now();
+    h.state.recent = [
+      makeTransmission(new Date(now - 2 * 3600_000)), // 1 old (under daily, not in hour)
+    ];
+    h.state.engrams = [
+      makeEngram({
+        lastTickAt: new Date(now - 100_000),
+        initiationThreshold: 0.6,
+        drives: [
+          { id: "connection", label: "Connection", description: "", weight: 1, baseRate: 0.01 },
+        ],
+      }),
+    ];
+    const result = await runTick();
+    expect(result.generated).toBe(1);
+  });
+});

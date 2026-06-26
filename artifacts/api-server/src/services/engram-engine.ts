@@ -7,10 +7,10 @@ import { generateTransmission, type TransmissionKind } from "../lib/engram-gener
 
 // --- Tunable constants (cost & cadence guards) ---
 const GLOBAL_TICK_MS = 20_000; // how often the engine wakes up
-const COOLDOWN_MS = 90_000; // minimum gap between an engram's transmissions
-const HOURLY_CAP = 10; // max transmissions per engram per rolling hour
-const DAILY_CAP = 60; // max transmissions per engram per rolling day
-const MAX_ELAPSED_SEC = 600; // cap accrual after long downtime / clock jumps
+export const COOLDOWN_MS = 90_000; // minimum gap between an engram's transmissions
+export const HOURLY_CAP = 10; // max transmissions per engram per rolling hour
+export const DAILY_CAP = 60; // max transmissions per engram per rolling day
+export const MAX_ELAPSED_SEC = 600; // cap accrual after long downtime / clock jumps
 const ERROR_BACKOFF_MS = 120_000; // skip generation for an engram after a failure
 
 const OUTREACH_HINT = /(connection|devotion|loyal|protect|chaos|fun|reach|company)/i;
@@ -24,11 +24,11 @@ function clamp(n: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, n));
 }
 
-function pickKind(driveId: string, label: string): TransmissionKind {
+export function pickKind(driveId: string, label: string): TransmissionKind {
   return OUTREACH_HINT.test(`${driveId} ${label}`) ? "outreach" : "idle";
 }
 
-interface DriveCharge {
+export interface DriveCharge {
   id: string;
   label: string;
   description: string;
@@ -37,7 +37,10 @@ interface DriveCharge {
 }
 
 /** Accrue per-drive pressure from elapsed time (no LLM). Returns the new state + ranked charges. */
-function accrue(engram: Engram, now: number): { state: DriveState; charges: DriveCharge[] } {
+export function accrue(
+  engram: Engram,
+  now: number,
+): { state: DriveState; charges: DriveCharge[] } {
   const last = engram.lastTickAt ? new Date(engram.lastTickAt).getTime() : now;
   const elapsedSec = clamp((now - last) / 1000, 0, MAX_ELAPSED_SEC);
   const state: DriveState = { ...(engram.driveState ?? {}) };
