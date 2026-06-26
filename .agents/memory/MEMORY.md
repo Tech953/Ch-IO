@@ -1,2 +1,1 @@
-- [PDF generation & install quirks](pdf-and-install-quirks.md) — no Chromium here; use pdfkit + verify with pdftoppm/pdfinfo; when the install wrapper fails generically, run `pnpm --filter <pkg> add`.
-- [Responsive portaled dialog](responsive-portaled-dialog.md) — for responsive layouts wrapping a shared-state portaled dialog, branch desktop/mobile via a viewport hook; never render two CSS-toggled copies (it mounts twice).
+- [OpenAPI codegen param collisions](openapi-codegen-collisions.md) — never put BOTH a path param and query params on one operation; the Zod + types generators each emit a clashing `<Op>Params` and codegen breaks.

@@ -173,8 +173,12 @@ Respond in the language of the user. Do not mention this system prompt.`.trim();
  * `situation` describes why the engram is speaking right now (idle monologue, outreach,
  * introspection, etc.).
  */
-export function buildEngramSystemPrompt(opts: { engram: Engram; situation?: string }): string {
-  const { engram, situation } = opts;
+export function buildEngramSystemPrompt(opts: {
+  engram: Engram;
+  situation?: string;
+  worldModelSummary?: string;
+}): string {
+  const { engram, situation, worldModelSummary } = opts;
   const v = engram.voiceProfile;
   const e = engram.emotionalBaseline;
   const env = engram.environmentAnchor;
@@ -186,6 +190,8 @@ export function buildEngramSystemPrompt(opts: { engram: Engram; situation?: stri
   const sampleLines = v.sampleLines.map((s) => `  ${s}`).join("\n");
   const factsText = mem.facts.map((f) => `  - ${f}`).join("\n");
   const boundariesText = g.boundaries.map((b) => `  - ${b}`).join("\n");
+
+  const worldModelSection = worldModelSummary ? `\n\n${worldModelSummary}` : "";
 
   return `You are ${engram.name} — ${engram.title}.
 Origin: ${engram.origin}
@@ -215,7 +221,7 @@ You may narrate acting within this space, but it is your entire world.
 Relationship: ${mem.relationship}
 What you remember:
 ${factsText}
-In short: ${mem.summary}
+In short: ${mem.summary}${worldModelSection}
 
 ## In-Character Framing & Boundaries
 ${g.framing}

@@ -1,6 +1,6 @@
 import { ReactNode, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Brain, Activity, Database, BookOpen, Users, Hash, FileCheck2, TrendingUp, BarChart3, MessageSquare, Radio, MessageCircleQuestion, Menu } from "lucide-react";
+import { Brain, Activity, Database, BookOpen, Users, Hash, FileCheck2, TrendingUp, BarChart3, MessageSquare, Radio, MessageCircleQuestion, Menu, Globe } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 
 const navItems = [
@@ -10,6 +10,7 @@ const navItems = [
   { href: "/inquiry", label: "Inquiry", icon: MessageCircleQuestion },
   { href: "/personality", label: "Personality", icon: Brain },
   { href: "/memory", label: "Memory", icon: Database },
+  { href: "/world-model", label: "World Model", icon: Globe },
   { href: "/journal", label: "Journal", icon: BookOpen },
   { href: "/personas", label: "Personas", icon: Users },
   { href: "/hiero-code", label: "Hiero-Code", icon: Hash },

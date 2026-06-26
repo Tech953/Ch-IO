@@ -52,7 +52,10 @@ import type {
   PersonaActivation,
   PersonalityInput,
   PersonalityProfile,
-  SystemStats
+  SystemStats,
+  WorldModelEntry,
+  WorldModelInput,
+  WorldModelPatch
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -2740,5 +2743,298 @@ export const useCreateEngramInquiry = <TError = ErrorType<OpenaiError>,
         TContext
       > => {
       return useMutation(getCreateEngramInquiryMutationOptions(options));
+    }
+
+export const getListEngramWorldModelUrl = (id: number,) => {
+
+
+
+
+  return `/api/engrams/${id}/world-model`
+}
+
+/**
+ * @summary List an engram's world-model entries (most recent first)
+ */
+export const listEngramWorldModel = async (id: number, options?: RequestInit): Promise<WorldModelEntry[]> => {
+
+  return customFetch<WorldModelEntry[]>(getListEngramWorldModelUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListEngramWorldModelQueryKey = (id: number,) => {
+    return [
+    `/api/engrams/${id}/world-model`
+    ] as const;
+    }
+
+
+export const getListEngramWorldModelQueryOptions = <TData = Awaited<ReturnType<typeof listEngramWorldModel>>, TError = ErrorType<unknown>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listEngramWorldModel>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListEngramWorldModelQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listEngramWorldModel>>> = ({ signal }) => listEngramWorldModel(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listEngramWorldModel>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListEngramWorldModelQueryResult = NonNullable<Awaited<ReturnType<typeof listEngramWorldModel>>>
+export type ListEngramWorldModelQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List an engram's world-model entries (most recent first)
+ */
+
+export function useListEngramWorldModel<TData = Awaited<ReturnType<typeof listEngramWorldModel>>, TError = ErrorType<unknown>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listEngramWorldModel>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListEngramWorldModelQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateEngramWorldModelEntryUrl = (id: number,) => {
+
+
+
+
+  return `/api/engrams/${id}/world-model`
+}
+
+/**
+ * @summary Append a new world-model entry for an engram
+ */
+export const createEngramWorldModelEntry = async (id: number,
+    worldModelInput: WorldModelInput, options?: RequestInit): Promise<WorldModelEntry> => {
+
+  return customFetch<WorldModelEntry>(getCreateEngramWorldModelEntryUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(worldModelInput)
+  }
+);}
+
+
+
+
+export const getCreateEngramWorldModelEntryMutationOptions = <TError = ErrorType<OpenaiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createEngramWorldModelEntry>>, TError,{id: number;data: BodyType<WorldModelInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createEngramWorldModelEntry>>, TError,{id: number;data: BodyType<WorldModelInput>}, TContext> => {
+
+const mutationKey = ['createEngramWorldModelEntry'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createEngramWorldModelEntry>>, {id: number;data: BodyType<WorldModelInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  createEngramWorldModelEntry(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateEngramWorldModelEntryMutationResult = NonNullable<Awaited<ReturnType<typeof createEngramWorldModelEntry>>>
+    export type CreateEngramWorldModelEntryMutationBody = BodyType<WorldModelInput>
+    export type CreateEngramWorldModelEntryMutationError = ErrorType<OpenaiError>
+
+    /**
+ * @summary Append a new world-model entry for an engram
+ */
+export const useCreateEngramWorldModelEntry = <TError = ErrorType<OpenaiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createEngramWorldModelEntry>>, TError,{id: number;data: BodyType<WorldModelInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createEngramWorldModelEntry>>,
+        TError,
+        {id: number;data: BodyType<WorldModelInput>},
+        TContext
+      > => {
+      return useMutation(getCreateEngramWorldModelEntryMutationOptions(options));
+    }
+
+export const getUpdateEngramWorldModelEntryUrl = (id: number,
+    entryId: number,) => {
+
+
+
+
+  return `/api/engrams/${id}/world-model/${entryId}`
+}
+
+/**
+ * @summary Update an entry's content/confidence/scope/source (provenance is immutable)
+ */
+export const updateEngramWorldModelEntry = async (id: number,
+    entryId: number,
+    worldModelPatch: WorldModelPatch, options?: RequestInit): Promise<WorldModelEntry> => {
+
+  return customFetch<WorldModelEntry>(getUpdateEngramWorldModelEntryUrl(id,entryId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(worldModelPatch)
+  }
+);}
+
+
+
+
+export const getUpdateEngramWorldModelEntryMutationOptions = <TError = ErrorType<OpenaiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateEngramWorldModelEntry>>, TError,{id: number;entryId: number;data: BodyType<WorldModelPatch>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateEngramWorldModelEntry>>, TError,{id: number;entryId: number;data: BodyType<WorldModelPatch>}, TContext> => {
+
+const mutationKey = ['updateEngramWorldModelEntry'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateEngramWorldModelEntry>>, {id: number;entryId: number;data: BodyType<WorldModelPatch>}> = (props) => {
+          const {id,entryId,data} = props ?? {};
+
+          return  updateEngramWorldModelEntry(id,entryId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateEngramWorldModelEntryMutationResult = NonNullable<Awaited<ReturnType<typeof updateEngramWorldModelEntry>>>
+    export type UpdateEngramWorldModelEntryMutationBody = BodyType<WorldModelPatch>
+    export type UpdateEngramWorldModelEntryMutationError = ErrorType<OpenaiError>
+
+    /**
+ * @summary Update an entry's content/confidence/scope/source (provenance is immutable)
+ */
+export const useUpdateEngramWorldModelEntry = <TError = ErrorType<OpenaiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateEngramWorldModelEntry>>, TError,{id: number;entryId: number;data: BodyType<WorldModelPatch>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateEngramWorldModelEntry>>,
+        TError,
+        {id: number;entryId: number;data: BodyType<WorldModelPatch>},
+        TContext
+      > => {
+      return useMutation(getUpdateEngramWorldModelEntryMutationOptions(options));
+    }
+
+export const getDeleteEngramWorldModelEntryUrl = (id: number,
+    entryId: number,) => {
+
+
+
+
+  return `/api/engrams/${id}/world-model/${entryId}`
+}
+
+/**
+ * @summary Delete a world-model entry
+ */
+export const deleteEngramWorldModelEntry = async (id: number,
+    entryId: number, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteEngramWorldModelEntryUrl(id,entryId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getDeleteEngramWorldModelEntryMutationOptions = <TError = ErrorType<OpenaiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteEngramWorldModelEntry>>, TError,{id: number;entryId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteEngramWorldModelEntry>>, TError,{id: number;entryId: number}, TContext> => {
+
+const mutationKey = ['deleteEngramWorldModelEntry'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteEngramWorldModelEntry>>, {id: number;entryId: number}> = (props) => {
+          const {id,entryId} = props ?? {};
+
+          return  deleteEngramWorldModelEntry(id,entryId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteEngramWorldModelEntryMutationResult = NonNullable<Awaited<ReturnType<typeof deleteEngramWorldModelEntry>>>
+
+    export type DeleteEngramWorldModelEntryMutationError = ErrorType<OpenaiError>
+
+    /**
+ * @summary Delete a world-model entry
+ */
+export const useDeleteEngramWorldModelEntry = <TError = ErrorType<OpenaiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteEngramWorldModelEntry>>, TError,{id: number;entryId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteEngramWorldModelEntry>>,
+        TError,
+        {id: number;entryId: number},
+        TContext
+      > => {
+      return useMutation(getDeleteEngramWorldModelEntryMutationOptions(options));
     }
 

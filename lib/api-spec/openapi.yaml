@@ -710,6 +710,122 @@ paths:
               schema:
                 $ref: "#/components/schemas/OpenaiError"
 
+  /engrams/{id}/world-model:
+    get:
+      operationId: listEngramWorldModel
+      tags: [engrams]
+      summary: List an engram's world-model entries (most recent first)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of world-model entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WorldModelEntry"
+    post:
+      operationId: createEngramWorldModelEntry
+      tags: [engrams]
+      summary: Append a new world-model entry for an engram
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WorldModelInput"
+      responses:
+        "201":
+          description: Created world-model entry
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorldModelEntry"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpenaiError"
+
+  /engrams/{id}/world-model/{entryId}:
+    patch:
+      operationId: updateEngramWorldModelEntry
+      tags: [engrams]
+      summary: Update an entry's content/confidence/scope/source (provenance is immutable)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: entryId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WorldModelPatch"
+      responses:
+        "200":
+          description: Updated world-model entry
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorldModelEntry"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpenaiError"
+        "409":
+          description: Provenance change rejected (provenance is immutable)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpenaiError"
+    delete:
+      operationId: deleteEngramWorldModelEntry
+      tags: [engrams]
+      summary: Delete a world-model entry
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: entryId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpenaiError"
+
 components:
   schemas:
     HealthStatus:
@@ -1608,3 +1724,68 @@ components:
         - ticked
         - generated
         - transmissions
+
+    WorldModelEntry:
+      type: object
+      properties:
+        id:
+          type: integer
+        engramId:
+          type: integer
+        provenance:
+          type: string
+          enum: [observed, inferred, remembered, desired, simulated]
+        content:
+          type: string
+        confidence:
+          type: number
+        scope:
+          type: string
+          enum: [private, shared]
+        source:
+          type: string
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - engramId
+        - provenance
+        - content
+        - confidence
+        - scope
+        - createdAt
+        - updatedAt
+
+    WorldModelInput:
+      type: object
+      properties:
+        provenance:
+          type: string
+          enum: [observed, inferred, remembered, desired, simulated]
+        content:
+          type: string
+        confidence:
+          type: number
+        scope:
+          type: string
+          enum: [private, shared]
+        source:
+          type: string
+      required:
+        - provenance
+        - content
+
+    WorldModelPatch:
+      type: object
+      properties:
+        content:
+          type: string
+        confidence:
+          type: number
+        scope:
+          type: string
+          enum: [private, shared]
+        source:
+          type: string

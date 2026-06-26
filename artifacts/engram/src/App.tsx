@@ -8,6 +8,7 @@ import Layout from "@/components/layout";
 import Home from "@/pages/home";
 import Personality from "@/pages/personality";
 import Memory from "@/pages/memory";
+import WorldModel from "@/pages/world-model";
 import Journal from "@/pages/journal";
 import Personas from "@/pages/personas";
 import HieroCode from "@/pages/hiero-code";
@@ -27,6 +28,7 @@ function Router() {
         <Route path="/" component={Home} />
         <Route path="/personality" component={Personality} />
         <Route path="/memory" component={Memory} />
+        <Route path="/world-model" component={WorldModel} />
         <Route path="/journal" component={Journal} />
         <Route path="/personas" component={Personas} />
         <Route path="/hiero-code" component={HieroCode} />

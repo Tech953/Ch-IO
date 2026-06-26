@@ -20,6 +20,8 @@ import {
   SendOpenaiMessageParams,
 } from "@workspace/api-zod";
 import { buildSystemPrompt, buildEngramSystemPrompt, type ExpressionRow } from "../lib/prompts";
+import { summarizeWorldModel } from "../lib/world-model";
+import { loadRecentWorldModel, appendWorldModelEntry } from "../lib/world-model-store";
 
 const router = Router();
 
@@ -119,10 +121,12 @@ router.post("/openai/conversations/:id/messages", async (req, res) => {
       res.status(404).json({ error: "Engram not found" });
       return;
     }
+    const worldModelSummary = summarizeWorldModel(await loadRecentWorldModel(engram.id));
     systemPrompt = buildEngramSystemPrompt({
       engram,
       situation:
         "You are in a live, ongoing conversation with them right now. Respond to their latest message in character, staying in your formatting conventions.",
+      worldModelSummary,
     });
   } else {
     const [personalityRow] = await db.select().from(personalityTable);
@@ -165,6 +169,23 @@ router.post("/openai/conversations/:id/messages", async (req, res) => {
     .orderBy(messages.createdAt);
 
   await db.insert(messages).values({ conversationId: id, role: "user", content });
+
+  // For engram-linked chats, record the user's message as an OBSERVED world-model entry:
+  // the engram directly perceived them say this. Provenance is OBSERVED and never inflated.
+  if (conv.engramId) {
+    try {
+      await appendWorldModelEntry({
+        engramId: conv.engramId,
+        provenance: "observed",
+        content: `They said: "${content.replace(/\s+/g, " ").trim().slice(0, 240)}"`,
+        confidence: 0.85,
+        scope: "private",
+        source: `chat:${id}`,
+      });
+    } catch (err) {
+      req.log.error(err);
+    }
+  }
 
   const chatMessages: { role: "system" | "user" | "assistant"; content: string }[] = [
     { role: "system", content: systemPrompt },

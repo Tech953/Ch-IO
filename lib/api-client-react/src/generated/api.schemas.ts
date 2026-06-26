@@ -401,6 +401,79 @@ export interface EngramTickResult {
   transmissions: EngramTransmission[];
 }
 
+export type WorldModelEntryProvenance = typeof WorldModelEntryProvenance[keyof typeof WorldModelEntryProvenance];
+
+
+export const WorldModelEntryProvenance = {
+  observed: 'observed',
+  inferred: 'inferred',
+  remembered: 'remembered',
+  desired: 'desired',
+  simulated: 'simulated',
+} as const;
+
+export type WorldModelEntryScope = typeof WorldModelEntryScope[keyof typeof WorldModelEntryScope];
+
+
+export const WorldModelEntryScope = {
+  private: 'private',
+  shared: 'shared',
+} as const;
+
+export interface WorldModelEntry {
+  id: number;
+  engramId: number;
+  provenance: WorldModelEntryProvenance;
+  content: string;
+  confidence: number;
+  scope: WorldModelEntryScope;
+  source?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type WorldModelInputProvenance = typeof WorldModelInputProvenance[keyof typeof WorldModelInputProvenance];
+
+
+export const WorldModelInputProvenance = {
+  observed: 'observed',
+  inferred: 'inferred',
+  remembered: 'remembered',
+  desired: 'desired',
+  simulated: 'simulated',
+} as const;
+
+export type WorldModelInputScope = typeof WorldModelInputScope[keyof typeof WorldModelInputScope];
+
+
+export const WorldModelInputScope = {
+  private: 'private',
+  shared: 'shared',
+} as const;
+
+export interface WorldModelInput {
+  provenance: WorldModelInputProvenance;
+  content: string;
+  confidence?: number;
+  scope?: WorldModelInputScope;
+  source?: string;
+}
+
+export type WorldModelPatchScope = typeof WorldModelPatchScope[keyof typeof WorldModelPatchScope];
+
+
+export const WorldModelPatchScope = {
+  private: 'private',
+  shared: 'shared',
+} as const;
+
+export interface WorldModelPatch {
+  content?: string;
+  confidence?: number;
+  scope?: WorldModelPatchScope;
+  source?: string;
+}
+
 export type ListMemoriesParams = {
 layer?: ListMemoriesLayer;
 };
