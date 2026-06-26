@@ -10,7 +10,7 @@ import {
   engramsTable,
 } from "@workspace/db/schema";
 import { eq, desc } from "drizzle-orm";
-import { openai } from "@workspace/integrations-openai-ai-server";
+import { llm, LLM_MODEL } from "../lib/llm";
 import {
   CreateOpenaiConversationBody,
   SendOpenaiMessageBody,
@@ -179,8 +179,8 @@ router.post("/openai/conversations/:id/messages", async (req, res) => {
 
   let fullResponse = "";
   try {
-    const stream = await openai.chat.completions.create({
-      model: "gpt-5.4",
+    const stream = await llm.chat.completions.create({
+      model: LLM_MODEL,
       max_completion_tokens: 8192,
       messages: chatMessages,
       stream: true,

@@ -1,12 +1,10 @@
-import { openai } from "@workspace/integrations-openai-ai-server";
 import type { Engram } from "@workspace/db";
 import { buildEngramSystemPrompt } from "./prompts";
-
-const MODEL = "gpt-5.4";
+import { llm, LLM_MODEL } from "./llm";
 
 async function complete(system: string, user: string, maxTokens: number): Promise<string> {
-  const res = await openai.chat.completions.create({
-    model: MODEL,
+  const res = await llm.chat.completions.create({
+    model: LLM_MODEL,
     max_completion_tokens: maxTokens,
     messages: [
       { role: "system", content: system },

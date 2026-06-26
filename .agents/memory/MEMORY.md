@@ -1,9 +1,1 @@
-- [Database seeding](seeding.md) — this repo has no startup/auto-seed; reference data is seeded by explicit one-off scripts under `@workspace/scripts`.
-- [Expression layer safety boundary](expression-layer-safety.md) — the affect/intimacy axis is stored faithfully in DB but must be sanitized before entering the chat system prompt.
-- [Engram authoring](engram-authoring.md) — add engrams via the idempotent seed; outreach-vs-idle is set by drive-label keywords; extend in-code HARD_SAFETY (not just seed copy) for new persona abuse surfaces.
-- [Orval codegen gotchas](orval-codegen-gotchas.md) — avoid OpenAPI query params (Params name collisions); customizing a generated useQuery `query` option requires an explicit `get...QueryKey()`.
-- [Engram AI lib fixes](engram-ai-lib-fixes.md) — non-obvious fixes for the OpenAI server lib usage in engram generation.
-- [Engram chat SSE](engram-chat-sse.md) — how engram-scoped chat streams in-voice over SSE.
-- [Engram DB table names](engram-db-table-names.md) — table/export naming pointers for the engram schema.
-- [API server testing](api-server-testing.md) — vitest in api-server; must mock `@workspace/db` (eager pg pool) before import; HARD_SAFETY is one shared constant in both PYRI + engram prompts.
-- [Engram engine restart safety](engram-engine-restart-safety.md) — every engine guard (pressure, last-tick, backoff) must be DB-backed, not an in-memory Map, or a restart loop bypasses it.
+- [Offline LLM seam](offline-llm-seam.md) — route model calls through app-level `api-server/src/lib/llm.ts`, NOT the Replit OpenAI integration pkg (it throws at import when cloud env is unset, which breaks local/offline).
