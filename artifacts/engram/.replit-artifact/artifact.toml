@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "ENGRAM — AI Persona Framework"
+version = "1.0.0"
+id = "artifacts/engram"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 25916
+
+[services.development]
+run = "pnpm --filter @workspace/engram run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/engram", "run", "build" ]
+publicDir = "artifacts/engram/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "25916"
+BASE_PATH = "/"

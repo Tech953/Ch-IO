@@ -1,15 +1,32 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: ENGRAM AI Persona Framework API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: personality
+    description: Personality trait operations
+  - name: memory
+    description: Memory layer operations
+  - name: journal
+    description: Reflective journal operations
+  - name: personas
+    description: Persona form operations
+  - name: beliefs
+    description: Belief registry operations
+  - name: evolution
+    description: Evolution log operations
+  - name: initiative
+    description: Initiative event operations
+  - name: hiero
+    description: Hiero-Code symbol operations
+  - name: stats
+    description: System statistics and analytics
 paths:
   /healthz:
     get:
@@ -24,6 +41,302 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /personality:
+    get:
+      operationId: getPersonality
+      tags: [personality]
+      summary: Get personality traits
+      description: Returns the current ENGRAM personality trait values
+      responses:
+        "200":
+          description: Current personality traits
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PersonalityProfile"
+    patch:
+      operationId: updatePersonality
+      tags: [personality]
+      summary: Update personality traits
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PersonalityInput"
+      responses:
+        "200":
+          description: Updated personality traits
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PersonalityProfile"
+
+  /memories:
+    get:
+      operationId: listMemories
+      tags: [memory]
+      summary: List memory entries
+      parameters:
+        - name: layer
+          in: query
+          schema:
+            type: string
+            enum: [working, episodic, semantic, preference, reflective, procedural]
+      responses:
+        "200":
+          description: List of memory entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MemoryEntry"
+    post:
+      operationId: createMemory
+      tags: [memory]
+      summary: Create a memory entry
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MemoryInput"
+      responses:
+        "201":
+          description: Created memory entry
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MemoryEntry"
+
+  /memories/{id}:
+    delete:
+      operationId: deleteMemory
+      tags: [memory]
+      summary: Delete a memory entry
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Memory deleted
+
+  /journal:
+    get:
+      operationId: listJournalEntries
+      tags: [journal]
+      summary: List journal entries
+      responses:
+        "200":
+          description: List of journal entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/JournalEntry"
+    post:
+      operationId: createJournalEntry
+      tags: [journal]
+      summary: Create a journal entry
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JournalInput"
+      responses:
+        "201":
+          description: Created journal entry
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JournalEntry"
+
+  /personas:
+    get:
+      operationId: listPersonas
+      tags: [personas]
+      summary: List all persona forms
+      responses:
+        "200":
+          description: List of persona forms
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Persona"
+
+  /personas/active:
+    patch:
+      operationId: setActivePersona
+      tags: [personas]
+      summary: Switch active persona form
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PersonaActivation"
+      responses:
+        "200":
+          description: Updated active persona
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Persona"
+
+  /beliefs:
+    get:
+      operationId: listBeliefs
+      tags: [beliefs]
+      summary: List all beliefs
+      responses:
+        "200":
+          description: List of beliefs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Belief"
+    post:
+      operationId: createBelief
+      tags: [beliefs]
+      summary: Create a belief
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BeliefInput"
+      responses:
+        "201":
+          description: Created belief
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Belief"
+
+  /beliefs/{id}:
+    patch:
+      operationId: updateBelief
+      tags: [beliefs]
+      summary: Update a belief
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BeliefUpdate"
+      responses:
+        "200":
+          description: Updated belief
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Belief"
+    delete:
+      operationId: deleteBelief
+      tags: [beliefs]
+      summary: Delete a belief
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Belief deleted
+
+  /evolution:
+    get:
+      operationId: listEvolutionLog
+      tags: [evolution]
+      summary: List evolution log entries
+      responses:
+        "200":
+          description: List of evolution log entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EvolutionEntry"
+
+  /initiative:
+    get:
+      operationId: listInitiativeEvents
+      tags: [initiative]
+      summary: List initiative events
+      responses:
+        "200":
+          description: List of initiative events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/InitiativeEvent"
+    post:
+      operationId: createInitiativeEvent
+      tags: [initiative]
+      summary: Log an initiative event
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InitiativeInput"
+      responses:
+        "201":
+          description: Created initiative event
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InitiativeEvent"
+
+  /hiero-code:
+    get:
+      operationId: listHieroSymbols
+      tags: [hiero]
+      summary: List all Hiero-Code symbols
+      responses:
+        "200":
+          description: List of Hiero-Code symbols
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/HieroSymbol"
+
+  /stats:
+    get:
+      operationId: getStats
+      tags: [stats]
+      summary: Get system statistics and analytics summary
+      responses:
+        "200":
+          description: System analytics summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SystemStats"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +347,424 @@ components:
       required:
         - status
 
+    PersonalityProfile:
+      type: object
+      properties:
+        id:
+          type: integer
+        curiosity:
+          type: number
+        humor:
+          type: number
+        stoicism:
+          type: number
+        empathy:
+          type: number
+        formality:
+          type: number
+        skepticism:
+          type: number
+        creativity:
+          type: number
+        initiative:
+          type: number
+        precision:
+          type: number
+        updatedAt:
+          type: string
+      required:
+        - id
+        - curiosity
+        - humor
+        - stoicism
+        - empathy
+        - formality
+        - skepticism
+        - creativity
+        - initiative
+        - precision
+        - updatedAt
+
+    PersonalityInput:
+      type: object
+      properties:
+        curiosity:
+          type: number
+        humor:
+          type: number
+        stoicism:
+          type: number
+        empathy:
+          type: number
+        formality:
+          type: number
+        skepticism:
+          type: number
+        creativity:
+          type: number
+        initiative:
+          type: number
+        precision:
+          type: number
+
+    MemoryEntry:
+      type: object
+      properties:
+        id:
+          type: integer
+        layer:
+          type: string
+          enum: [working, episodic, semantic, preference, reflective, procedural]
+        content:
+          type: string
+        confidence:
+          type: number
+        tags:
+          type: string
+        createdAt:
+          type: string
+        lastAccessed:
+          type: string
+      required:
+        - id
+        - layer
+        - content
+        - confidence
+        - createdAt
+
+    MemoryInput:
+      type: object
+      properties:
+        layer:
+          type: string
+          enum: [working, episodic, semantic, preference, reflective, procedural]
+        content:
+          type: string
+        confidence:
+          type: number
+        tags:
+          type: string
+      required:
+        - layer
+        - content
+        - confidence
+
+    JournalEntry:
+      type: object
+      properties:
+        id:
+          type: integer
+        event:
+          type: string
+        confidence:
+          type: number
+        reflection:
+          type: string
+        actionItems:
+          type: string
+        outcome:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+      required:
+        - id
+        - event
+        - confidence
+        - reflection
+        - actionItems
+        - createdAt
+
+    JournalInput:
+      type: object
+      properties:
+        event:
+          type: string
+        confidence:
+          type: number
+        reflection:
+          type: string
+        actionItems:
+          type: string
+        outcome:
+          type: ["string", "null"]
+      required:
+        - event
+        - confidence
+        - reflection
+        - actionItems
+
+    Persona:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+        emphasis:
+          type: string
+        symbol:
+          type: string
+        isActive:
+          type: boolean
+        memoryBias:
+          type: string
+        reasoningStyle:
+          type: string
+      required:
+        - id
+        - name
+        - description
+        - emphasis
+        - symbol
+        - isActive
+        - memoryBias
+        - reasoningStyle
+
+    PersonaActivation:
+      type: object
+      properties:
+        personaId:
+          type: integer
+      required:
+        - personaId
+
+    Belief:
+      type: object
+      properties:
+        id:
+          type: integer
+        statement:
+          type: string
+        confidence:
+          type: number
+        evidence:
+          type: string
+        counterarguments:
+          type: string
+        lastReviewed:
+          type: string
+        revisionCount:
+          type: integer
+        createdAt:
+          type: string
+      required:
+        - id
+        - statement
+        - confidence
+        - evidence
+        - createdAt
+        - revisionCount
+        - lastReviewed
+
+    BeliefInput:
+      type: object
+      properties:
+        statement:
+          type: string
+        confidence:
+          type: number
+        evidence:
+          type: string
+        counterarguments:
+          type: string
+      required:
+        - statement
+        - confidence
+        - evidence
+
+    BeliefUpdate:
+      type: object
+      properties:
+        statement:
+          type: string
+        confidence:
+          type: number
+        evidence:
+          type: string
+        counterarguments:
+          type: string
+
+    EvolutionEntry:
+      type: object
+      properties:
+        id:
+          type: integer
+        revision:
+          type: integer
+        trigger:
+          type: string
+        description:
+          type: string
+        evidenceConsidered:
+          type: string
+        confidence:
+          type: number
+        expectedImpact:
+          type: string
+        validationOutcome:
+          type: string
+        createdAt:
+          type: string
+      required:
+        - id
+        - revision
+        - trigger
+        - description
+        - confidence
+        - createdAt
+
+    InitiativeEvent:
+      type: object
+      properties:
+        id:
+          type: integer
+        trigger:
+          type: string
+        message:
+          type: string
+        importanceScore:
+          type: number
+        confidenceScore:
+          type: number
+        noveltyScore:
+          type: number
+        overallScore:
+          type: number
+        wasDelivered:
+          type: boolean
+        createdAt:
+          type: string
+      required:
+        - id
+        - trigger
+        - message
+        - importanceScore
+        - confidenceScore
+        - noveltyScore
+        - overallScore
+        - wasDelivered
+        - createdAt
+
+    InitiativeInput:
+      type: object
+      properties:
+        trigger:
+          type: string
+        message:
+          type: string
+        importanceScore:
+          type: number
+        confidenceScore:
+          type: number
+        noveltyScore:
+          type: number
+        overallScore:
+          type: number
+        wasDelivered:
+          type: boolean
+      required:
+        - trigger
+        - message
+        - importanceScore
+        - confidenceScore
+        - noveltyScore
+        - overallScore
+        - wasDelivered
+
+    HieroSymbol:
+      type: object
+      properties:
+        id:
+          type: integer
+        glyph:
+          type: string
+        name:
+          type: string
+        meaning:
+          type: string
+        category:
+          type: string
+        compounds:
+          type: string
+      required:
+        - id
+        - glyph
+        - name
+        - meaning
+        - category
+
+    SystemStats:
+      type: object
+      properties:
+        totalMemories:
+          type: integer
+        totalBeliefs:
+          type: integer
+        totalJournalEntries:
+          type: integer
+        totalInitiativeEvents:
+          type: integer
+        evolutionRevisions:
+          type: integer
+        activePersona:
+          type: string
+        avgBeliefConfidence:
+          type: number
+        memoryByLayer:
+          type: array
+          items:
+            $ref: "#/components/schemas/LayerCount"
+        initiativeByDay:
+          type: array
+          items:
+            $ref: "#/components/schemas/DayCount"
+        beliefConfidenceDistribution:
+          type: array
+          items:
+            $ref: "#/components/schemas/ConfidenceBucket"
+      required:
+        - totalMemories
+        - totalBeliefs
+        - totalJournalEntries
+        - totalInitiativeEvents
+        - evolutionRevisions
+        - activePersona
+        - avgBeliefConfidence
+        - memoryByLayer
+        - initiativeByDay
+        - beliefConfidenceDistribution
+
+    LayerCount:
+      type: object
+      properties:
+        layer:
+          type: string
+        count:
+          type: integer
+      required:
+        - layer
+        - count
+
+    DayCount:
+      type: object
+      properties:
+        date:
+          type: string
+        count:
+          type: integer
+      required:
+        - date
+        - count
+
+    ConfidenceBucket:
+      type: object
+      properties:
+        range:
+          type: string
+        count:
+          type: integer
+      required:
+        - range
+        - count
