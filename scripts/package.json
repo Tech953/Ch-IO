@@ -6,6 +6,7 @@
   "scripts": {
     "hello": "tsx ./src/hello.ts",
     "seed:expressions": "tsx ./src/seed-expressions.ts",
+    "seed:engrams": "tsx ./src/seed-engrams.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

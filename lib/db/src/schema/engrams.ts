@@ -1,0 +1,105 @@
+import {
+  pgTable,
+  serial,
+  text,
+  boolean,
+  integer,
+  real,
+  jsonb,
+  timestamp,
+} from "drizzle-orm/pg-core";
+import { createInsertSchema } from "drizzle-zod";
+import { z } from "zod/v4";
+
+/** A goal-oriented drive that accrues "pressure" over time and can trigger a self-initiated transmission. */
+export interface EngramDrive {
+  id: string;
+  label: string;
+  description: string;
+  /** Importance multiplier (0..1) applied to this drive's pressure when scoring initiation. */
+  weight: number;
+  /** Pressure accrued per second of idle time (0..1 scale, small values). */
+  baseRate: number;
+}
+
+/** How the engram speaks and formats its output. */
+export interface VoiceProfile {
+  speechStyle: string;
+  formatting: string;
+  vocabulary: string[];
+  sampleLines: string[];
+  narrationStyle: string;
+}
+
+/** Affective starting point and stability of the engram. */
+export interface EmotionalBaseline {
+  /** -1 (negative) .. 1 (positive) */
+  valence: number;
+  /** 0 (calm) .. 1 (activated) */
+  arousal: number;
+  /** 0 (stable) .. 1 (volatile) */
+  volatility: number;
+  mood: string;
+}
+
+/** The "state container" world the engram is anchored to (e.g. the Mox basement). */
+export interface EnvironmentAnchor {
+  name: string;
+  description: string;
+  locations: string[];
+  items: string[];
+  ambient: string;
+}
+
+/** Distilled, durable relationship/context memory (NOT the raw transcript). */
+export interface MemorySeed {
+  relationship: string;
+  facts: string[];
+  summary: string;
+}
+
+/** Display copy describing the engram's framing/boundaries. Hard safety limits live in code, not here. */
+export interface Guardrails {
+  framing: string;
+  boundaries: string[];
+}
+
+/** Live per-drive pressure, persisted so autonomy survives restarts. driveId -> pressure (0..1). */
+export type DriveState = Record<string, number>;
+
+export const engramsTable = pgTable("engrams", {
+  id: serial("id").primaryKey(),
+  slug: text("slug").notNull().unique(),
+  name: text("name").notNull(),
+  title: text("title").notNull(),
+  symbol: text("symbol").notNull(),
+  origin: text("origin").notNull(),
+  voiceProfile: jsonb("voice_profile").$type<VoiceProfile>().notNull(),
+  emotionalBaseline: jsonb("emotional_baseline").$type<EmotionalBaseline>().notNull(),
+  environmentAnchor: jsonb("environment_anchor").$type<EnvironmentAnchor>().notNull(),
+  memorySeed: jsonb("memory_seed").$type<MemorySeed>().notNull(),
+  guardrails: jsonb("guardrails").$type<Guardrails>().notNull(),
+  drives: jsonb("drives").$type<EngramDrive[]>().notNull(),
+  focusThemes: jsonb("focus_themes").$type<string[]>().notNull(),
+  // --- Processing-environment config (designable) ---
+  autonomyEnabled: boolean("autonomy_enabled").notNull().default(false),
+  tickCadenceSeconds: integer("tick_cadence_seconds").notNull().default(60),
+  initiationThreshold: real("initiation_threshold").notNull().default(0.6),
+  // --- Live state ---
+  driveState: jsonb("drive_state").$type<DriveState>().notNull().default({}),
+  currentMood: text("current_mood"),
+  lastTickAt: timestamp("last_tick_at", { withTimezone: true }),
+  lastTransmissionAt: timestamp("last_transmission_at", { withTimezone: true }),
+  isChatActive: boolean("is_chat_active").notNull().default(false),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const insertEngramSchema = createInsertSchema(engramsTable).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertEngram = z.infer<typeof insertEngramSchema>;
+export type Engram = typeof engramsTable.$inferSelect;
+export type NewEngram = typeof engramsTable.$inferInsert;

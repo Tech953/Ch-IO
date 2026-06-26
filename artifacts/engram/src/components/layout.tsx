@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
-import { Brain, Activity, Database, BookOpen, Users, Hash, FileCheck2, TrendingUp, BarChart3, MessageSquare } from "lucide-react";
+import { Brain, Activity, Database, BookOpen, Users, Hash, FileCheck2, TrendingUp, BarChart3, MessageSquare, Radio, MessageCircleQuestion } from "lucide-react";
 
 export default function Layout({ children }: { children: ReactNode }) {
   const [location] = useLocation();
@@ -8,6 +8,8 @@ export default function Layout({ children }: { children: ReactNode }) {
   const navItems = [
     { href: "/", label: "Hub", icon: Activity },
     { href: "/chat", label: "Chat", icon: MessageSquare },
+    { href: "/environment", label: "Environment", icon: Radio },
+    { href: "/inquiry", label: "Inquiry", icon: MessageCircleQuestion },
     { href: "/personality", label: "Personality", icon: Brain },
     { href: "/memory", label: "Memory", icon: Database },
     { href: "/journal", label: "Journal", icon: BookOpen },

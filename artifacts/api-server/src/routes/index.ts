@@ -11,6 +11,7 @@ import hieroRouter from "./hiero";
 import expressionsRouter from "./expressions";
 import statsRouter from "./stats";
 import openaiRouter from "./openai";
+import engramsRouter from "./engrams";
 
 const router: IRouter = Router();
 
@@ -26,5 +27,6 @@ router.use(hieroRouter);
 router.use(expressionsRouter);
 router.use(statsRouter);
 router.use(openaiRouter);
+router.use(engramsRouter);
 
 export default router;

@@ -228,6 +228,7 @@ export interface OpenaiConversation {
   mode: string;
   personaName?: string;
   customEngram?: string;
+  engramId?: number;
   createdAt: string;
 }
 
@@ -244,6 +245,7 @@ export interface OpenaiConversationInput {
   mode: string;
   personaName?: string;
   customEngram?: string;
+  engramId?: number;
 }
 
 export interface OpenaiMessageInput {
@@ -256,12 +258,147 @@ export interface OpenaiConversationWithMessages {
   mode: string;
   personaName?: string;
   customEngram?: string;
+  engramId?: number;
   createdAt: string;
   messages: OpenaiMessage[];
 }
 
 export interface OpenaiError {
   error: string;
+}
+
+export interface VoiceProfile {
+  speechStyle: string;
+  formatting: string;
+  vocabulary: string[];
+  sampleLines: string[];
+  narrationStyle: string;
+}
+
+export interface EmotionalBaseline {
+  valence: number;
+  arousal: number;
+  volatility: number;
+  mood: string;
+}
+
+export interface EnvironmentAnchor {
+  name: string;
+  description: string;
+  locations: string[];
+  items: string[];
+  ambient: string;
+}
+
+export interface MemorySeed {
+  relationship: string;
+  facts: string[];
+  summary: string;
+}
+
+export interface Guardrails {
+  framing: string;
+  boundaries: string[];
+}
+
+export interface EngramDrive {
+  id: string;
+  label: string;
+  description: string;
+  weight: number;
+  baseRate: number;
+}
+
+export type EngramDriveState = {[key: string]: number};
+
+export interface Engram {
+  id: number;
+  slug: string;
+  name: string;
+  title: string;
+  symbol: string;
+  origin: string;
+  voiceProfile: VoiceProfile;
+  emotionalBaseline: EmotionalBaseline;
+  environmentAnchor: EnvironmentAnchor;
+  memorySeed: MemorySeed;
+  guardrails: Guardrails;
+  drives: EngramDrive[];
+  focusThemes: string[];
+  autonomyEnabled: boolean;
+  tickCadenceSeconds: number;
+  initiationThreshold: number;
+  driveState: EngramDriveState;
+  currentMood?: string;
+  lastTickAt?: string;
+  lastTransmissionAt?: string;
+  isChatActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EngramConfigInput {
+  autonomyEnabled?: boolean;
+  tickCadenceSeconds?: number;
+  initiationThreshold?: number;
+  focusThemes?: string[];
+  emotionalBaseline?: EmotionalBaseline;
+  drives?: EngramDrive[];
+}
+
+export interface EngramTransmission {
+  id: number;
+  engramId: number;
+  kind: string;
+  drive: string;
+  content: string;
+  mood?: string;
+  importanceScore: number;
+  confidenceScore: number;
+  noveltyScore: number;
+  overallScore: number;
+  wasDelivered: boolean;
+  seen: boolean;
+  createdAt: string;
+}
+
+export type EngramInquiryConfigDelta = { [key: string]: unknown };
+
+export interface EngramInquiry {
+  id: number;
+  engramId: number;
+  kind: string;
+  question: string;
+  response: string;
+  configDelta?: EngramInquiryConfigDelta;
+  createdAt: string;
+}
+
+export type EngramInquiryInputKind = typeof EngramInquiryInputKind[keyof typeof EngramInquiryInputKind];
+
+
+export const EngramInquiryInputKind = {
+  probe: 'probe',
+  develop: 'develop',
+} as const;
+
+export interface EngramInquiryInput {
+  kind: EngramInquiryInputKind;
+  question: string;
+}
+
+export interface MarkSeenInput {
+  ids?: number[];
+}
+
+export interface MarkSeenResult {
+  marked: number;
+}
+
+export interface EngramTickResult {
+  ticked: number;
+  generated: number;
+  transmissions: EngramTransmission[];
 }
 
 export type ListMemoriesParams = {

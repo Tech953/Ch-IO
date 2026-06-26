@@ -23,6 +23,12 @@ import type {
   Belief,
   BeliefInput,
   BeliefUpdate,
+  Engram,
+  EngramConfigInput,
+  EngramInquiry,
+  EngramInquiryInput,
+  EngramTickResult,
+  EngramTransmission,
   EvolutionEntry,
   Expression,
   HealthStatus,
@@ -32,6 +38,8 @@ import type {
   JournalEntry,
   JournalInput,
   ListMemoriesParams,
+  MarkSeenInput,
+  MarkSeenResult,
   MemoryEntry,
   MemoryInput,
   OpenaiConversation,
@@ -2001,5 +2009,736 @@ export const useSendOpenaiMessage = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getSendOpenaiMessageMutationOptions(options));
+    }
+
+export const getListEngramsUrl = () => {
+
+
+
+
+  return `/api/engrams`
+}
+
+/**
+ * @summary List all engrams
+ */
+export const listEngrams = async ( options?: RequestInit): Promise<Engram[]> => {
+
+  return customFetch<Engram[]>(getListEngramsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListEngramsQueryKey = () => {
+    return [
+    `/api/engrams`
+    ] as const;
+    }
+
+
+export const getListEngramsQueryOptions = <TData = Awaited<ReturnType<typeof listEngrams>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listEngrams>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListEngramsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listEngrams>>> = ({ signal }) => listEngrams({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listEngrams>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListEngramsQueryResult = NonNullable<Awaited<ReturnType<typeof listEngrams>>>
+export type ListEngramsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List all engrams
+ */
+
+export function useListEngrams<TData = Awaited<ReturnType<typeof listEngrams>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listEngrams>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListEngramsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getTickEngramsUrl = () => {
+
+
+
+
+  return `/api/engrams/tick`
+}
+
+/**
+ * @summary Run one autonomy tick across all enabled engrams (manual/dev trigger)
+ */
+export const tickEngrams = async ( options?: RequestInit): Promise<EngramTickResult> => {
+
+  return customFetch<EngramTickResult>(getTickEngramsUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getTickEngramsMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof tickEngrams>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof tickEngrams>>, TError,void, TContext> => {
+
+const mutationKey = ['tickEngrams'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof tickEngrams>>, void> = () => {
+
+
+          return  tickEngrams(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type TickEngramsMutationResult = NonNullable<Awaited<ReturnType<typeof tickEngrams>>>
+
+    export type TickEngramsMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Run one autonomy tick across all enabled engrams (manual/dev trigger)
+ */
+export const useTickEngrams = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof tickEngrams>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof tickEngrams>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getTickEngramsMutationOptions(options));
+    }
+
+export const getGetEngramUrl = (id: number,) => {
+
+
+
+
+  return `/api/engrams/${id}`
+}
+
+/**
+ * @summary Get a single engram
+ */
+export const getEngram = async (id: number, options?: RequestInit): Promise<Engram> => {
+
+  return customFetch<Engram>(getGetEngramUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetEngramQueryKey = (id: number,) => {
+    return [
+    `/api/engrams/${id}`
+    ] as const;
+    }
+
+
+export const getGetEngramQueryOptions = <TData = Awaited<ReturnType<typeof getEngram>>, TError = ErrorType<OpenaiError>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getEngram>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetEngramQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getEngram>>> = ({ signal }) => getEngram(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getEngram>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetEngramQueryResult = NonNullable<Awaited<ReturnType<typeof getEngram>>>
+export type GetEngramQueryError = ErrorType<OpenaiError>
+
+
+/**
+ * @summary Get a single engram
+ */
+
+export function useGetEngram<TData = Awaited<ReturnType<typeof getEngram>>, TError = ErrorType<OpenaiError>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getEngram>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetEngramQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateEngramConfigUrl = (id: number,) => {
+
+
+
+
+  return `/api/engrams/${id}`
+}
+
+/**
+ * @summary Update an engram's designable processing-environment config
+ */
+export const updateEngramConfig = async (id: number,
+    engramConfigInput: EngramConfigInput, options?: RequestInit): Promise<Engram> => {
+
+  return customFetch<Engram>(getUpdateEngramConfigUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(engramConfigInput)
+  }
+);}
+
+
+
+
+export const getUpdateEngramConfigMutationOptions = <TError = ErrorType<OpenaiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateEngramConfig>>, TError,{id: number;data: BodyType<EngramConfigInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateEngramConfig>>, TError,{id: number;data: BodyType<EngramConfigInput>}, TContext> => {
+
+const mutationKey = ['updateEngramConfig'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateEngramConfig>>, {id: number;data: BodyType<EngramConfigInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateEngramConfig(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateEngramConfigMutationResult = NonNullable<Awaited<ReturnType<typeof updateEngramConfig>>>
+    export type UpdateEngramConfigMutationBody = BodyType<EngramConfigInput>
+    export type UpdateEngramConfigMutationError = ErrorType<OpenaiError>
+
+    /**
+ * @summary Update an engram's designable processing-environment config
+ */
+export const useUpdateEngramConfig = <TError = ErrorType<OpenaiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateEngramConfig>>, TError,{id: number;data: BodyType<EngramConfigInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateEngramConfig>>,
+        TError,
+        {id: number;data: BodyType<EngramConfigInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateEngramConfigMutationOptions(options));
+    }
+
+export const getActivateEngramUrl = (id: number,) => {
+
+
+
+
+  return `/api/engrams/${id}/activate`
+}
+
+/**
+ * @summary Make this engram the active chat engram (exclusive)
+ */
+export const activateEngram = async (id: number, options?: RequestInit): Promise<Engram> => {
+
+  return customFetch<Engram>(getActivateEngramUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getActivateEngramMutationOptions = <TError = ErrorType<OpenaiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof activateEngram>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof activateEngram>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['activateEngram'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof activateEngram>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  activateEngram(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ActivateEngramMutationResult = NonNullable<Awaited<ReturnType<typeof activateEngram>>>
+
+    export type ActivateEngramMutationError = ErrorType<OpenaiError>
+
+    /**
+ * @summary Make this engram the active chat engram (exclusive)
+ */
+export const useActivateEngram = <TError = ErrorType<OpenaiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof activateEngram>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof activateEngram>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getActivateEngramMutationOptions(options));
+    }
+
+export const getTransmitEngramUrl = (id: number,) => {
+
+
+
+
+  return `/api/engrams/${id}/transmit`
+}
+
+/**
+ * @summary Force the engram to generate one transmission now (bypasses threshold)
+ */
+export const transmitEngram = async (id: number, options?: RequestInit): Promise<EngramTransmission> => {
+
+  return customFetch<EngramTransmission>(getTransmitEngramUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getTransmitEngramMutationOptions = <TError = ErrorType<OpenaiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof transmitEngram>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof transmitEngram>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['transmitEngram'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof transmitEngram>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  transmitEngram(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type TransmitEngramMutationResult = NonNullable<Awaited<ReturnType<typeof transmitEngram>>>
+
+    export type TransmitEngramMutationError = ErrorType<OpenaiError>
+
+    /**
+ * @summary Force the engram to generate one transmission now (bypasses threshold)
+ */
+export const useTransmitEngram = <TError = ErrorType<OpenaiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof transmitEngram>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof transmitEngram>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getTransmitEngramMutationOptions(options));
+    }
+
+export const getListEngramTransmissionsUrl = (id: number,) => {
+
+
+
+
+  return `/api/engrams/${id}/transmissions`
+}
+
+/**
+ * @summary List an engram's transmissions (most recent first)
+ */
+export const listEngramTransmissions = async (id: number, options?: RequestInit): Promise<EngramTransmission[]> => {
+
+  return customFetch<EngramTransmission[]>(getListEngramTransmissionsUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListEngramTransmissionsQueryKey = (id: number,) => {
+    return [
+    `/api/engrams/${id}/transmissions`
+    ] as const;
+    }
+
+
+export const getListEngramTransmissionsQueryOptions = <TData = Awaited<ReturnType<typeof listEngramTransmissions>>, TError = ErrorType<unknown>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listEngramTransmissions>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListEngramTransmissionsQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listEngramTransmissions>>> = ({ signal }) => listEngramTransmissions(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listEngramTransmissions>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListEngramTransmissionsQueryResult = NonNullable<Awaited<ReturnType<typeof listEngramTransmissions>>>
+export type ListEngramTransmissionsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List an engram's transmissions (most recent first)
+ */
+
+export function useListEngramTransmissions<TData = Awaited<ReturnType<typeof listEngramTransmissions>>, TError = ErrorType<unknown>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listEngramTransmissions>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListEngramTransmissionsQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getMarkTransmissionsSeenUrl = (id: number,) => {
+
+
+
+
+  return `/api/engrams/${id}/transmissions/mark-seen`
+}
+
+/**
+ * @summary Mark transmissions as seen
+ */
+export const markTransmissionsSeen = async (id: number,
+    markSeenInput: MarkSeenInput, options?: RequestInit): Promise<MarkSeenResult> => {
+
+  return customFetch<MarkSeenResult>(getMarkTransmissionsSeenUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(markSeenInput)
+  }
+);}
+
+
+
+
+export const getMarkTransmissionsSeenMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof markTransmissionsSeen>>, TError,{id: number;data: BodyType<MarkSeenInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof markTransmissionsSeen>>, TError,{id: number;data: BodyType<MarkSeenInput>}, TContext> => {
+
+const mutationKey = ['markTransmissionsSeen'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof markTransmissionsSeen>>, {id: number;data: BodyType<MarkSeenInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  markTransmissionsSeen(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type MarkTransmissionsSeenMutationResult = NonNullable<Awaited<ReturnType<typeof markTransmissionsSeen>>>
+    export type MarkTransmissionsSeenMutationBody = BodyType<MarkSeenInput>
+    export type MarkTransmissionsSeenMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Mark transmissions as seen
+ */
+export const useMarkTransmissionsSeen = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof markTransmissionsSeen>>, TError,{id: number;data: BodyType<MarkSeenInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof markTransmissionsSeen>>,
+        TError,
+        {id: number;data: BodyType<MarkSeenInput>},
+        TContext
+      > => {
+      return useMutation(getMarkTransmissionsSeenMutationOptions(options));
+    }
+
+export const getListEngramInquiriesUrl = (id: number,) => {
+
+
+
+
+  return `/api/engrams/${id}/inquiries`
+}
+
+/**
+ * @summary List inquiry history for an engram
+ */
+export const listEngramInquiries = async (id: number, options?: RequestInit): Promise<EngramInquiry[]> => {
+
+  return customFetch<EngramInquiry[]>(getListEngramInquiriesUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListEngramInquiriesQueryKey = (id: number,) => {
+    return [
+    `/api/engrams/${id}/inquiries`
+    ] as const;
+    }
+
+
+export const getListEngramInquiriesQueryOptions = <TData = Awaited<ReturnType<typeof listEngramInquiries>>, TError = ErrorType<unknown>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listEngramInquiries>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListEngramInquiriesQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listEngramInquiries>>> = ({ signal }) => listEngramInquiries(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listEngramInquiries>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListEngramInquiriesQueryResult = NonNullable<Awaited<ReturnType<typeof listEngramInquiries>>>
+export type ListEngramInquiriesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List inquiry history for an engram
+ */
+
+export function useListEngramInquiries<TData = Awaited<ReturnType<typeof listEngramInquiries>>, TError = ErrorType<unknown>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listEngramInquiries>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListEngramInquiriesQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateEngramInquiryUrl = (id: number,) => {
+
+
+
+
+  return `/api/engrams/${id}/inquiries`
+}
+
+/**
+ * @summary Submit a probe or develop inquiry to an engram
+ */
+export const createEngramInquiry = async (id: number,
+    engramInquiryInput: EngramInquiryInput, options?: RequestInit): Promise<EngramInquiry> => {
+
+  return customFetch<EngramInquiry>(getCreateEngramInquiryUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(engramInquiryInput)
+  }
+);}
+
+
+
+
+export const getCreateEngramInquiryMutationOptions = <TError = ErrorType<OpenaiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createEngramInquiry>>, TError,{id: number;data: BodyType<EngramInquiryInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createEngramInquiry>>, TError,{id: number;data: BodyType<EngramInquiryInput>}, TContext> => {
+
+const mutationKey = ['createEngramInquiry'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createEngramInquiry>>, {id: number;data: BodyType<EngramInquiryInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  createEngramInquiry(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateEngramInquiryMutationResult = NonNullable<Awaited<ReturnType<typeof createEngramInquiry>>>
+    export type CreateEngramInquiryMutationBody = BodyType<EngramInquiryInput>
+    export type CreateEngramInquiryMutationError = ErrorType<OpenaiError>
+
+    /**
+ * @summary Submit a probe or develop inquiry to an engram
+ */
+export const useCreateEngramInquiry = <TError = ErrorType<OpenaiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createEngramInquiry>>, TError,{id: number;data: BodyType<EngramInquiryInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createEngramInquiry>>,
+        TError,
+        {id: number;data: BodyType<EngramInquiryInput>},
+        TContext
+      > => {
+      return useMutation(getCreateEngramInquiryMutationOptions(options));
     }
 

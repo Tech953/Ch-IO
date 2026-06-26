@@ -31,6 +31,8 @@ tags:
     description: System statistics and analytics
   - name: openai
     description: OpenAI AI chat operations
+  - name: engrams
+    description: Engram processing environment operations
 paths:
   /healthz:
     get:
@@ -473,6 +475,240 @@ paths:
           description: SSE stream of assistant text chunks
           content:
             text/event-stream: {}
+
+  /engrams:
+    get:
+      operationId: listEngrams
+      tags: [engrams]
+      summary: List all engrams
+      responses:
+        "200":
+          description: List of engrams
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Engram"
+
+  /engrams/tick:
+    post:
+      operationId: tickEngrams
+      tags: [engrams]
+      summary: Run one autonomy tick across all enabled engrams (manual/dev trigger)
+      responses:
+        "200":
+          description: Tick result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EngramTickResult"
+
+  /engrams/{id}:
+    get:
+      operationId: getEngram
+      tags: [engrams]
+      summary: Get a single engram
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Engram
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Engram"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpenaiError"
+    patch:
+      operationId: updateEngramConfig
+      tags: [engrams]
+      summary: Update an engram's designable processing-environment config
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EngramConfigInput"
+      responses:
+        "200":
+          description: Updated engram
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Engram"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpenaiError"
+
+  /engrams/{id}/activate:
+    post:
+      operationId: activateEngram
+      tags: [engrams]
+      summary: Make this engram the active chat engram (exclusive)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Updated engram
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Engram"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpenaiError"
+
+  /engrams/{id}/transmit:
+    post:
+      operationId: transmitEngram
+      tags: [engrams]
+      summary: Force the engram to generate one transmission now (bypasses threshold)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "201":
+          description: Generated transmission
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EngramTransmission"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpenaiError"
+        "503":
+          description: Generation unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpenaiError"
+
+  /engrams/{id}/transmissions:
+    get:
+      operationId: listEngramTransmissions
+      tags: [engrams]
+      summary: List an engram's transmissions (most recent first)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of transmissions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EngramTransmission"
+
+  /engrams/{id}/transmissions/mark-seen:
+    post:
+      operationId: markTransmissionsSeen
+      tags: [engrams]
+      summary: Mark transmissions as seen
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MarkSeenInput"
+      responses:
+        "200":
+          description: Count marked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarkSeenResult"
+
+  /engrams/{id}/inquiries:
+    get:
+      operationId: listEngramInquiries
+      tags: [engrams]
+      summary: List inquiry history for an engram
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of inquiries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EngramInquiry"
+    post:
+      operationId: createEngramInquiry
+      tags: [engrams]
+      summary: Submit a probe or develop inquiry to an engram
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EngramInquiryInput"
+      responses:
+        "201":
+          description: Inquiry result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EngramInquiry"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpenaiError"
 
 components:
   schemas:
@@ -960,6 +1196,8 @@ components:
           type: string
         customEngram:
           type: string
+        engramId:
+          type: integer
         createdAt:
           type: string
           format: date-time
@@ -999,6 +1237,8 @@ components:
           type: string
         customEngram:
           type: string
+        engramId:
+          type: integer
       required:
         - title
         - mode
@@ -1022,6 +1262,8 @@ components:
           type: string
         customEngram:
           type: string
+        engramId:
+          type: integer
         createdAt:
           type: string
           format: date-time
@@ -1042,3 +1284,327 @@ components:
           type: string
       required:
         - error
+
+    VoiceProfile:
+      type: object
+      properties:
+        speechStyle:
+          type: string
+        formatting:
+          type: string
+        vocabulary:
+          type: array
+          items:
+            type: string
+        sampleLines:
+          type: array
+          items:
+            type: string
+        narrationStyle:
+          type: string
+      required:
+        - speechStyle
+        - formatting
+        - vocabulary
+        - sampleLines
+        - narrationStyle
+
+    EmotionalBaseline:
+      type: object
+      properties:
+        valence:
+          type: number
+        arousal:
+          type: number
+        volatility:
+          type: number
+        mood:
+          type: string
+      required:
+        - valence
+        - arousal
+        - volatility
+        - mood
+
+    EnvironmentAnchor:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        locations:
+          type: array
+          items:
+            type: string
+        items:
+          type: array
+          items:
+            type: string
+        ambient:
+          type: string
+      required:
+        - name
+        - description
+        - locations
+        - items
+        - ambient
+
+    MemorySeed:
+      type: object
+      properties:
+        relationship:
+          type: string
+        facts:
+          type: array
+          items:
+            type: string
+        summary:
+          type: string
+      required:
+        - relationship
+        - facts
+        - summary
+
+    Guardrails:
+      type: object
+      properties:
+        framing:
+          type: string
+        boundaries:
+          type: array
+          items:
+            type: string
+      required:
+        - framing
+        - boundaries
+
+    EngramDrive:
+      type: object
+      properties:
+        id:
+          type: string
+        label:
+          type: string
+        description:
+          type: string
+        weight:
+          type: number
+        baseRate:
+          type: number
+      required:
+        - id
+        - label
+        - description
+        - weight
+        - baseRate
+
+    Engram:
+      type: object
+      properties:
+        id:
+          type: integer
+        slug:
+          type: string
+        name:
+          type: string
+        title:
+          type: string
+        symbol:
+          type: string
+        origin:
+          type: string
+        voiceProfile:
+          $ref: "#/components/schemas/VoiceProfile"
+        emotionalBaseline:
+          $ref: "#/components/schemas/EmotionalBaseline"
+        environmentAnchor:
+          $ref: "#/components/schemas/EnvironmentAnchor"
+        memorySeed:
+          $ref: "#/components/schemas/MemorySeed"
+        guardrails:
+          $ref: "#/components/schemas/Guardrails"
+        drives:
+          type: array
+          items:
+            $ref: "#/components/schemas/EngramDrive"
+        focusThemes:
+          type: array
+          items:
+            type: string
+        autonomyEnabled:
+          type: boolean
+        tickCadenceSeconds:
+          type: integer
+        initiationThreshold:
+          type: number
+        driveState:
+          type: object
+          additionalProperties:
+            type: number
+        currentMood:
+          type: string
+        lastTickAt:
+          type: string
+        lastTransmissionAt:
+          type: string
+        isChatActive:
+          type: boolean
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - slug
+        - name
+        - title
+        - symbol
+        - origin
+        - voiceProfile
+        - emotionalBaseline
+        - environmentAnchor
+        - memorySeed
+        - guardrails
+        - drives
+        - focusThemes
+        - autonomyEnabled
+        - tickCadenceSeconds
+        - initiationThreshold
+        - driveState
+        - isChatActive
+        - createdAt
+        - updatedAt
+
+    EngramConfigInput:
+      type: object
+      properties:
+        autonomyEnabled:
+          type: boolean
+        tickCadenceSeconds:
+          type: integer
+        initiationThreshold:
+          type: number
+        focusThemes:
+          type: array
+          items:
+            type: string
+        emotionalBaseline:
+          $ref: "#/components/schemas/EmotionalBaseline"
+        drives:
+          type: array
+          items:
+            $ref: "#/components/schemas/EngramDrive"
+
+    EngramTransmission:
+      type: object
+      properties:
+        id:
+          type: integer
+        engramId:
+          type: integer
+        kind:
+          type: string
+        drive:
+          type: string
+        content:
+          type: string
+        mood:
+          type: string
+        importanceScore:
+          type: number
+        confidenceScore:
+          type: number
+        noveltyScore:
+          type: number
+        overallScore:
+          type: number
+        wasDelivered:
+          type: boolean
+        seen:
+          type: boolean
+        createdAt:
+          type: string
+      required:
+        - id
+        - engramId
+        - kind
+        - drive
+        - content
+        - importanceScore
+        - confidenceScore
+        - noveltyScore
+        - overallScore
+        - wasDelivered
+        - seen
+        - createdAt
+
+    EngramInquiry:
+      type: object
+      properties:
+        id:
+          type: integer
+        engramId:
+          type: integer
+        kind:
+          type: string
+        question:
+          type: string
+        response:
+          type: string
+        configDelta:
+          type: object
+          additionalProperties: true
+        createdAt:
+          type: string
+      required:
+        - id
+        - engramId
+        - kind
+        - question
+        - response
+        - createdAt
+
+    EngramInquiryInput:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum: [probe, develop]
+        question:
+          type: string
+      required:
+        - kind
+        - question
+
+    MarkSeenInput:
+      type: object
+      properties:
+        ids:
+          type: array
+          items:
+            type: integer
+
+    MarkSeenResult:
+      type: object
+      properties:
+        marked:
+          type: integer
+      required:
+        - marked
+
+    EngramTickResult:
+      type: object
+      properties:
+        ticked:
+          type: integer
+        generated:
+          type: integer
+        transmissions:
+          type: array
+          items:
+            $ref: "#/components/schemas/EngramTransmission"
+      required:
+        - ticked
+        - generated
+        - transmissions

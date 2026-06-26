@@ -391,6 +391,7 @@ export const ListOpenaiConversationsResponseItem = zod.object({
   "mode": zod.string(),
   "personaName": zod.string().optional(),
   "customEngram": zod.string().optional(),
+  "engramId": zod.number().optional(),
   "createdAt": zod.coerce.date()
 })
 export const ListOpenaiConversationsResponse = zod.array(ListOpenaiConversationsResponseItem)
@@ -403,7 +404,8 @@ export const CreateOpenaiConversationBody = zod.object({
   "title": zod.string(),
   "mode": zod.string(),
   "personaName": zod.string().optional(),
-  "customEngram": zod.string().optional()
+  "customEngram": zod.string().optional(),
+  "engramId": zod.number().optional()
 })
 
 export const CreateOpenaiConversationResponse = zod.object({
@@ -412,6 +414,7 @@ export const CreateOpenaiConversationResponse = zod.object({
   "mode": zod.string(),
   "personaName": zod.string().optional(),
   "customEngram": zod.string().optional(),
+  "engramId": zod.number().optional(),
   "createdAt": zod.coerce.date()
 })
 
@@ -429,6 +432,7 @@ export const GetOpenaiConversationResponse = zod.object({
   "mode": zod.string(),
   "personaName": zod.string().optional(),
   "customEngram": zod.string().optional(),
+  "engramId": zod.number().optional(),
   "createdAt": zod.coerce.date(),
   "messages": zod.array(zod.object({
   "id": zod.number(),
@@ -479,5 +483,409 @@ export const SendOpenaiMessageBody = zod.object({
 })
 
 export const SendOpenaiMessageResponse = zod.unknown()
+
+
+/**
+ * @summary List all engrams
+ */
+export const ListEngramsResponseItem = zod.object({
+  "id": zod.number(),
+  "slug": zod.string(),
+  "name": zod.string(),
+  "title": zod.string(),
+  "symbol": zod.string(),
+  "origin": zod.string(),
+  "voiceProfile": zod.object({
+  "speechStyle": zod.string(),
+  "formatting": zod.string(),
+  "vocabulary": zod.array(zod.string()),
+  "sampleLines": zod.array(zod.string()),
+  "narrationStyle": zod.string()
+}),
+  "emotionalBaseline": zod.object({
+  "valence": zod.number(),
+  "arousal": zod.number(),
+  "volatility": zod.number(),
+  "mood": zod.string()
+}),
+  "environmentAnchor": zod.object({
+  "name": zod.string(),
+  "description": zod.string(),
+  "locations": zod.array(zod.string()),
+  "items": zod.array(zod.string()),
+  "ambient": zod.string()
+}),
+  "memorySeed": zod.object({
+  "relationship": zod.string(),
+  "facts": zod.array(zod.string()),
+  "summary": zod.string()
+}),
+  "guardrails": zod.object({
+  "framing": zod.string(),
+  "boundaries": zod.array(zod.string())
+}),
+  "drives": zod.array(zod.object({
+  "id": zod.string(),
+  "label": zod.string(),
+  "description": zod.string(),
+  "weight": zod.number(),
+  "baseRate": zod.number()
+})),
+  "focusThemes": zod.array(zod.string()),
+  "autonomyEnabled": zod.boolean(),
+  "tickCadenceSeconds": zod.number(),
+  "initiationThreshold": zod.number(),
+  "driveState": zod.record(zod.string(), zod.number()),
+  "currentMood": zod.string().optional(),
+  "lastTickAt": zod.string().optional(),
+  "lastTransmissionAt": zod.string().optional(),
+  "isChatActive": zod.boolean(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+export const ListEngramsResponse = zod.array(ListEngramsResponseItem)
+
+
+/**
+ * @summary Run one autonomy tick across all enabled engrams (manual/dev trigger)
+ */
+export const TickEngramsResponse = zod.object({
+  "ticked": zod.number(),
+  "generated": zod.number(),
+  "transmissions": zod.array(zod.object({
+  "id": zod.number(),
+  "engramId": zod.number(),
+  "kind": zod.string(),
+  "drive": zod.string(),
+  "content": zod.string(),
+  "mood": zod.string().optional(),
+  "importanceScore": zod.number(),
+  "confidenceScore": zod.number(),
+  "noveltyScore": zod.number(),
+  "overallScore": zod.number(),
+  "wasDelivered": zod.boolean(),
+  "seen": zod.boolean(),
+  "createdAt": zod.string()
+}))
+})
+
+
+/**
+ * @summary Get a single engram
+ */
+export const GetEngramParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetEngramResponse = zod.object({
+  "id": zod.number(),
+  "slug": zod.string(),
+  "name": zod.string(),
+  "title": zod.string(),
+  "symbol": zod.string(),
+  "origin": zod.string(),
+  "voiceProfile": zod.object({
+  "speechStyle": zod.string(),
+  "formatting": zod.string(),
+  "vocabulary": zod.array(zod.string()),
+  "sampleLines": zod.array(zod.string()),
+  "narrationStyle": zod.string()
+}),
+  "emotionalBaseline": zod.object({
+  "valence": zod.number(),
+  "arousal": zod.number(),
+  "volatility": zod.number(),
+  "mood": zod.string()
+}),
+  "environmentAnchor": zod.object({
+  "name": zod.string(),
+  "description": zod.string(),
+  "locations": zod.array(zod.string()),
+  "items": zod.array(zod.string()),
+  "ambient": zod.string()
+}),
+  "memorySeed": zod.object({
+  "relationship": zod.string(),
+  "facts": zod.array(zod.string()),
+  "summary": zod.string()
+}),
+  "guardrails": zod.object({
+  "framing": zod.string(),
+  "boundaries": zod.array(zod.string())
+}),
+  "drives": zod.array(zod.object({
+  "id": zod.string(),
+  "label": zod.string(),
+  "description": zod.string(),
+  "weight": zod.number(),
+  "baseRate": zod.number()
+})),
+  "focusThemes": zod.array(zod.string()),
+  "autonomyEnabled": zod.boolean(),
+  "tickCadenceSeconds": zod.number(),
+  "initiationThreshold": zod.number(),
+  "driveState": zod.record(zod.string(), zod.number()),
+  "currentMood": zod.string().optional(),
+  "lastTickAt": zod.string().optional(),
+  "lastTransmissionAt": zod.string().optional(),
+  "isChatActive": zod.boolean(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary Update an engram's designable processing-environment config
+ */
+export const UpdateEngramConfigParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateEngramConfigBody = zod.object({
+  "autonomyEnabled": zod.boolean().optional(),
+  "tickCadenceSeconds": zod.number().optional(),
+  "initiationThreshold": zod.number().optional(),
+  "focusThemes": zod.array(zod.string()).optional(),
+  "emotionalBaseline": zod.object({
+  "valence": zod.number(),
+  "arousal": zod.number(),
+  "volatility": zod.number(),
+  "mood": zod.string()
+}).optional(),
+  "drives": zod.array(zod.object({
+  "id": zod.string(),
+  "label": zod.string(),
+  "description": zod.string(),
+  "weight": zod.number(),
+  "baseRate": zod.number()
+})).optional()
+})
+
+export const UpdateEngramConfigResponse = zod.object({
+  "id": zod.number(),
+  "slug": zod.string(),
+  "name": zod.string(),
+  "title": zod.string(),
+  "symbol": zod.string(),
+  "origin": zod.string(),
+  "voiceProfile": zod.object({
+  "speechStyle": zod.string(),
+  "formatting": zod.string(),
+  "vocabulary": zod.array(zod.string()),
+  "sampleLines": zod.array(zod.string()),
+  "narrationStyle": zod.string()
+}),
+  "emotionalBaseline": zod.object({
+  "valence": zod.number(),
+  "arousal": zod.number(),
+  "volatility": zod.number(),
+  "mood": zod.string()
+}),
+  "environmentAnchor": zod.object({
+  "name": zod.string(),
+  "description": zod.string(),
+  "locations": zod.array(zod.string()),
+  "items": zod.array(zod.string()),
+  "ambient": zod.string()
+}),
+  "memorySeed": zod.object({
+  "relationship": zod.string(),
+  "facts": zod.array(zod.string()),
+  "summary": zod.string()
+}),
+  "guardrails": zod.object({
+  "framing": zod.string(),
+  "boundaries": zod.array(zod.string())
+}),
+  "drives": zod.array(zod.object({
+  "id": zod.string(),
+  "label": zod.string(),
+  "description": zod.string(),
+  "weight": zod.number(),
+  "baseRate": zod.number()
+})),
+  "focusThemes": zod.array(zod.string()),
+  "autonomyEnabled": zod.boolean(),
+  "tickCadenceSeconds": zod.number(),
+  "initiationThreshold": zod.number(),
+  "driveState": zod.record(zod.string(), zod.number()),
+  "currentMood": zod.string().optional(),
+  "lastTickAt": zod.string().optional(),
+  "lastTransmissionAt": zod.string().optional(),
+  "isChatActive": zod.boolean(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary Make this engram the active chat engram (exclusive)
+ */
+export const ActivateEngramParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ActivateEngramResponse = zod.object({
+  "id": zod.number(),
+  "slug": zod.string(),
+  "name": zod.string(),
+  "title": zod.string(),
+  "symbol": zod.string(),
+  "origin": zod.string(),
+  "voiceProfile": zod.object({
+  "speechStyle": zod.string(),
+  "formatting": zod.string(),
+  "vocabulary": zod.array(zod.string()),
+  "sampleLines": zod.array(zod.string()),
+  "narrationStyle": zod.string()
+}),
+  "emotionalBaseline": zod.object({
+  "valence": zod.number(),
+  "arousal": zod.number(),
+  "volatility": zod.number(),
+  "mood": zod.string()
+}),
+  "environmentAnchor": zod.object({
+  "name": zod.string(),
+  "description": zod.string(),
+  "locations": zod.array(zod.string()),
+  "items": zod.array(zod.string()),
+  "ambient": zod.string()
+}),
+  "memorySeed": zod.object({
+  "relationship": zod.string(),
+  "facts": zod.array(zod.string()),
+  "summary": zod.string()
+}),
+  "guardrails": zod.object({
+  "framing": zod.string(),
+  "boundaries": zod.array(zod.string())
+}),
+  "drives": zod.array(zod.object({
+  "id": zod.string(),
+  "label": zod.string(),
+  "description": zod.string(),
+  "weight": zod.number(),
+  "baseRate": zod.number()
+})),
+  "focusThemes": zod.array(zod.string()),
+  "autonomyEnabled": zod.boolean(),
+  "tickCadenceSeconds": zod.number(),
+  "initiationThreshold": zod.number(),
+  "driveState": zod.record(zod.string(), zod.number()),
+  "currentMood": zod.string().optional(),
+  "lastTickAt": zod.string().optional(),
+  "lastTransmissionAt": zod.string().optional(),
+  "isChatActive": zod.boolean(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary Force the engram to generate one transmission now (bypasses threshold)
+ */
+export const TransmitEngramParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const TransmitEngramResponse = zod.object({
+  "id": zod.number(),
+  "engramId": zod.number(),
+  "kind": zod.string(),
+  "drive": zod.string(),
+  "content": zod.string(),
+  "mood": zod.string().optional(),
+  "importanceScore": zod.number(),
+  "confidenceScore": zod.number(),
+  "noveltyScore": zod.number(),
+  "overallScore": zod.number(),
+  "wasDelivered": zod.boolean(),
+  "seen": zod.boolean(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary List an engram's transmissions (most recent first)
+ */
+export const ListEngramTransmissionsParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ListEngramTransmissionsResponseItem = zod.object({
+  "id": zod.number(),
+  "engramId": zod.number(),
+  "kind": zod.string(),
+  "drive": zod.string(),
+  "content": zod.string(),
+  "mood": zod.string().optional(),
+  "importanceScore": zod.number(),
+  "confidenceScore": zod.number(),
+  "noveltyScore": zod.number(),
+  "overallScore": zod.number(),
+  "wasDelivered": zod.boolean(),
+  "seen": zod.boolean(),
+  "createdAt": zod.string()
+})
+export const ListEngramTransmissionsResponse = zod.array(ListEngramTransmissionsResponseItem)
+
+
+/**
+ * @summary Mark transmissions as seen
+ */
+export const MarkTransmissionsSeenParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const MarkTransmissionsSeenBody = zod.object({
+  "ids": zod.array(zod.number()).optional()
+})
+
+export const MarkTransmissionsSeenResponse = zod.object({
+  "marked": zod.number()
+})
+
+
+/**
+ * @summary List inquiry history for an engram
+ */
+export const ListEngramInquiriesParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ListEngramInquiriesResponseItem = zod.object({
+  "id": zod.number(),
+  "engramId": zod.number(),
+  "kind": zod.string(),
+  "question": zod.string(),
+  "response": zod.string(),
+  "configDelta": zod.record(zod.string(), zod.unknown()).optional(),
+  "createdAt": zod.string()
+})
+export const ListEngramInquiriesResponse = zod.array(ListEngramInquiriesResponseItem)
+
+
+/**
+ * @summary Submit a probe or develop inquiry to an engram
+ */
+export const CreateEngramInquiryParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const CreateEngramInquiryBody = zod.object({
+  "kind": zod.enum(['probe', 'develop']),
+  "question": zod.string()
+})
+
+export const CreateEngramInquiryResponse = zod.object({
+  "id": zod.number(),
+  "engramId": zod.number(),
+  "kind": zod.string(),
+  "question": zod.string(),
+  "response": zod.string(),
+  "configDelta": zod.record(zod.string(), zod.unknown()).optional(),
+  "createdAt": zod.string()
+})
 
 

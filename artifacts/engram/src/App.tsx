@@ -15,6 +15,8 @@ import Beliefs from "@/pages/beliefs";
 import Evolution from "@/pages/evolution";
 import Analytics from "@/pages/analytics";
 import Chat from "@/pages/chat";
+import Environment from "@/pages/environment";
+import Inquiry from "@/pages/inquiry";
 
 const queryClient = new QueryClient();
 
@@ -32,6 +34,8 @@ function Router() {
         <Route path="/evolution" component={Evolution} />
         <Route path="/analytics" component={Analytics} />
         <Route path="/chat" component={Chat} />
+        <Route path="/environment" component={Environment} />
+        <Route path="/inquiry" component={Inquiry} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

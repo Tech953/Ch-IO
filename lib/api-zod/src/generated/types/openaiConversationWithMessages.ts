@@ -13,6 +13,7 @@ export interface OpenaiConversationWithMessages {
   mode: string;
   personaName?: string;
   customEngram?: string;
+  engramId?: number;
   createdAt: Date;
   messages: OpenaiMessage[];
 }
