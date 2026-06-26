@@ -7,7 +7,9 @@ import {
   MoveEngramPresenceParams,
   MoveEngramPresenceBody,
   ListHubActivityQueryParams,
+  UpdateHubControlsBody,
 } from "@workspace/api-zod";
+import type { HubControls } from "@workspace/db";
 import {
   loadSpaces,
   loadSpaceById,
@@ -15,6 +17,7 @@ import {
   loadActivity,
   movePresence,
 } from "../lib/hub-store";
+import { loadControls, updateControls } from "../lib/controls-store";
 
 const router = Router();
 
@@ -57,6 +60,15 @@ function serializeActivity(a: HubActivity) {
     kind: a.kind,
     summary: a.summary,
     createdAt: a.createdAt.toISOString(),
+  };
+}
+
+function serializeControls(c: HubControls) {
+  return {
+    id: c.id,
+    paused: c.paused,
+    quietMode: c.quietMode,
+    updatedAt: c.updatedAt.toISOString(),
   };
 }
 
@@ -112,6 +124,24 @@ router.get("/hub/activity", async (req, res) => {
     limit: parsed.data.limit,
   });
   res.json(rows.map(serializeActivity));
+});
+
+router.get("/hub/controls", async (_req, res) => {
+  const controls = await loadControls();
+  res.json(serializeControls(controls));
+});
+
+router.put("/hub/controls", async (req, res) => {
+  const parsed = UpdateHubControlsBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const controls = await updateControls({
+    paused: parsed.data.paused,
+    quietMode: parsed.data.quietMode,
+  });
+  res.json(serializeControls(controls));
 });
 
 export default router;

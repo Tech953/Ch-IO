@@ -311,6 +311,18 @@ export interface EngramDrive {
 
 export type EngramDriveState = {[key: string]: number};
 
+export type EngramMode = typeof EngramMode[keyof typeof EngramMode];
+
+
+export const EngramMode = {
+  orientation: 'orientation',
+  social: 'social',
+  simulation: 'simulation',
+  initiative_limited: 'initiative_limited',
+  full_bounded: 'full_bounded',
+  quiescent: 'quiescent',
+} as const;
+
 export interface Engram {
   id: number;
   slug: string;
@@ -333,14 +345,30 @@ export interface Engram {
   lastTickAt?: string;
   lastTransmissionAt?: string;
   isChatActive: boolean;
+  mode: EngramMode;
+  humanContactEnabled: boolean;
   createdAt: string;
   updatedAt: string;
 }
+
+export type EngramConfigInputMode = typeof EngramConfigInputMode[keyof typeof EngramConfigInputMode];
+
+
+export const EngramConfigInputMode = {
+  orientation: 'orientation',
+  social: 'social',
+  simulation: 'simulation',
+  initiative_limited: 'initiative_limited',
+  full_bounded: 'full_bounded',
+  quiescent: 'quiescent',
+} as const;
 
 export interface EngramConfigInput {
   autonomyEnabled?: boolean;
   tickCadenceSeconds?: number;
   initiationThreshold?: number;
+  mode?: EngramConfigInputMode;
+  humanContactEnabled?: boolean;
   focusThemes?: string[];
   emotionalBaseline?: EmotionalBaseline;
   drives?: EngramDrive[];
@@ -571,6 +599,72 @@ export interface HubActivityEntry {
   createdAt: string;
 }
 
+export interface HubControls {
+  id: number;
+  paused: boolean;
+  quietMode: boolean;
+  updatedAt: string;
+}
+
+export interface HubControlsInput {
+  paused?: boolean;
+  quietMode?: boolean;
+}
+
+export type EngramMessageChannel = typeof EngramMessageChannel[keyof typeof EngramMessageChannel];
+
+
+export const EngramMessageChannel = {
+  engram: 'engram',
+  human: 'human',
+} as const;
+
+export type EngramMessagePriority = typeof EngramMessagePriority[keyof typeof EngramMessagePriority];
+
+
+export const EngramMessagePriority = {
+  urgent: 'urgent',
+  meaningful: 'meaningful',
+  social: 'social',
+} as const;
+
+export type EngramMessageStatus = typeof EngramMessageStatus[keyof typeof EngramMessageStatus];
+
+
+export const EngramMessageStatus = {
+  delivered: 'delivered',
+  queued: 'queued',
+  digest: 'digest',
+  blocked: 'blocked',
+} as const;
+
+export interface EngramMessage {
+  id: number;
+  fromEngramId: number;
+  /** @nullable */
+  toEngramId: number | null;
+  /** @nullable */
+  spaceId: number | null;
+  channel: EngramMessageChannel;
+  priority: EngramMessagePriority;
+  status: EngramMessageStatus;
+  content: string;
+  /** @nullable */
+  reason: string | null;
+  seen: boolean;
+  /** @nullable */
+  deliveredAt: string | null;
+  createdAt: string;
+}
+
+export interface MarkMessagesSeenInput {
+  ids: number[];
+}
+
+export interface MarkMessagesSeenResult {
+  updated: number;
+}
+
 export type ListMemoriesParams = {
 layer?: ListMemoriesLayer;
 };
@@ -591,4 +685,17 @@ export type ListHubActivityParams = {
 spaceId?: number;
 limit?: number;
 };
+
+export type ListEngramMessagesParams = {
+channel?: ListEngramMessagesChannel;
+limit?: number;
+};
+
+export type ListEngramMessagesChannel = typeof ListEngramMessagesChannel[keyof typeof ListEngramMessagesChannel];
+
+
+export const ListEngramMessagesChannel = {
+  engram: 'engram',
+  human: 'human',
+} as const;
 

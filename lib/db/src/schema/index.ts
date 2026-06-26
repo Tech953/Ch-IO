@@ -14,5 +14,7 @@ export * from "./engram-world-model";
 export * from "./hub-spaces";
 export * from "./engram-presence";
 export * from "./hub-activity";
+export * from "./hub-controls";
+export * from "./engram-messages";
 export * from "./conversations";
 export * from "./messages";

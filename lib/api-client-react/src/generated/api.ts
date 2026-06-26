@@ -27,6 +27,7 @@ import type {
   EngramConfigInput,
   EngramInquiry,
   EngramInquiryInput,
+  EngramMessage,
   EngramPresence,
   EngramTickResult,
   EngramTransmission,
@@ -35,13 +36,18 @@ import type {
   HealthStatus,
   HieroSymbol,
   HubActivityEntry,
+  HubControls,
+  HubControlsInput,
   HubSpace,
   InitiativeEvent,
   InitiativeInput,
   JournalEntry,
   JournalInput,
+  ListEngramMessagesParams,
   ListHubActivityParams,
   ListMemoriesParams,
+  MarkMessagesSeenInput,
+  MarkMessagesSeenResult,
   MarkSeenInput,
   MarkSeenResult,
   MemoryEntry,
@@ -3351,4 +3357,305 @@ export function useListHubActivity<TData = Awaited<ReturnType<typeof listHubActi
 
 
 
+
+export const getGetHubControlsUrl = () => {
+
+
+
+
+  return `/api/hub/controls`
+}
+
+/**
+ * @summary Get the global autonomy controls (pause, quiet mode)
+ */
+export const getHubControls = async ( options?: RequestInit): Promise<HubControls> => {
+
+  return customFetch<HubControls>(getGetHubControlsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetHubControlsQueryKey = () => {
+    return [
+    `/api/hub/controls`
+    ] as const;
+    }
+
+
+export const getGetHubControlsQueryOptions = <TData = Awaited<ReturnType<typeof getHubControls>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getHubControls>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetHubControlsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getHubControls>>> = ({ signal }) => getHubControls({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getHubControls>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetHubControlsQueryResult = NonNullable<Awaited<ReturnType<typeof getHubControls>>>
+export type GetHubControlsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get the global autonomy controls (pause, quiet mode)
+ */
+
+export function useGetHubControls<TData = Awaited<ReturnType<typeof getHubControls>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getHubControls>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetHubControlsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateHubControlsUrl = () => {
+
+
+
+
+  return `/api/hub/controls`
+}
+
+/**
+ * @summary Update the global autonomy controls
+ */
+export const updateHubControls = async (hubControlsInput: HubControlsInput, options?: RequestInit): Promise<HubControls> => {
+
+  return customFetch<HubControls>(getUpdateHubControlsUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(hubControlsInput)
+  }
+);}
+
+
+
+
+export const getUpdateHubControlsMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateHubControls>>, TError,{data: BodyType<HubControlsInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateHubControls>>, TError,{data: BodyType<HubControlsInput>}, TContext> => {
+
+const mutationKey = ['updateHubControls'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateHubControls>>, {data: BodyType<HubControlsInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  updateHubControls(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateHubControlsMutationResult = NonNullable<Awaited<ReturnType<typeof updateHubControls>>>
+    export type UpdateHubControlsMutationBody = BodyType<HubControlsInput>
+    export type UpdateHubControlsMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Update the global autonomy controls
+ */
+export const useUpdateHubControls = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateHubControls>>, TError,{data: BodyType<HubControlsInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateHubControls>>,
+        TError,
+        {data: BodyType<HubControlsInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateHubControlsMutationOptions(options));
+    }
+
+export const getListEngramMessagesUrl = (params?: ListEngramMessagesParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/messages?${stringifiedParams}` : `/api/messages`
+}
+
+/**
+ * @summary List bus messages (engram-to-engram and human-directed), newest first
+ */
+export const listEngramMessages = async (params?: ListEngramMessagesParams, options?: RequestInit): Promise<EngramMessage[]> => {
+
+  return customFetch<EngramMessage[]>(getListEngramMessagesUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListEngramMessagesQueryKey = (params?: ListEngramMessagesParams,) => {
+    return [
+    `/api/messages`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListEngramMessagesQueryOptions = <TData = Awaited<ReturnType<typeof listEngramMessages>>, TError = ErrorType<unknown>>(params?: ListEngramMessagesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listEngramMessages>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListEngramMessagesQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listEngramMessages>>> = ({ signal }) => listEngramMessages(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listEngramMessages>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListEngramMessagesQueryResult = NonNullable<Awaited<ReturnType<typeof listEngramMessages>>>
+export type ListEngramMessagesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List bus messages (engram-to-engram and human-directed), newest first
+ */
+
+export function useListEngramMessages<TData = Awaited<ReturnType<typeof listEngramMessages>>, TError = ErrorType<unknown>>(
+ params?: ListEngramMessagesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listEngramMessages>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListEngramMessagesQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getMarkEngramMessagesSeenUrl = () => {
+
+
+
+
+  return `/api/messages/mark-seen`
+}
+
+/**
+ * @summary Mark human-channel messages as seen by the operator
+ */
+export const markEngramMessagesSeen = async (markMessagesSeenInput: MarkMessagesSeenInput, options?: RequestInit): Promise<MarkMessagesSeenResult> => {
+
+  return customFetch<MarkMessagesSeenResult>(getMarkEngramMessagesSeenUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(markMessagesSeenInput)
+  }
+);}
+
+
+
+
+export const getMarkEngramMessagesSeenMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof markEngramMessagesSeen>>, TError,{data: BodyType<MarkMessagesSeenInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof markEngramMessagesSeen>>, TError,{data: BodyType<MarkMessagesSeenInput>}, TContext> => {
+
+const mutationKey = ['markEngramMessagesSeen'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof markEngramMessagesSeen>>, {data: BodyType<MarkMessagesSeenInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  markEngramMessagesSeen(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type MarkEngramMessagesSeenMutationResult = NonNullable<Awaited<ReturnType<typeof markEngramMessagesSeen>>>
+    export type MarkEngramMessagesSeenMutationBody = BodyType<MarkMessagesSeenInput>
+    export type MarkEngramMessagesSeenMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Mark human-channel messages as seen by the operator
+ */
+export const useMarkEngramMessagesSeen = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof markEngramMessagesSeen>>, TError,{data: BodyType<MarkMessagesSeenInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof markEngramMessagesSeen>>,
+        TError,
+        {data: BodyType<MarkMessagesSeenInput>},
+        TContext
+      > => {
+      return useMutation(getMarkEngramMessagesSeenMutationOptions(options));
+    }
 

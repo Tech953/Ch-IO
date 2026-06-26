@@ -14,6 +14,7 @@ import openaiRouter from "./openai";
 import engramsRouter from "./engrams";
 import engramWorldModelRouter from "./engram-world-model";
 import hubRouter from "./hub";
+import messagesRouter from "./messages";
 
 const router: IRouter = Router();
 
@@ -32,5 +33,6 @@ router.use(openaiRouter);
 router.use(engramsRouter);
 router.use(engramWorldModelRouter);
 router.use(hubRouter);
+router.use(messagesRouter);
 
 export default router;

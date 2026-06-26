@@ -1,12 +1,22 @@
 import { db } from "@workspace/db";
 import { engramsTable, engramTransmissionsTable } from "@workspace/db/schema";
-import type { Engram, EngramTransmission, DriveState, HubSpace } from "@workspace/db";
+import type {
+  Engram,
+  EngramTransmission,
+  DriveState,
+  HubSpace,
+  EngramPresence,
+} from "@workspace/db";
 import { and, desc, eq, gte } from "drizzle-orm";
 import { logger } from "../lib/logger";
 import { generateTransmission, type TransmissionKind } from "../lib/engram-generation";
 import { summarizeWorldModel } from "../lib/world-model";
 import { loadRecentWorldModel, appendWorldModelEntry } from "../lib/world-model-store";
-import { loadSpaces, loadPresence } from "../lib/hub-store";
+import { loadSpaces, loadPresence, loadPresenceForEngram, loadSpaceById } from "../lib/hub-store";
+import { capabilitiesFor, type Capabilities } from "../lib/engram-policy";
+import { loadControls } from "../lib/controls-store";
+import { attemptHumanContact } from "../lib/human-contact";
+import { maybeRunCommonsTurn } from "../lib/commons";
 
 // --- Tunable constants (cost & cadence guards) ---
 const GLOBAL_TICK_MS = 20_000; // how often the engine wakes up
@@ -89,6 +99,7 @@ async function emit(
   state: DriveState,
   recentContents: string[],
   now: number,
+  capabilities: Capabilities,
 ): Promise<EngramTransmission> {
   const kind = pickKind(top.id, top.label);
   const worldModelSummary = summarizeWorldModel(await loadRecentWorldModel(engram.id));
@@ -108,6 +119,23 @@ async function emit(
   const novelty = clamp((dupe ? 0.3 : 0.7) + Math.random() * 0.2, 0, 1);
   const overall = clamp(importance * 0.5 + confidence * 0.2 + novelty * 0.3, 0, 1);
 
+  // Outreach is the engram self-initiating contact with the operator. Route the SAME
+  // generated content through the bounded human-contact bus (one extra DB write, no
+  // extra LLM call): the policy classifies priority from charge and decides whether
+  // it is delivered now / queued / digested / blocked. The transmission's delivery
+  // flag mirrors that decision so the legacy transmission feed stays consistent.
+  let wasDelivered = false;
+  if (kind === "outreach") {
+    const { delivered } = await attemptHumanContact({
+      engram,
+      capabilities,
+      charge: top.charge,
+      content: content || "…",
+      now: new Date(now),
+    });
+    wasDelivered = delivered;
+  }
+
   // Reset the firing drive and bleed the others.
   const nextState: DriveState = {};
   for (const [k, v] of Object.entries(state)) {
@@ -126,7 +154,7 @@ async function emit(
       confidenceScore: confidence,
       noveltyScore: novelty,
       overallScore: overall,
-      wasDelivered: kind === "outreach",
+      wasDelivered,
       seen: false,
     })
     .returning();
@@ -189,16 +217,23 @@ export async function runTick(opts: { force?: boolean } = {}): Promise<TickResul
       .from(engramsTable)
       .where(eq(engramsTable.autonomyEnabled, true));
 
+    // Load global runtime controls once per tick. A global pause (or quiet mode)
+    // flows through capabilitiesFor below, so a paused engine only accrues/persists.
+    const controls = await loadControls();
+
     // Load Hub state once per tick: an engram located in a space that disallows
     // initiative (quiescence/rest) accrues pressure but never self-initiates.
     const spaces = await loadSpaces();
     const spaceById = new Map<number, HubSpace>(spaces.map((s) => [s.id, s]));
     const presence = await loadPresence();
     const spaceByEngram = new Map<number, HubSpace>();
+    const presenceByEngram = new Map<number, EngramPresence>();
     for (const p of presence) {
+      presenceByEngram.set(p.engramId, p);
       const space = spaceById.get(p.spaceId);
       if (space) spaceByEngram.set(p.engramId, space);
     }
+    const nameById = new Map<number, string>(engrams.map((e) => [e.id, e.name]));
 
     for (const engram of engrams) {
       const last = engram.lastTickAt ? new Date(engram.lastTickAt).getTime() : 0;
@@ -216,11 +251,20 @@ export async function runTick(opts: { force?: boolean } = {}): Promise<TickResul
           .where(eq(engramsTable.id, engram.id));
       };
 
-      // Enforced quiescence: an engram resting in a no-initiative space still
-      // accrues/persists pressure but does not emit. Engrams with no presence
-      // row (space === undefined) behave exactly as before.
+      // Resolve current capabilities from mode + global controls + occupied space.
+      // canIdle is false under a global pause, in quiescent mode, or while resting
+      // in a no-initiative space — in all of which the engram accrues/persists but
+      // never self-initiates. Engrams with no presence row (space === undefined)
+      // behave exactly as before.
       const space = spaceByEngram.get(engram.id);
-      const restingInPlace = space ? !space.allowsInitiative : false;
+      const capabilities = capabilitiesFor({
+        mode: engram.mode,
+        controls,
+        space: space
+          ? { allowsInitiative: space.allowsInitiative, actionScope: space.actionScope }
+          : undefined,
+        humanContactEnabled: engram.humanContactEnabled,
+      });
 
       const top = charges[0];
       const crossed = top && top.charge >= engram.initiationThreshold;
@@ -230,7 +274,7 @@ export async function runTick(opts: { force?: boolean } = {}): Promise<TickResul
       const backoffUntil = engram.backoffUntil ? new Date(engram.backoffUntil).getTime() : 0;
       const inBackoff = now < backoffUntil;
 
-      if (restingInPlace || !crossed || onCooldown || inBackoff) {
+      if (!capabilities.canIdle || !crossed || onCooldown || inBackoff) {
         await persistState();
         continue;
       }
@@ -252,6 +296,7 @@ export async function runTick(opts: { force?: boolean } = {}): Promise<TickResul
           state,
           recent.slice(0, 5).map((r) => r.content),
           now,
+          capabilities,
         );
         produced.push(tx);
       } catch (err) {
@@ -267,6 +312,22 @@ export async function runTick(opts: { force?: boolean } = {}): Promise<TickResul
           })
           .where(eq(engramsTable.id, engram.id));
       }
+    }
+
+    // Commons phase: at most ONE engram-to-engram conversation turn per tick,
+    // turn-taking among converse-capable engrams present in the commons. Best-effort
+    // — a failure here must not abort the tick or roll back transmissions above.
+    try {
+      await maybeRunCommonsTurn({
+        controls,
+        engrams,
+        spaceById,
+        presenceByEngram,
+        nameById,
+        now,
+      });
+    } catch (err) {
+      logger.error({ err }, "commons conversation turn failed");
     }
   } finally {
     ticking = false;
@@ -290,7 +351,29 @@ export async function forceTransmission(engram: Engram): Promise<EngramTransmiss
     charge: 0.6,
   };
   const recent = await recentTransmissions(engram.id, now - 24 * 3600_000);
-  return emit(engram, top, state, recent.slice(0, 5).map((r) => r.content), now);
+
+  // Operator-forced, but still routed through the same capability/human-contact
+  // policy so a forced outreach respects pause/quiet/quiescence and the rate caps.
+  const controls = await loadControls();
+  const presence = await loadPresenceForEngram(engram.id);
+  const space = presence ? await loadSpaceById(presence.spaceId) : undefined;
+  const capabilities = capabilitiesFor({
+    mode: engram.mode,
+    controls,
+    space: space
+      ? { allowsInitiative: space.allowsInitiative, actionScope: space.actionScope }
+      : undefined,
+    humanContactEnabled: engram.humanContactEnabled,
+  });
+
+  return emit(
+    engram,
+    top,
+    state,
+    recent.slice(0, 5).map((r) => r.content),
+    now,
+    capabilities,
+  );
 }
 
 export function startEngramEngine(): void {
