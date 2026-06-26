@@ -56,7 +56,7 @@ function ConfigDelta({ delta }: { delta: Record<string, unknown> }) {
       <div className="space-y-1">
         {entries.map(([k, v]) => (
           <div key={k} className="flex items-start gap-2 font-mono text-[10px]">
-            <span className="text-muted-foreground/60 uppercase shrink-0 min-w-[120px]">{k}</span>
+            <span className="text-muted-foreground/60 uppercase shrink-0 min-w-[88px] sm:min-w-[120px]">{k}</span>
             <span className="text-foreground/80 break-all">{formatDeltaValue(v)}</span>
           </div>
         ))}

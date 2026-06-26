@@ -65,12 +65,12 @@ export default function Personality() {
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-3xl font-bold tracking-widest text-primary">PERSONALITY CORE</h2>
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-widest text-primary">PERSONALITY CORE</h2>
           <p className="text-sm font-mono text-muted-foreground mt-1">Dynamic trait parameters — bounded, revisable, evolving</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 shrink-0">
           {dirty && (
             <Button variant="outline" size="sm" onClick={handleReset} className="font-mono text-xs uppercase tracking-wider border-border/50">
               <RefreshCcw className="w-3 h-3 mr-2" /> Reset
@@ -85,7 +85,7 @@ export default function Personality() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Radar visual */}
-        <Card className="bg-card/40 border-border/50 backdrop-blur-sm col-span-1 flex items-center justify-center p-8">
+        <Card className="bg-card/40 border-border/50 backdrop-blur-sm col-span-1 flex items-center justify-center p-6 sm:p-8">
           <div className="relative flex items-center justify-center">
             <RadarViz traits={traits} loading={isLoading} />
           </div>

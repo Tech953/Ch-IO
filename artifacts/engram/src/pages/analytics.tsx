@@ -130,7 +130,7 @@ export default function Analytics() {
             <CardTitle className="font-display tracking-widest text-sm text-primary/80">Initiative Score Formula</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="p-4 border border-primary/20 bg-primary/5 font-mono text-sm text-primary text-center">
+            <div className="p-4 border border-primary/20 bg-primary/5 font-mono text-xs sm:text-sm text-primary text-center break-words">
               score = importance × confidence × timing × novelty
             </div>
             <p className="font-mono text-xs text-muted-foreground/70">Threshold for delivery: 0.65. Suppressed below threshold to prevent interruption noise.</p>
