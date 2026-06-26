@@ -12,6 +12,7 @@ import expressionsRouter from "./expressions";
 import statsRouter from "./stats";
 import openaiRouter from "./openai";
 import engramsRouter from "./engrams";
+import engramWorldModelRouter from "./engram-world-model";
 
 const router: IRouter = Router();
 
@@ -28,5 +29,6 @@ router.use(expressionsRouter);
 router.use(statsRouter);
 router.use(openaiRouter);
 router.use(engramsRouter);
+router.use(engramWorldModelRouter);
 
 export default router;

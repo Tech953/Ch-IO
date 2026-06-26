@@ -5,10 +5,12 @@ import type { Engram } from "@workspace/db";
 const h = vi.hoisted(() => {
   const engramsTable = { __table: "engrams" } as Record<string, unknown>;
   const engramTransmissionsTable = { __table: "transmissions" } as Record<string, unknown>;
+  const engramWorldModelTable = { __table: "world_model" } as Record<string, unknown>;
 
   const state = {
     engrams: [] as unknown[],
     recent: [] as unknown[],
+    worldModel: [] as unknown[],
     inserts: [] as Record<string, unknown>[],
     updates: [] as Record<string, unknown>[],
   };
@@ -26,11 +28,19 @@ const h = vi.hoisted(() => {
       orderBy() {
         return chain;
       },
+      limit() {
+        return chain;
+      },
       then(
         resolve: (v: unknown[]) => unknown,
         reject?: (e: unknown) => unknown,
       ) {
-        const data = table === engramsTable ? state.engrams : state.recent;
+        const data =
+          table === engramsTable
+            ? state.engrams
+            : table === engramWorldModelTable
+              ? state.worldModel
+              : state.recent;
         return Promise.resolve(data).then(resolve, reject);
       },
     };
@@ -39,10 +49,10 @@ const h = vi.hoisted(() => {
 
   const db = {
     select: () => selectChain(),
-    insert: (_t: unknown) => ({
+    insert: (t: unknown) => ({
       values: (v: Record<string, unknown>) => ({
         returning: () => {
-          const row = { id: 1000 + state.inserts.length, createdAt: new Date(), ...v };
+          const row = { id: 1000 + state.inserts.length, createdAt: new Date(), ...v, __table: t };
           state.inserts.push(row);
           return Promise.resolve([row]);
         },
@@ -60,13 +70,14 @@ const h = vi.hoisted(() => {
 
   const generateTransmission = vi.fn(async () => "an autonomous transmission");
 
-  return { engramsTable, engramTransmissionsTable, state, db, generateTransmission };
+  return { engramsTable, engramTransmissionsTable, engramWorldModelTable, state, db, generateTransmission };
 });
 
 vi.mock("@workspace/db", () => ({ db: h.db }));
 vi.mock("@workspace/db/schema", () => ({
   engramsTable: h.engramsTable,
   engramTransmissionsTable: h.engramTransmissionsTable,
+  engramWorldModelTable: h.engramWorldModelTable,
 }));
 vi.mock("drizzle-orm", () => ({
   and: () => ({}),
@@ -143,6 +154,7 @@ function makeTransmission(createdAt: Date) {
 beforeEach(() => {
   h.state.engrams = [];
   h.state.recent = [];
+  h.state.worldModel = [];
   h.state.inserts = [];
   h.state.updates = [];
   h.generateTransmission.mockClear();
@@ -262,10 +274,17 @@ describe("runTick — threshold crossing", () => {
     const result = await runTick();
     expect(result.generated).toBe(1);
     expect(result.transmissions).toHaveLength(1);
-    expect(h.state.inserts).toHaveLength(1);
     expect(h.generateTransmission).toHaveBeenCalledTimes(1);
+
+    const transmissionInserts = h.state.inserts.filter((r) => r.__table === h.engramTransmissionsTable);
+    const worldModelInserts = h.state.inserts.filter((r) => r.__table === h.engramWorldModelTable);
+    // Exactly one transmission row...
+    expect(transmissionInserts).toHaveLength(1);
     // connection drive => outreach kind
-    expect(h.state.inserts[0].kind).toBe("outreach");
+    expect(transmissionInserts[0].kind).toBe("outreach");
+    // ...plus one DESIRED world-model entry appended (provenance never relabeled).
+    expect(worldModelInserts).toHaveLength(1);
+    expect(worldModelInserts[0].provenance).toBe("desired");
   });
 
   it("does NOT fire when the top drive stays below threshold", async () => {

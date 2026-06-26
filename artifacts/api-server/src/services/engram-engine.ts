@@ -4,6 +4,8 @@ import type { Engram, EngramTransmission, DriveState } from "@workspace/db";
 import { and, desc, eq, gte } from "drizzle-orm";
 import { logger } from "../lib/logger";
 import { generateTransmission, type TransmissionKind } from "../lib/engram-generation";
+import { summarizeWorldModel } from "../lib/world-model";
+import { loadRecentWorldModel, appendWorldModelEntry } from "../lib/world-model-store";
 
 // --- Tunable constants (cost & cadence guards) ---
 const GLOBAL_TICK_MS = 20_000; // how often the engine wakes up
@@ -88,11 +90,13 @@ async function emit(
   now: number,
 ): Promise<EngramTransmission> {
   const kind = pickKind(top.id, top.label);
+  const worldModelSummary = summarizeWorldModel(await loadRecentWorldModel(engram.id));
   const content = await generateTransmission({
     engram,
     kind,
     drive: { id: top.id, label: top.label, description: top.description },
     recentContents,
+    worldModelSummary,
   });
 
   const importance = clamp(top.charge, 0, 1);
@@ -136,6 +140,24 @@ async function emit(
       updatedAt: new Date(now),
     })
     .where(eq(engramsTable.id, engram.id));
+
+  // Record the act of speaking as a DESIRED world-model entry: the engram now holds
+  // that, on its own, it wanted to express this drive. Best-effort — a failure here
+  // must not roll back or re-emit the (already persisted) transmission.
+  try {
+    await appendWorldModelEntry({
+      engramId: engram.id,
+      provenance: "desired",
+      content: `Acting on my own, I chose to ${
+        kind === "outreach" ? "reach out" : "voice an idle transmission"
+      } from my "${top.label}" drive.`,
+      confidence: clamp(top.charge, 0, 1),
+      scope: "private",
+      source: "engine",
+    });
+  } catch (err) {
+    logger.error({ err, engramId: engram.id }, "engram world-model DESIRED append failed");
+  }
 
   return row;
 }

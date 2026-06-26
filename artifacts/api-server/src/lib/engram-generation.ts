@@ -22,8 +22,9 @@ export async function generateTransmission(opts: {
   kind: TransmissionKind;
   drive: { id: string; label: string; description: string };
   recentContents?: string[];
+  worldModelSummary?: string;
 }): Promise<string> {
-  const { engram, kind, drive, recentContents = [] } = opts;
+  const { engram, kind, drive, recentContents = [], worldModelSummary } = opts;
   const avoid = recentContents.length
     ? `\n\nYou recently expressed the following — do NOT repeat their content or phrasing:\n${recentContents
         .slice(0, 5)
@@ -36,7 +37,7 @@ export async function generateTransmission(opts: {
       ? `No prompt has come in, but your drive "${drive.label}" (${drive.description}) has built up enough that you decide, on your own, to reach out. Send a short, in-character message directed at them — unprompted contact. 2–4 sentences. Use your formatting conventions.${avoid}`
       : `You are alone in ${engram.environmentAnchor.name}; no one is present. Your drive "${drive.label}" (${drive.description}) has surfaced. Produce a brief in-character idle transmission — an internal monologue or a small action in your space, overheard like a log. 2–4 sentences. Use your formatting conventions.${avoid}`;
 
-  const system = buildEngramSystemPrompt({ engram, situation });
+  const system = buildEngramSystemPrompt({ engram, situation, worldModelSummary });
   return complete(
     system,
     kind === "outreach"

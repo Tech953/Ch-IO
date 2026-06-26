@@ -10,5 +10,6 @@ export * from "./expressions";
 export * from "./engrams";
 export * from "./engram-transmissions";
 export * from "./engram-inquiries";
+export * from "./engram-world-model";
 export * from "./conversations";
 export * from "./messages";

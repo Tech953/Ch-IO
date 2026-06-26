@@ -889,3 +889,91 @@ export const CreateEngramInquiryResponse = zod.object({
 })
 
 
+/**
+ * @summary List an engram's world-model entries (most recent first)
+ */
+export const ListEngramWorldModelParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ListEngramWorldModelResponseItem = zod.object({
+  "id": zod.number(),
+  "engramId": zod.number(),
+  "provenance": zod.enum(['observed', 'inferred', 'remembered', 'desired', 'simulated']),
+  "content": zod.string(),
+  "confidence": zod.number(),
+  "scope": zod.enum(['private', 'shared']),
+  "source": zod.string().optional(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+export const ListEngramWorldModelResponse = zod.array(ListEngramWorldModelResponseItem)
+
+
+/**
+ * @summary Append a new world-model entry for an engram
+ */
+export const CreateEngramWorldModelEntryParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const CreateEngramWorldModelEntryBody = zod.object({
+  "provenance": zod.enum(['observed', 'inferred', 'remembered', 'desired', 'simulated']),
+  "content": zod.string(),
+  "confidence": zod.number().optional(),
+  "scope": zod.enum(['private', 'shared']).optional(),
+  "source": zod.string().optional()
+})
+
+export const CreateEngramWorldModelEntryResponse = zod.object({
+  "id": zod.number(),
+  "engramId": zod.number(),
+  "provenance": zod.enum(['observed', 'inferred', 'remembered', 'desired', 'simulated']),
+  "content": zod.string(),
+  "confidence": zod.number(),
+  "scope": zod.enum(['private', 'shared']),
+  "source": zod.string().optional(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary Update an entry's content/confidence/scope/source (provenance is immutable)
+ */
+export const UpdateEngramWorldModelEntryParams = zod.object({
+  "id": zod.coerce.number(),
+  "entryId": zod.coerce.number()
+})
+
+export const UpdateEngramWorldModelEntryBody = zod.object({
+  "content": zod.string().optional(),
+  "confidence": zod.number().optional(),
+  "scope": zod.enum(['private', 'shared']).optional(),
+  "source": zod.string().optional()
+})
+
+export const UpdateEngramWorldModelEntryResponse = zod.object({
+  "id": zod.number(),
+  "engramId": zod.number(),
+  "provenance": zod.enum(['observed', 'inferred', 'remembered', 'desired', 'simulated']),
+  "content": zod.string(),
+  "confidence": zod.number(),
+  "scope": zod.enum(['private', 'shared']),
+  "source": zod.string().optional(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary Delete a world-model entry
+ */
+export const DeleteEngramWorldModelEntryParams = zod.object({
+  "id": zod.coerce.number(),
+  "entryId": zod.coerce.number()
+})
+
+export const DeleteEngramWorldModelEntryResponse = zod.void()
+
+
