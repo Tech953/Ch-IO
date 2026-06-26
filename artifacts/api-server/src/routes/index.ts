@@ -9,6 +9,7 @@ import evolutionRouter from "./evolution";
 import initiativeRouter from "./initiative";
 import hieroRouter from "./hiero";
 import statsRouter from "./stats";
+import openaiRouter from "./openai";
 
 const router: IRouter = Router();
 
@@ -22,5 +23,6 @@ router.use(evolutionRouter);
 router.use(initiativeRouter);
 router.use(hieroRouter);
 router.use(statsRouter);
+router.use(openaiRouter);
 
 export default router;
