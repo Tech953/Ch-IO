@@ -1,10 +1,11 @@
 import { ReactNode, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Brain, Activity, Database, BookOpen, Users, Hash, FileCheck2, TrendingUp, BarChart3, MessageSquare, Radio, MessageCircleQuestion, Menu, Globe } from "lucide-react";
+import { Brain, Activity, Database, BookOpen, Users, Hash, FileCheck2, TrendingUp, BarChart3, MessageSquare, Radio, MessageCircleQuestion, Menu, Globe, Network } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 
 const navItems = [
-  { href: "/", label: "Hub", icon: Activity },
+  { href: "/", label: "Overview", icon: Activity },
+  { href: "/hub", label: "Hub", icon: Network },
   { href: "/chat", label: "Chat", icon: MessageSquare },
   { href: "/environment", label: "Environment", icon: Radio },
   { href: "/inquiry", label: "Inquiry", icon: MessageCircleQuestion },
@@ -54,7 +55,7 @@ export default function Layout({ children }: { children: ReactNode }) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   const isChat = location === "/chat";
-  const pageLabel = location === "/" ? "HUB" : location.replace("/", "").toUpperCase();
+  const pageLabel = location === "/" ? "OVERVIEW" : location.replace("/", "").toUpperCase();
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background text-foreground">
@@ -97,7 +98,7 @@ export default function Layout({ children }: { children: ReactNode }) {
         {!isChat && (
           <header className="hidden md:flex h-14 border-b border-border/50 items-center px-6 bg-background/50 backdrop-blur-sm z-10 shrink-0">
             <div className="font-mono text-xs text-primary/70 uppercase tracking-widest">
-              {location === "/" ? "/ HUB" : location.toUpperCase()}
+              {location === "/" ? "/ OVERVIEW" : location.toUpperCase()}
             </div>
           </header>
         )}

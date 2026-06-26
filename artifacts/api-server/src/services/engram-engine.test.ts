@@ -6,11 +6,16 @@ const h = vi.hoisted(() => {
   const engramsTable = { __table: "engrams" } as Record<string, unknown>;
   const engramTransmissionsTable = { __table: "transmissions" } as Record<string, unknown>;
   const engramWorldModelTable = { __table: "world_model" } as Record<string, unknown>;
+  const hubSpacesTable = { __table: "hub_spaces" } as Record<string, unknown>;
+  const engramPresenceTable = { __table: "engram_presence" } as Record<string, unknown>;
+  const hubActivityLogTable = { __table: "hub_activity_log" } as Record<string, unknown>;
 
   const state = {
     engrams: [] as unknown[],
     recent: [] as unknown[],
     worldModel: [] as unknown[],
+    spaces: [] as unknown[],
+    presence: [] as unknown[],
     inserts: [] as Record<string, unknown>[],
     updates: [] as Record<string, unknown>[],
   };
@@ -40,7 +45,11 @@ const h = vi.hoisted(() => {
             ? state.engrams
             : table === engramWorldModelTable
               ? state.worldModel
-              : state.recent;
+              : table === hubSpacesTable
+                ? state.spaces
+                : table === engramPresenceTable
+                  ? state.presence
+                  : state.recent;
         return Promise.resolve(data).then(resolve, reject);
       },
     };
@@ -70,7 +79,17 @@ const h = vi.hoisted(() => {
 
   const generateTransmission = vi.fn(async () => "an autonomous transmission");
 
-  return { engramsTable, engramTransmissionsTable, engramWorldModelTable, state, db, generateTransmission };
+  return {
+    engramsTable,
+    engramTransmissionsTable,
+    engramWorldModelTable,
+    hubSpacesTable,
+    engramPresenceTable,
+    hubActivityLogTable,
+    state,
+    db,
+    generateTransmission,
+  };
 });
 
 vi.mock("@workspace/db", () => ({ db: h.db }));
@@ -78,6 +97,9 @@ vi.mock("@workspace/db/schema", () => ({
   engramsTable: h.engramsTable,
   engramTransmissionsTable: h.engramTransmissionsTable,
   engramWorldModelTable: h.engramWorldModelTable,
+  hubSpacesTable: h.hubSpacesTable,
+  engramPresenceTable: h.engramPresenceTable,
+  hubActivityLogTable: h.hubActivityLogTable,
 }));
 vi.mock("drizzle-orm", () => ({
   and: () => ({}),
@@ -155,6 +177,8 @@ beforeEach(() => {
   h.state.engrams = [];
   h.state.recent = [];
   h.state.worldModel = [];
+  h.state.spaces = [];
+  h.state.presence = [];
   h.state.inserts = [];
   h.state.updates = [];
   h.generateTransmission.mockClear();
@@ -490,6 +514,78 @@ describe("runTick — cost guards", () => {
         ],
       }),
     ];
+    const result = await runTick();
+    expect(result.generated).toBe(1);
+  });
+});
+
+// --- runTick: enforced quiescence (rest spaces) --------------------------------
+describe("runTick — enforced quiescence", () => {
+  it("does NOT emit for an engram resting in a no-initiative space, but still persists pressure", async () => {
+    const now = Date.now();
+    h.state.engrams = [
+      makeEngram({
+        id: 1,
+        lastTickAt: new Date(now - 100_000), // cadence satisfied
+        driveState: { connection: 0.9 }, // well above threshold
+        initiationThreshold: 0.6,
+        drives: [
+          { id: "connection", label: "Connection", description: "", weight: 1, baseRate: 0.01 },
+        ],
+      }),
+    ];
+    // Engram 1 currently sits in a quiescence/rest space (initiative disallowed).
+    h.state.spaces = [{ id: 99, allowsInitiative: false }];
+    h.state.presence = [{ engramId: 1, spaceId: 99 }];
+
+    const result = await runTick();
+    expect(result.generated).toBe(0);
+    expect(h.generateTransmission).not.toHaveBeenCalled();
+    // No transmission row was inserted while resting...
+    const transmissionInserts = h.state.inserts.filter(
+      (r) => r.__table === h.engramTransmissionsTable,
+    );
+    expect(transmissionInserts).toHaveLength(0);
+    // ...but accrued pressure / lastTick is still persisted (restart-safe).
+    expect(h.state.updates).toHaveLength(1);
+    expect(h.state.updates[0].lastTickAt).toBeInstanceOf(Date);
+  });
+
+  it("still emits for the same engram once it occupies an initiative-allowing space", async () => {
+    const now = Date.now();
+    h.state.engrams = [
+      makeEngram({
+        id: 1,
+        lastTickAt: new Date(now - 100_000),
+        driveState: { connection: 0.9 },
+        initiationThreshold: 0.6,
+        drives: [
+          { id: "connection", label: "Connection", description: "", weight: 1, baseRate: 0.01 },
+        ],
+      }),
+    ];
+    h.state.spaces = [{ id: 1, allowsInitiative: true }];
+    h.state.presence = [{ engramId: 1, spaceId: 1 }];
+
+    const result = await runTick();
+    expect(result.generated).toBe(1);
+    expect(h.generateTransmission).toHaveBeenCalledTimes(1);
+  });
+
+  it("emits normally for engrams with no presence row (no rest constraint)", async () => {
+    const now = Date.now();
+    h.state.engrams = [
+      makeEngram({
+        id: 1,
+        lastTickAt: new Date(now - 100_000),
+        driveState: { connection: 0.9 },
+        initiationThreshold: 0.6,
+        drives: [
+          { id: "connection", label: "Connection", description: "", weight: 1, baseRate: 0.01 },
+        ],
+      }),
+    ];
+    // spaces/presence intentionally empty
     const result = await runTick();
     expect(result.generated).toBe(1);
   });

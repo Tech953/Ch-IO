@@ -1,1 +1,1 @@
-- [OpenAPI codegen param collisions](openapi-codegen-collisions.md) — never put BOTH a path param and query params on one operation; the Zod + types generators each emit a clashing `<Op>Params` and codegen breaks.
+- [Engram engine test mock](engram-engine-test-mock.md) — engram-engine.test.ts fakes @workspace/db with a table-identity selectChain; new engine DB reads must be registered in two places or tests silently return wrong rows.

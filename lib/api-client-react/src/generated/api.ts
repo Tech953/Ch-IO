@@ -27,21 +27,26 @@ import type {
   EngramConfigInput,
   EngramInquiry,
   EngramInquiryInput,
+  EngramPresence,
   EngramTickResult,
   EngramTransmission,
   EvolutionEntry,
   Expression,
   HealthStatus,
   HieroSymbol,
+  HubActivityEntry,
+  HubSpace,
   InitiativeEvent,
   InitiativeInput,
   JournalEntry,
   JournalInput,
+  ListHubActivityParams,
   ListMemoriesParams,
   MarkSeenInput,
   MarkSeenResult,
   MemoryEntry,
   MemoryInput,
+  MovePresenceInput,
   OpenaiConversation,
   OpenaiConversationInput,
   OpenaiConversationWithMessages,
@@ -3037,4 +3042,313 @@ export const useDeleteEngramWorldModelEntry = <TError = ErrorType<OpenaiError>,
       > => {
       return useMutation(getDeleteEngramWorldModelEntryMutationOptions(options));
     }
+
+export const getListHubSpacesUrl = () => {
+
+
+
+
+  return `/api/hub/spaces`
+}
+
+/**
+ * @summary List all Hub spaces (display order)
+ */
+export const listHubSpaces = async ( options?: RequestInit): Promise<HubSpace[]> => {
+
+  return customFetch<HubSpace[]>(getListHubSpacesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListHubSpacesQueryKey = () => {
+    return [
+    `/api/hub/spaces`
+    ] as const;
+    }
+
+
+export const getListHubSpacesQueryOptions = <TData = Awaited<ReturnType<typeof listHubSpaces>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listHubSpaces>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListHubSpacesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listHubSpaces>>> = ({ signal }) => listHubSpaces({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listHubSpaces>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListHubSpacesQueryResult = NonNullable<Awaited<ReturnType<typeof listHubSpaces>>>
+export type ListHubSpacesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List all Hub spaces (display order)
+ */
+
+export function useListHubSpaces<TData = Awaited<ReturnType<typeof listHubSpaces>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listHubSpaces>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListHubSpacesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListHubPresenceUrl = () => {
+
+
+
+
+  return `/api/hub/presence`
+}
+
+/**
+ * @summary List every engram's current presence in the Hub
+ */
+export const listHubPresence = async ( options?: RequestInit): Promise<EngramPresence[]> => {
+
+  return customFetch<EngramPresence[]>(getListHubPresenceUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListHubPresenceQueryKey = () => {
+    return [
+    `/api/hub/presence`
+    ] as const;
+    }
+
+
+export const getListHubPresenceQueryOptions = <TData = Awaited<ReturnType<typeof listHubPresence>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listHubPresence>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListHubPresenceQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listHubPresence>>> = ({ signal }) => listHubPresence({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listHubPresence>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListHubPresenceQueryResult = NonNullable<Awaited<ReturnType<typeof listHubPresence>>>
+export type ListHubPresenceQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List every engram's current presence in the Hub
+ */
+
+export function useListHubPresence<TData = Awaited<ReturnType<typeof listHubPresence>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listHubPresence>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListHubPresenceQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getMoveEngramPresenceUrl = (engramId: number,) => {
+
+
+
+
+  return `/api/hub/presence/${engramId}`
+}
+
+/**
+ * @summary Move (or place) an engram into a Hub space
+ */
+export const moveEngramPresence = async (engramId: number,
+    movePresenceInput: MovePresenceInput, options?: RequestInit): Promise<EngramPresence> => {
+
+  return customFetch<EngramPresence>(getMoveEngramPresenceUrl(engramId),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(movePresenceInput)
+  }
+);}
+
+
+
+
+export const getMoveEngramPresenceMutationOptions = <TError = ErrorType<OpenaiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof moveEngramPresence>>, TError,{engramId: number;data: BodyType<MovePresenceInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof moveEngramPresence>>, TError,{engramId: number;data: BodyType<MovePresenceInput>}, TContext> => {
+
+const mutationKey = ['moveEngramPresence'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof moveEngramPresence>>, {engramId: number;data: BodyType<MovePresenceInput>}> = (props) => {
+          const {engramId,data} = props ?? {};
+
+          return  moveEngramPresence(engramId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type MoveEngramPresenceMutationResult = NonNullable<Awaited<ReturnType<typeof moveEngramPresence>>>
+    export type MoveEngramPresenceMutationBody = BodyType<MovePresenceInput>
+    export type MoveEngramPresenceMutationError = ErrorType<OpenaiError>
+
+    /**
+ * @summary Move (or place) an engram into a Hub space
+ */
+export const useMoveEngramPresence = <TError = ErrorType<OpenaiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof moveEngramPresence>>, TError,{engramId: number;data: BodyType<MovePresenceInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof moveEngramPresence>>,
+        TError,
+        {engramId: number;data: BodyType<MovePresenceInput>},
+        TContext
+      > => {
+      return useMutation(getMoveEngramPresenceMutationOptions(options));
+    }
+
+export const getListHubActivityUrl = (params?: ListHubActivityParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/hub/activity?${stringifiedParams}` : `/api/hub/activity`
+}
+
+/**
+ * @summary List recent Hub activity (most recent first)
+ */
+export const listHubActivity = async (params?: ListHubActivityParams, options?: RequestInit): Promise<HubActivityEntry[]> => {
+
+  return customFetch<HubActivityEntry[]>(getListHubActivityUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListHubActivityQueryKey = (params?: ListHubActivityParams,) => {
+    return [
+    `/api/hub/activity`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListHubActivityQueryOptions = <TData = Awaited<ReturnType<typeof listHubActivity>>, TError = ErrorType<unknown>>(params?: ListHubActivityParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listHubActivity>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListHubActivityQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listHubActivity>>> = ({ signal }) => listHubActivity(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listHubActivity>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListHubActivityQueryResult = NonNullable<Awaited<ReturnType<typeof listHubActivity>>>
+export type ListHubActivityQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List recent Hub activity (most recent first)
+ */
+
+export function useListHubActivity<TData = Awaited<ReturnType<typeof listHubActivity>>, TError = ErrorType<unknown>>(
+ params?: ListHubActivityParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listHubActivity>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListHubActivityQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 

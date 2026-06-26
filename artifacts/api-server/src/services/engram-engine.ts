@@ -1,11 +1,12 @@
 import { db } from "@workspace/db";
 import { engramsTable, engramTransmissionsTable } from "@workspace/db/schema";
-import type { Engram, EngramTransmission, DriveState } from "@workspace/db";
+import type { Engram, EngramTransmission, DriveState, HubSpace } from "@workspace/db";
 import { and, desc, eq, gte } from "drizzle-orm";
 import { logger } from "../lib/logger";
 import { generateTransmission, type TransmissionKind } from "../lib/engram-generation";
 import { summarizeWorldModel } from "../lib/world-model";
 import { loadRecentWorldModel, appendWorldModelEntry } from "../lib/world-model-store";
+import { loadSpaces, loadPresence } from "../lib/hub-store";
 
 // --- Tunable constants (cost & cadence guards) ---
 const GLOBAL_TICK_MS = 20_000; // how often the engine wakes up
@@ -188,6 +189,17 @@ export async function runTick(opts: { force?: boolean } = {}): Promise<TickResul
       .from(engramsTable)
       .where(eq(engramsTable.autonomyEnabled, true));
 
+    // Load Hub state once per tick: an engram located in a space that disallows
+    // initiative (quiescence/rest) accrues pressure but never self-initiates.
+    const spaces = await loadSpaces();
+    const spaceById = new Map<number, HubSpace>(spaces.map((s) => [s.id, s]));
+    const presence = await loadPresence();
+    const spaceByEngram = new Map<number, HubSpace>();
+    for (const p of presence) {
+      const space = spaceById.get(p.spaceId);
+      if (space) spaceByEngram.set(p.engramId, space);
+    }
+
     for (const engram of engrams) {
       const last = engram.lastTickAt ? new Date(engram.lastTickAt).getTime() : 0;
       const cadenceMs = engram.tickCadenceSeconds * 1000;
@@ -204,6 +216,12 @@ export async function runTick(opts: { force?: boolean } = {}): Promise<TickResul
           .where(eq(engramsTable.id, engram.id));
       };
 
+      // Enforced quiescence: an engram resting in a no-initiative space still
+      // accrues/persists pressure but does not emit. Engrams with no presence
+      // row (space === undefined) behave exactly as before.
+      const space = spaceByEngram.get(engram.id);
+      const restingInPlace = space ? !space.allowsInitiative : false;
+
       const top = charges[0];
       const crossed = top && top.charge >= engram.initiationThreshold;
       const onCooldown =
@@ -212,7 +230,7 @@ export async function runTick(opts: { force?: boolean } = {}): Promise<TickResul
       const backoffUntil = engram.backoffUntil ? new Date(engram.backoffUntil).getTime() : 0;
       const inBackoff = now < backoffUntil;
 
-      if (!crossed || onCooldown || inBackoff) {
+      if (restingInPlace || !crossed || onCooldown || inBackoff) {
         await persistState();
         continue;
       }
