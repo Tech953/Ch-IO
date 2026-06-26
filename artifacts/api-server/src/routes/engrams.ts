@@ -20,7 +20,7 @@ import {
   CreateEngramInquiryParams,
   CreateEngramInquiryBody,
 } from "@workspace/api-zod";
-import { runTick, forceTransmission } from "../services/engram-engine";
+import { runTick, forceTransmission, COOLDOWN_MS } from "../services/engram-engine";
 import { generateProbeResponse, generateDevelopment } from "../lib/engram-generation";
 
 const router = Router();
@@ -42,6 +42,45 @@ router.get("/engrams", async (_req, res) => {
 router.post("/engrams/tick", async (_req, res) => {
   const result = await runTick({ force: true });
   res.json(result);
+});
+
+// Must be registered before "/engrams/:id" so "state" is not parsed as an id.
+router.get("/engrams/state", async (_req, res) => {
+  const rows = await db.select().from(engramsTable).orderBy(engramsTable.id);
+  const now = Date.now();
+  const states = rows.map((e) => {
+    const driveState = e.driveState ?? {};
+    const drives = e.drives.map((d) => {
+      const pressure = typeof driveState[d.id] === "number" ? driveState[d.id] : 0;
+      return { id: d.id, label: d.label, pressure, weight: d.weight, charge: pressure * d.weight };
+    });
+    const topCharge = drives.reduce((max, d) => Math.max(max, d.charge), 0);
+
+    const backoffUntilMs = e.backoffUntil ? new Date(e.backoffUntil).getTime() : 0;
+    const inBackoff = now < backoffUntilMs;
+    const cooldownUntilMs = e.lastTransmissionAt
+      ? new Date(e.lastTransmissionAt).getTime() + COOLDOWN_MS
+      : 0;
+    const inCooldown = now < cooldownUntilMs;
+
+    return {
+      engramId: e.id,
+      autonomyEnabled: e.autonomyEnabled,
+      currentMood: e.currentMood,
+      initiationThreshold: e.initiationThreshold,
+      tickCadenceSeconds: e.tickCadenceSeconds,
+      lastTickAt: e.lastTickAt ? new Date(e.lastTickAt).toISOString() : null,
+      lastTransmissionAt: e.lastTransmissionAt ? new Date(e.lastTransmissionAt).toISOString() : null,
+      backoffUntil: inBackoff ? new Date(backoffUntilMs).toISOString() : null,
+      inBackoff,
+      cooldownUntil: inCooldown ? new Date(cooldownUntilMs).toISOString() : null,
+      inCooldown,
+      topCharge,
+      ready: topCharge >= e.initiationThreshold,
+      drives,
+    };
+  });
+  res.json(states);
 });
 
 router.get("/engrams/:id", async (req, res) => {

@@ -504,6 +504,21 @@ paths:
               schema:
                 $ref: "#/components/schemas/EngramTickResult"
 
+  /engrams/state:
+    get:
+      operationId: getEngramStates
+      tags: [engrams]
+      summary: Live autonomy state (per-drive pressure, cooldown, backoff) for every engram
+      responses:
+        "200":
+          description: Live state for every engram
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EngramLiveState"
+
   /engrams/{id}:
     get:
       operationId: getEngram
@@ -1818,6 +1833,9 @@ components:
           type: string
         lastTransmissionAt:
           type: string
+        backoffUntil:
+          type: string
+          nullable: true
         isChatActive:
           type: boolean
         mode:
@@ -2079,6 +2097,75 @@ components:
         - ticked
         - generated
         - transmissions
+
+    EngramDriveCharge:
+      type: object
+      properties:
+        id:
+          type: string
+        label:
+          type: string
+        pressure:
+          type: number
+        weight:
+          type: number
+        charge:
+          type: number
+      required:
+        - id
+        - label
+        - pressure
+        - weight
+        - charge
+
+    EngramLiveState:
+      type: object
+      properties:
+        engramId:
+          type: integer
+        autonomyEnabled:
+          type: boolean
+        currentMood:
+          type: string
+          nullable: true
+        initiationThreshold:
+          type: number
+        tickCadenceSeconds:
+          type: integer
+        lastTickAt:
+          type: string
+          nullable: true
+        lastTransmissionAt:
+          type: string
+          nullable: true
+        backoffUntil:
+          type: string
+          nullable: true
+        inBackoff:
+          type: boolean
+        cooldownUntil:
+          type: string
+          nullable: true
+        inCooldown:
+          type: boolean
+        topCharge:
+          type: number
+        ready:
+          type: boolean
+        drives:
+          type: array
+          items:
+            $ref: "#/components/schemas/EngramDriveCharge"
+      required:
+        - engramId
+        - autonomyEnabled
+        - initiationThreshold
+        - tickCadenceSeconds
+        - inBackoff
+        - inCooldown
+        - topCharge
+        - ready
+        - drives
 
     WorldModelEntry:
       type: object

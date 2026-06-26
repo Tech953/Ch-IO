@@ -344,6 +344,7 @@ export interface Engram {
   currentMood?: string;
   lastTickAt?: string;
   lastTransmissionAt?: string;
+  backoffUntil?: string | null;
   isChatActive: boolean;
   mode: EngramMode;
   humanContactEnabled: boolean;
@@ -486,6 +487,31 @@ export interface EngramTickResult {
   ticked: number;
   generated: number;
   transmissions: EngramTransmission[];
+}
+
+export interface EngramDriveCharge {
+  id: string;
+  label: string;
+  pressure: number;
+  weight: number;
+  charge: number;
+}
+
+export interface EngramLiveState {
+  engramId: number;
+  autonomyEnabled: boolean;
+  currentMood?: string | null;
+  initiationThreshold: number;
+  tickCadenceSeconds: number;
+  lastTickAt?: string | null;
+  lastTransmissionAt?: string | null;
+  backoffUntil?: string | null;
+  inBackoff: boolean;
+  cooldownUntil?: string | null;
+  inCooldown: boolean;
+  topCharge: number;
+  ready: boolean;
+  drives: EngramDriveCharge[];
 }
 
 export type WorldModelEntryProvenance = typeof WorldModelEntryProvenance[keyof typeof WorldModelEntryProvenance];

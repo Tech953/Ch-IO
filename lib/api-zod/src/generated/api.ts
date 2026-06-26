@@ -539,6 +539,7 @@ export const ListEngramsResponseItem = zod.object({
   "currentMood": zod.string().optional(),
   "lastTickAt": zod.string().optional(),
   "lastTransmissionAt": zod.string().optional(),
+  "backoffUntil": zod.string().nullish(),
   "isChatActive": zod.boolean(),
   "mode": zod.enum(['orientation', 'social', 'simulation', 'initiative_limited', 'full_bounded', 'quiescent']),
   "humanContactEnabled": zod.boolean(),
@@ -571,6 +572,34 @@ export const TickEngramsResponse = zod.object({
   "createdAt": zod.string()
 }))
 })
+
+
+/**
+ * @summary Live autonomy state (per-drive pressure, cooldown, backoff) for every engram
+ */
+export const GetEngramStatesResponseItem = zod.object({
+  "engramId": zod.number(),
+  "autonomyEnabled": zod.boolean(),
+  "currentMood": zod.string().nullish(),
+  "initiationThreshold": zod.number(),
+  "tickCadenceSeconds": zod.number(),
+  "lastTickAt": zod.string().nullish(),
+  "lastTransmissionAt": zod.string().nullish(),
+  "backoffUntil": zod.string().nullish(),
+  "inBackoff": zod.boolean(),
+  "cooldownUntil": zod.string().nullish(),
+  "inCooldown": zod.boolean(),
+  "topCharge": zod.number(),
+  "ready": zod.boolean(),
+  "drives": zod.array(zod.object({
+  "id": zod.string(),
+  "label": zod.string(),
+  "pressure": zod.number(),
+  "weight": zod.number(),
+  "charge": zod.number()
+}))
+})
+export const GetEngramStatesResponse = zod.array(GetEngramStatesResponseItem)
 
 
 /**
@@ -631,6 +660,7 @@ export const GetEngramResponse = zod.object({
   "currentMood": zod.string().optional(),
   "lastTickAt": zod.string().optional(),
   "lastTransmissionAt": zod.string().optional(),
+  "backoffUntil": zod.string().nullish(),
   "isChatActive": zod.boolean(),
   "mode": zod.enum(['orientation', 'social', 'simulation', 'initiative_limited', 'full_bounded', 'quiescent']),
   "humanContactEnabled": zod.boolean(),
@@ -721,6 +751,7 @@ export const UpdateEngramConfigResponse = zod.object({
   "currentMood": zod.string().optional(),
   "lastTickAt": zod.string().optional(),
   "lastTransmissionAt": zod.string().optional(),
+  "backoffUntil": zod.string().nullish(),
   "isChatActive": zod.boolean(),
   "mode": zod.enum(['orientation', 'social', 'simulation', 'initiative_limited', 'full_bounded', 'quiescent']),
   "humanContactEnabled": zod.boolean(),
@@ -788,6 +819,7 @@ export const ActivateEngramResponse = zod.object({
   "currentMood": zod.string().optional(),
   "lastTickAt": zod.string().optional(),
   "lastTransmissionAt": zod.string().optional(),
+  "backoffUntil": zod.string().nullish(),
   "isChatActive": zod.boolean(),
   "mode": zod.enum(['orientation', 'social', 'simulation', 'initiative_limited', 'full_bounded', 'quiescent']),
   "humanContactEnabled": zod.boolean(),

@@ -6,11 +6,18 @@ import {
   useTransmitEngram,
   useTickEngrams,
   useListEngramTransmissions,
+  useGetEngramStates,
   useMarkTransmissionsSeen,
   getListEngramsQueryKey,
   getListEngramTransmissionsQueryKey,
+  getGetEngramStatesQueryKey,
 } from "@workspace/api-client-react";
-import type { Engram, EngramDrive, EmotionalBaseline } from "@workspace/api-client-react";
+import type {
+  Engram,
+  EngramDrive,
+  EmotionalBaseline,
+  EngramLiveState,
+} from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -31,6 +38,11 @@ type ConfigForm = {
   emotionalBaseline: EmotionalBaseline;
   drives: EngramDrive[];
 };
+
+function secsUntil(iso?: string | null): number {
+  if (!iso) return 0;
+  return Math.max(0, Math.ceil((new Date(iso).getTime() - Date.now()) / 1000));
+}
 
 function relTime(iso?: string | null): string {
   if (!iso) return "never";
@@ -95,6 +107,18 @@ export default function Environment() {
     },
   });
 
+  // Poll live autonomy state (per-drive pressure, cooldown, backoff) so the UI
+  // reflects the persisted DB state as it charges toward the initiation threshold.
+  const { data: liveStates } = useGetEngramStates({
+    query: { refetchInterval: 4000, queryKey: getGetEngramStatesQueryKey() },
+  });
+  const liveById = useMemo(() => {
+    const map = new Map<number, EngramLiveState>();
+    for (const s of liveStates ?? []) map.set(s.engramId, s);
+    return map;
+  }, [liveStates]);
+  const live = selectedId !== null ? liveById.get(selectedId) ?? null : null;
+
   function patchForm(patch: Partial<ConfigForm>) {
     setForm((p) => (p ? { ...p, ...patch } : p));
   }
@@ -150,6 +174,7 @@ export default function Environment() {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getListEngramTransmissionsQueryKey(selected.id) });
         queryClient.invalidateQueries({ queryKey: getListEngramsQueryKey() });
+        queryClient.invalidateQueries({ queryKey: getGetEngramStatesQueryKey() });
         toast({ title: "Transmission forced", description: `${selected.name} reached out.` });
       },
       onError: () => toast({ title: "Transmission failed", variant: "destructive" }),
@@ -161,6 +186,7 @@ export default function Environment() {
       onSuccess: (res) => {
         if (selected) queryClient.invalidateQueries({ queryKey: getListEngramTransmissionsQueryKey(selected.id) });
         queryClient.invalidateQueries({ queryKey: getListEngramsQueryKey() });
+        queryClient.invalidateQueries({ queryKey: getGetEngramStatesQueryKey() });
         toast({ title: "Tick complete", description: `${res.ticked} ticked · ${res.generated} transmitted.` });
       },
     });
@@ -341,6 +367,27 @@ export default function Environment() {
                   <div className="flex items-center gap-2 text-primary">
                     <Activity className="w-4 h-4" />
                     <h3 className="font-mono text-xs uppercase tracking-widest">Live State</h3>
+                    {live?.inBackoff ? (
+                      <Badge variant="outline" className="font-mono text-[8px] uppercase border-amber-500/50 text-amber-400" data-testid="badge-backoff">
+                        Paused · backoff {secsUntil(live.backoffUntil)}s
+                      </Badge>
+                    ) : live?.inCooldown ? (
+                      <Badge variant="outline" className="font-mono text-[8px] uppercase border-sky-500/50 text-sky-400" data-testid="badge-cooldown">
+                        Cooldown {secsUntil(live.cooldownUntil)}s
+                      </Badge>
+                    ) : live?.ready ? (
+                      <Badge variant="outline" className="font-mono text-[8px] uppercase border-rose-500/50 text-rose-400" data-testid="badge-ready">
+                        Ready to initiate
+                      </Badge>
+                    ) : live?.autonomyEnabled ? (
+                      <Badge variant="outline" className="font-mono text-[8px] uppercase border-primary/40 text-primary/70" data-testid="badge-charging">
+                        Charging
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="font-mono text-[8px] uppercase border-border/50 text-muted-foreground" data-testid="badge-dormant">
+                        Dormant
+                      </Badge>
+                    )}
                   </div>
                   {selected.isChatActive ? (
                     <Badge variant="outline" className="font-mono text-[9px] uppercase border-emerald-500/40 text-emerald-400">Active in chat</Badge>
@@ -367,18 +414,27 @@ export default function Environment() {
                   </div>
                 </div>
 
-                {/* Drive pressure bars */}
+                {/* Drive pressure bars — charge (pressure × weight) relative to the initiation threshold */}
                 <div className="space-y-2.5 pt-1">
-                  <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Drive Pressure</span>
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Drive Pressure</span>
+                    <span className="font-mono text-[9px] text-muted-foreground/50 uppercase tabular-nums">
+                      threshold {selected.initiationThreshold.toFixed(2)}
+                    </span>
+                  </div>
                   {selected.drives.map((d) => {
-                    const pressure = selected.driveState?.[d.id] ?? 0;
-                    const pct = Math.min(100, (pressure / Math.max(0.01, selected.initiationThreshold)) * 100);
-                    const hot = pct >= 90;
+                    const driveLive = live?.drives.find((x) => x.id === d.id);
+                    const pressure = driveLive?.pressure ?? selected.driveState?.[d.id] ?? 0;
+                    const charge = driveLive?.charge ?? pressure * d.weight;
+                    const pct = Math.min(100, (charge / Math.max(0.01, selected.initiationThreshold)) * 100);
+                    const hot = charge >= selected.initiationThreshold;
                     return (
                       <div key={d.id} className="space-y-1">
                         <div className="flex justify-between font-mono text-[10px]">
                           <span className="text-muted-foreground/70 uppercase">{d.label}</span>
-                          <span className={`tabular-nums ${hot ? "text-rose-400" : "text-foreground/60"}`}>{pressure.toFixed(2)}</span>
+                          <span className={`tabular-nums ${hot ? "text-rose-400" : "text-foreground/60"}`} title={`pressure ${pressure.toFixed(2)} × weight ${d.weight.toFixed(2)}`}>
+                            {charge.toFixed(2)}
+                          </span>
                         </div>
                         <div className="h-1.5 bg-secondary overflow-hidden">
                           <div className={`h-full transition-all ${hot ? "bg-rose-400/70" : "bg-primary/60"}`} style={{ width: `${pct}%` }} />

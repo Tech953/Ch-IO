@@ -27,6 +27,7 @@ import type {
   EngramConfigInput,
   EngramInquiry,
   EngramInquiryInput,
+  EngramLiveState,
   EngramMessage,
   EngramPresence,
   EngramTickResult,
@@ -2175,6 +2176,83 @@ export const useTickEngrams = <TError = ErrorType<unknown>,
       > => {
       return useMutation(getTickEngramsMutationOptions(options));
     }
+
+export const getGetEngramStatesUrl = () => {
+
+
+
+
+  return `/api/engrams/state`
+}
+
+/**
+ * @summary Live autonomy state (per-drive pressure, cooldown, backoff) for every engram
+ */
+export const getEngramStates = async ( options?: RequestInit): Promise<EngramLiveState[]> => {
+
+  return customFetch<EngramLiveState[]>(getGetEngramStatesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetEngramStatesQueryKey = () => {
+    return [
+    `/api/engrams/state`
+    ] as const;
+    }
+
+
+export const getGetEngramStatesQueryOptions = <TData = Awaited<ReturnType<typeof getEngramStates>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getEngramStates>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetEngramStatesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getEngramStates>>> = ({ signal }) => getEngramStates({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getEngramStates>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetEngramStatesQueryResult = NonNullable<Awaited<ReturnType<typeof getEngramStates>>>
+export type GetEngramStatesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Live autonomy state (per-drive pressure, cooldown, backoff) for every engram
+ */
+
+export function useGetEngramStates<TData = Awaited<ReturnType<typeof getEngramStates>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getEngramStates>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetEngramStatesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getGetEngramUrl = (id: number,) => {
 
