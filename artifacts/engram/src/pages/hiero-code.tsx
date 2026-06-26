@@ -67,7 +67,7 @@ export default function HieroCode() {
                   <CardContent className="p-4 flex items-start gap-4">
                     <span className={`text-4xl leading-none shrink-0 ${catColor}`}>{s.glyph}</span>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
                         <span className={`font-display font-bold uppercase tracking-widest text-base ${catColor}`}>{s.name}</span>
                         <Badge variant="outline" className={`font-mono text-[9px] uppercase border-current ${catColor}`}>{s.category}</Badge>
                         {isSelected && <span className="font-mono text-[9px] text-primary uppercase">Selected</span>}
@@ -157,7 +157,7 @@ export default function HieroCode() {
         </div>
 
         <div className="flex flex-wrap items-center gap-4">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground/60">Valence</span>
             {["All", "Positive", "Neutral", "Negative"].map(v => (
               <button key={v} onClick={() => setValenceFilter(v)}
@@ -169,7 +169,7 @@ export default function HieroCode() {
               </button>
             ))}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground/60">Arousal</span>
             {["All", "Low", "Medium", "High"].map(a => (
               <button key={a} onClick={() => setArousalFilter(a)}
@@ -212,7 +212,7 @@ export default function HieroCode() {
                       </div>
                     </div>
                     <div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <span className="font-display font-bold uppercase tracking-widest text-sm text-foreground/90">{e.name}</span>
                         <Badge variant="outline" className="font-mono text-[8px] uppercase border-border/40 text-muted-foreground/70">{e.family}</Badge>
                       </div>

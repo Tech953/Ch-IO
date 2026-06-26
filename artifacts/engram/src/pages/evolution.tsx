@@ -32,16 +32,16 @@ export default function Evolution() {
       ) : (
         <div className="relative">
           {/* Timeline spine */}
-          <div className="absolute left-6 top-0 bottom-0 w-px bg-gradient-to-b from-primary/40 via-primary/20 to-transparent" />
+          <div className="absolute left-4 md:left-6 top-0 bottom-0 w-px bg-gradient-to-b from-primary/40 via-primary/20 to-transparent" />
 
-          <div className="space-y-6 pl-16">
+          <div className="space-y-6 pl-12 md:pl-16">
             {sorted.map((entry) => {
               const conf = Math.round(entry.confidence * 100);
               const confColor = conf >= 80 ? "text-emerald-400" : conf >= 60 ? "text-amber-400" : "text-rose-400";
               return (
                 <div key={entry.id} className="relative" data-testid={`card-evolution-${entry.id}`}>
                   {/* Timeline node */}
-                  <div className="absolute -left-10 top-5 flex items-center justify-center w-8 h-8 rounded-full border border-primary/30 bg-background text-primary font-mono text-xs font-bold">
+                  <div className="absolute -left-8 md:-left-10 top-5 flex items-center justify-center w-8 h-8 rounded-full border border-primary/30 bg-background text-primary font-mono text-xs font-bold">
                     {entry.revision}
                   </div>
 

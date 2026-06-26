@@ -34,9 +34,9 @@ export default function Home() {
           </CardHeader>
           <CardContent className="h-[300px] flex items-center justify-center">
             {personalityLoading ? (
-              <Skeleton className="h-64 w-64 rounded-full bg-primary/5" />
+              <Skeleton className="h-56 w-56 sm:h-64 sm:w-64 rounded-full bg-primary/5" />
             ) : (
-              <div className="relative w-64 h-64 border border-primary/20 rounded-full flex items-center justify-center">
+              <div className="relative w-56 h-56 sm:w-64 sm:h-64 max-w-full border border-primary/20 rounded-full flex items-center justify-center">
                 <div className="absolute w-48 h-48 border border-primary/10 rounded-full"></div>
                 <div className="absolute w-32 h-32 border border-primary/5 rounded-full"></div>
                 {/* Placeholder for actual radar chart */}

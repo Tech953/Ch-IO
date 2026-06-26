@@ -9,8 +9,10 @@ import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Plus, Trash2, Send, Upload, X, Loader2, MessageSquare } from "lucide-react";
+import { Plus, Trash2, Send, Upload, X, Loader2, MessageSquare, PanelLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -60,6 +62,8 @@ export default function Chat() {
   const [engramId, setEngramId] = useState<number | null>(null);
   const [showNewDialog, setShowNewDialog] = useState(false);
   const [newTitle, setNewTitle] = useState("");
+  const [convSheetOpen, setConvSheetOpen] = useState(false);
+  const isMobile = useIsMobile();
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -84,6 +88,7 @@ export default function Chat() {
     setConvMode((conv.mode as ChatMode) ?? "companion");
     setCustomEngram(conv.customEngram ?? "");
     setEngramId(conv.engramId ?? null);
+    setConvSheetOpen(false);
     scrollToBottom();
   }, []);
 
@@ -100,6 +105,7 @@ export default function Chat() {
     queryClient.invalidateQueries({ queryKey: getListOpenaiConversationsQueryKey() });
     setShowNewDialog(false);
     setNewTitle("");
+    setConvSheetOpen(false);
     await loadConversation(result.id);
   }
 
@@ -209,10 +215,8 @@ export default function Chat() {
   const modeInfo = MODES.find((m) => m.id === (activeConv?.mode ?? convMode));
   const activeEngram = (engrams ?? []).find((e) => e.id === activeConv?.engramId);
 
-  return (
-    <div className="flex h-full gap-0 -m-6 md:-m-8 animate-in fade-in duration-500">
-      {/* Sidebar */}
-      <div className="w-64 flex-shrink-0 border-r border-border/50 flex flex-col bg-card/20 backdrop-blur-sm">
+  const sidebar = (
+    <div className="flex flex-col h-full bg-card/20 backdrop-blur-sm">
         <div className="p-4 border-b border-border/50 flex items-center justify-between">
           <div>
             <h2 className="font-mono text-xs uppercase tracking-widest text-primary">Conversations</h2>
@@ -224,7 +228,7 @@ export default function Chat() {
                 <Plus className="w-4 h-4" />
               </Button>
             </DialogTrigger>
-            <DialogContent className="bg-card border-border/50 max-w-sm">
+            <DialogContent className="bg-card border-border/50 max-w-sm w-[calc(100vw-2rem)]">
               <DialogHeader>
                 <DialogTitle className="font-display tracking-widest text-primary">New Conversation</DialogTitle>
               </DialogHeader>
@@ -344,12 +348,38 @@ export default function Chat() {
             )}
           </div>
         </ScrollArea>
-      </div>
+    </div>
+  );
+
+  return (
+    <div className="flex h-full gap-0 -m-4 md:-m-8 animate-in fade-in duration-500">
+      {!isMobile && (
+        <div className="w-64 flex-shrink-0 border-r border-border/50 flex flex-col">
+          {sidebar}
+        </div>
+      )}
+      {isMobile && (
+        <Sheet open={convSheetOpen} onOpenChange={setConvSheetOpen}>
+          <SheetContent side="left" aria-describedby={undefined} className="w-80 max-w-[85vw] p-0 border-border/50">
+            <SheetTitle className="sr-only">Conversations</SheetTitle>
+            {sidebar}
+          </SheetContent>
+        </Sheet>
+      )}
 
       {/* Chat Area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Chat Header */}
-        <div className="h-12 border-b border-border/50 px-6 flex items-center gap-3 bg-background/50 backdrop-blur-sm shrink-0">
+        <div className="h-12 border-b border-border/50 px-4 md:px-6 flex items-center gap-2 md:gap-3 bg-background/50 backdrop-blur-sm shrink-0">
+          {isMobile && (
+            <button
+              aria-label="Open conversations"
+              onClick={() => setConvSheetOpen(true)}
+              className="flex items-center justify-center w-8 h-8 -ml-1 text-foreground/70 hover:text-primary transition-colors shrink-0"
+            >
+              <PanelLeft className="w-4 h-4" />
+            </button>
+          )}
           {activeConv ? (
             <>
               <span className="text-primary text-base">{activeEngram ? activeEngram.symbol : modeInfo?.glyph}</span>
@@ -364,7 +394,7 @@ export default function Chat() {
         </div>
 
         {/* Messages */}
-        <div ref={scrollRef} className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+        <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 md:px-6 py-4 space-y-4">
           {!activeId ? (
             <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground/40 font-mono">
               <div className="text-5xl mb-4">◈</div>
@@ -387,7 +417,7 @@ export default function Chat() {
           ) : (
             messages.map((msg, idx) => (
               <div key={idx} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                <div className={`max-w-[78%] ${msg.role === "user" ? "order-1" : ""}`}>
+                <div className={`max-w-[85%] md:max-w-[78%] ${msg.role === "user" ? "order-1" : ""}`}>
                   <div className={`font-mono text-[9px] uppercase tracking-widest mb-1 ${msg.role === "user" ? "text-right text-muted-foreground/50" : "text-primary/50"}`}>
                     {msg.role === "user" ? "YOU" : activeEngram ? `${activeEngram.name.toUpperCase()} · ${activeEngram.symbol}` : `PYRI · ${modeInfo?.glyph ?? "◈"}`}
                   </div>
@@ -413,8 +443,8 @@ export default function Chat() {
         </div>
 
         {/* Input area */}
-        <div className="border-t border-border/50 p-4 bg-background/50 backdrop-blur-sm shrink-0">
-          <div className="flex gap-3 items-end max-w-4xl mx-auto">
+        <div className="border-t border-border/50 p-3 md:p-4 bg-background/50 backdrop-blur-sm shrink-0">
+          <div className="flex gap-2 md:gap-3 items-end max-w-4xl mx-auto">
             <Textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
