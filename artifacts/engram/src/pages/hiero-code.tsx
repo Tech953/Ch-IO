@@ -1,12 +1,23 @@
 import { useState } from "react";
-import { useListHieroSymbols } from "@workspace/api-client-react";
+import { useListHieroSymbols, useListExpressions } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 
+const VALENCE_COLORS: Record<string, string> = {
+  Positive: "text-emerald-400 border-emerald-400/40",
+  Neutral: "text-sky-400 border-sky-400/40",
+  Negative: "text-rose-400 border-rose-400/40",
+};
+
+const AROUSAL_BARS: Record<string, number> = { Low: 1, Medium: 2, High: 3 };
+
 export default function HieroCode() {
   const { data: symbols, isLoading } = useListHieroSymbols();
+  const { data: expressions, isLoading: exprLoading } = useListExpressions();
   const [selected, setSelected] = useState<number[]>([]);
+  const [valenceFilter, setValenceFilter] = useState<string>("All");
+  const [arousalFilter, setArousalFilter] = useState<string>("All");
 
   function toggleSymbol(id: number) {
     setSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : prev.length < 3 ? [...prev, id] : prev);
@@ -15,6 +26,11 @@ export default function HieroCode() {
   const selectedSymbols = symbols?.filter(s => selected.includes(s.id)) ?? [];
   const compound = selectedSymbols.map(s => s.glyph).join(" + ");
   const compoundMeaning = selectedSymbols.map(s => s.name.toLowerCase()).join(" shaped by ");
+
+  const filteredExpressions = (expressions ?? []).filter(e =>
+    (valenceFilter === "All" || e.valence === valenceFilter) &&
+    (arousalFilter === "All" || e.arousal === arousalFilter)
+  );
 
   const CATEGORY_COLORS: Record<string, string> = {
     Foundation: "text-violet-400",
@@ -124,6 +140,90 @@ export default function HieroCode() {
             </Card>
           )}
         </div>
+      </div>
+
+      {/* Emotive Expression Layer */}
+      <div className="pt-4 border-t border-border/30 space-y-4">
+        <div className="flex flex-col gap-1">
+          <h3 className="text-2xl font-bold tracking-widest text-amber-400">EMOTIVE EXPRESSION LAYER</h3>
+          <p className="text-sm font-mono text-muted-foreground">
+            QUERTY micro-expressions — ASCII affect glyphs PYRI uses to make her felt state observable in chat
+          </p>
+          <p className="text-xs font-mono text-muted-foreground/60 leading-relaxed max-w-3xl mt-1">
+            Each glyph encodes eyes + mouth + optional gesture, mapped to a valence (positive / neutral / negative) and an
+            arousal level. PYRI draws on this vocabulary to color her delivery by mode — freely in COMPANION, sparingly in
+            INFORMATIONAL, never in SILENT.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground/60">Valence</span>
+            {["All", "Positive", "Neutral", "Negative"].map(v => (
+              <button key={v} onClick={() => setValenceFilter(v)}
+                data-testid={`filter-valence-${v.toLowerCase()}`}
+                className={`font-mono text-[10px] uppercase tracking-widest px-2 py-1 rounded border transition-colors ${
+                  valenceFilter === v ? "border-amber-400/60 text-amber-400 bg-amber-400/5" : "border-border/30 text-muted-foreground/60 hover:text-foreground/80"
+                }`}>
+                {v}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground/60">Arousal</span>
+            {["All", "Low", "Medium", "High"].map(a => (
+              <button key={a} onClick={() => setArousalFilter(a)}
+                data-testid={`filter-arousal-${a.toLowerCase()}`}
+                className={`font-mono text-[10px] uppercase tracking-widest px-2 py-1 rounded border transition-colors ${
+                  arousalFilter === a ? "border-amber-400/60 text-amber-400 bg-amber-400/5" : "border-border/30 text-muted-foreground/60 hover:text-foreground/80"
+                }`}>
+                {a}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {exprLoading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {Array.from({ length: 9 }).map((_, i) => <Skeleton key={i} className="h-28 bg-primary/5" />)}
+          </div>
+        ) : filteredExpressions.length === 0 ? (
+          <div className="text-center py-10 font-mono text-xs text-muted-foreground/50 uppercase tracking-widest">
+            No expressions match the selected filters
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {filteredExpressions.map(e => {
+              const valColor = VALENCE_COLORS[e.valence] ?? "text-primary border-primary/40";
+              const bars = AROUSAL_BARS[e.arousal] ?? 0;
+              return (
+                <Card key={e.id} className="bg-card/40 border-border/30 backdrop-blur-sm hover:border-border/60 transition-colors"
+                  data-testid={`card-expression-${e.id}`}>
+                  <CardContent className="p-4 space-y-2">
+                    <div className="flex items-start justify-between gap-3">
+                      <span className={`font-mono text-2xl leading-none ${valColor.split(" ")[0]}`}>{e.glyph}</span>
+                      <div className="flex flex-col items-end gap-1">
+                        <Badge variant="outline" className={`font-mono text-[9px] uppercase ${valColor}`}>{e.valence}</Badge>
+                        <div className="flex items-center gap-0.5" title={`${e.arousal} arousal`}>
+                          {[1, 2, 3].map(n => (
+                            <span key={n} className={`h-1 w-3 rounded-full ${n <= bars ? "bg-amber-400/80" : "bg-border/40"}`} />
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-display font-bold uppercase tracking-widest text-sm text-foreground/90">{e.name}</span>
+                        <Badge variant="outline" className="font-mono text-[8px] uppercase border-border/40 text-muted-foreground/70">{e.family}</Badge>
+                      </div>
+                      <p className="text-xs text-foreground/60 font-sans leading-relaxed mt-1">{e.notes}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );

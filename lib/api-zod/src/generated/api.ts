@@ -337,6 +337,26 @@ export const ListHieroSymbolsResponse = zod.array(ListHieroSymbolsResponseItem)
 
 
 /**
+ * @summary List all emotive QUERTY micro-expressions
+ */
+export const ListExpressionsResponseItem = zod.object({
+  "id": zod.number(),
+  "glyph": zod.string(),
+  "name": zod.string(),
+  "family": zod.string(),
+  "eyes": zod.string(),
+  "mouth": zod.string(),
+  "gesture": zod.string().nullish(),
+  "valence": zod.string(),
+  "arousal": zod.string(),
+  "intimacy": zod.number(),
+  "cognitiveRole": zod.string().nullish(),
+  "notes": zod.string()
+})
+export const ListExpressionsResponse = zod.array(ListExpressionsResponseItem)
+
+
+/**
  * @summary Get system statistics and analytics summary
  */
 export const GetStatsResponse = zod.object({

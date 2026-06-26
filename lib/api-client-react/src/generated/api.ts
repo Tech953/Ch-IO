@@ -24,6 +24,7 @@ import type {
   BeliefInput,
   BeliefUpdate,
   EvolutionEntry,
+  Expression,
   HealthStatus,
   HieroSymbol,
   InitiativeEvent,
@@ -1394,6 +1395,83 @@ export function useListHieroSymbols<TData = Awaited<ReturnType<typeof listHieroS
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getListHieroSymbolsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListExpressionsUrl = () => {
+
+
+
+
+  return `/api/expressions`
+}
+
+/**
+ * @summary List all emotive QUERTY micro-expressions
+ */
+export const listExpressions = async ( options?: RequestInit): Promise<Expression[]> => {
+
+  return customFetch<Expression[]>(getListExpressionsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListExpressionsQueryKey = () => {
+    return [
+    `/api/expressions`
+    ] as const;
+    }
+
+
+export const getListExpressionsQueryOptions = <TData = Awaited<ReturnType<typeof listExpressions>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listExpressions>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListExpressionsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listExpressions>>> = ({ signal }) => listExpressions({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listExpressions>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListExpressionsQueryResult = NonNullable<Awaited<ReturnType<typeof listExpressions>>>
+export type ListExpressionsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List all emotive QUERTY micro-expressions
+ */
+
+export function useListExpressions<TData = Awaited<ReturnType<typeof listExpressions>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listExpressions>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListExpressionsQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

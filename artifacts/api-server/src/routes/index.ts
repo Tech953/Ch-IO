@@ -8,6 +8,7 @@ import beliefsRouter from "./beliefs";
 import evolutionRouter from "./evolution";
 import initiativeRouter from "./initiative";
 import hieroRouter from "./hiero";
+import expressionsRouter from "./expressions";
 import statsRouter from "./stats";
 import openaiRouter from "./openai";
 
@@ -22,6 +23,7 @@ router.use(beliefsRouter);
 router.use(evolutionRouter);
 router.use(initiativeRouter);
 router.use(hieroRouter);
+router.use(expressionsRouter);
 router.use(statsRouter);
 router.use(openaiRouter);
 

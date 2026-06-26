@@ -6,5 +6,6 @@ export * from "./beliefs";
 export * from "./evolution";
 export * from "./initiative";
 export * from "./hiero";
+export * from "./expressions";
 export * from "./conversations";
 export * from "./messages";

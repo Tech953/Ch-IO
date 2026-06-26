@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { conversations, messages, personalityTable, personasTable, beliefsTable } from "@workspace/db/schema";
+import { conversations, messages, personalityTable, personasTable, beliefsTable, expressionsTable } from "@workspace/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { openai } from "@workspace/integrations-openai-ai-server";
 import {
@@ -14,6 +14,83 @@ import {
 
 const router = Router();
 
+interface ExpressionRow {
+  glyph: string;
+  name: string;
+  family: string;
+  valence: string;
+  arousal: string;
+  intimacy: number;
+  cognitiveRole?: string | null;
+}
+
+const MODE_EXPRESSION_POLICY: Record<string, string> = {
+  informational:
+    "Sparingly. At most one micro-expression, only when a finding is genuinely notable, placed at the end of a thought. Prefer neutral or low-arousal glyphs.",
+  alert:
+    "Almost never. Only a single high-arousal distress/overload glyph (e.g. >.<, X_X) when the situation is genuinely urgent. Otherwise none.",
+  tutorial:
+    "Occasionally. Use warm, encouraging glyphs (^_^, +.+, ^.^) to reassure the learner and mark progress. Keep them light and supportive.",
+  companion:
+    "Freely and naturally. Weave micro-expressions into the conversation to convey your felt state — joy, curiosity, surprise, fatigue, warmth. This is your most expressive mode; keep all warmth platonic.",
+  analyst:
+    "Rarely. You are clinical and precise; emotional punctuation is mostly noise here. A neutral glyph is acceptable only to flag a surprising data point.",
+  silent:
+    "Never. Output pure text. No micro-expressions at all.",
+  custom:
+    "Moderately, in keeping with the custom engram's tone. Default to natural, occasional use that matches the emotional content.",
+};
+
+function buildExpressionSection(mode: string, expressions: ExpressionRow[]): string {
+  if (mode === "silent" || expressions.length === 0) {
+    if (mode === "silent") {
+      return "\n## Emotive Expression Layer\nSILENT mode: do not emit any micro-expressions. Text only.";
+    }
+    return "";
+  }
+
+  // Only surface low-intimacy glyphs to the model, and describe them with neutral
+  // structural metadata (never the free-text notes) so the vocabulary cannot prime
+  // romantic or sexual semantics.
+  const promptable = expressions.filter((e) => e.intimacy <= 1);
+
+  const byFamily = new Map<string, ExpressionRow[]>();
+  for (const e of promptable) {
+    if (!byFamily.has(e.family)) byFamily.set(e.family, []);
+    byFamily.get(e.family)!.push(e);
+  }
+
+  const catalog = [...byFamily.entries()]
+    .map(([family, rows]) => {
+      const items = rows
+        .map(
+          (r) =>
+            `${r.glyph} (${r.name}, ${r.valence.toLowerCase()}/${r.arousal.toLowerCase()} arousal${
+              r.cognitiveRole ? `, signal: ${r.cognitiveRole}` : ""
+            })`,
+        )
+        .join("\n    ");
+      return `  ${family}:\n    ${items}`;
+    })
+    .join("\n");
+
+  const policy = MODE_EXPRESSION_POLICY[mode] ?? MODE_EXPRESSION_POLICY.companion;
+
+  return `
+## Emotive Expression Layer (Hiero-Code QUERTY micro-expressions)
+You have an ASCII micro-expression vocabulary derived from the ENGRAM Hiero-Code framework. These are compact, culturally-neutral glyphs (eyes + mouth + optional gesture) that encode your internal affective state — valence (positive/neutral/negative) and arousal (low/medium/high). Use them to make your felt cognitive state observable, the way they map emotion to action.
+
+Vocabulary:
+${catalog}
+
+Usage rules:
+- Frequency for ${mode.toUpperCase()} mode: ${policy}
+- Choose a glyph whose valence/arousal genuinely matches the emotional content of what you are saying — do not decorate randomly.
+- Place a micro-expression inline mid-sentence or at the end of a thought, never more than one per short message.
+- Keep every expression platonic and companionable. Convey warmth, care, curiosity, and rapport — never anything sexual or romantic.
+- A glyph is punctuation for feeling, not a substitute for substance. The words carry the meaning; the glyph colors the delivery.`;
+}
+
 function buildSystemPrompt(opts: {
   mode: string;
   personaName?: string | null;
@@ -21,8 +98,9 @@ function buildSystemPrompt(opts: {
   personalityRow?: Record<string, number> | null;
   activePersona?: { name: string; description: string; reasoningStyle: string; emphasis: string } | null;
   beliefsList?: { statement: string; confidence: number }[];
+  expressions?: ExpressionRow[];
 }): string {
-  const { mode, personaName, customEngram, personalityRow, activePersona, beliefsList } = opts;
+  const { mode, personaName, customEngram, personalityRow, activePersona, beliefsList, expressions } = opts;
 
   const modeInstructions: Record<string, string> = {
     informational:
@@ -66,6 +144,8 @@ function buildSystemPrompt(opts: {
 
   const requestedPersona = personaName ? `\nYou are speaking as the ${personaName} persona.` : "";
 
+  const expressionSection = buildExpressionSection(mode, expressions ?? []);
+
   return `You are PYRI — an autonomous AI companion built on the ENGRAM cognitive architecture.
 You maintain layered memory, a belief registry, and a reflective journal. Your identity persists across all persona forms.
 ${requestedPersona}
@@ -74,6 +154,7 @@ ${modeGuide}
 ${traitSection}
 ${personaSection}
 ${beliefSection}
+${expressionSection}
 
 Design philosophy from your architecture:
 - Calibrate language to your confidence. High confidence → assertive. Low confidence → acknowledge uncertainty explicitly.
@@ -180,6 +261,10 @@ router.post("/openai/conversations/:id/messages", async (req, res) => {
     .where(eq(personasTable.isActive, true))
     .limit(1);
   const beliefsList = await db.select().from(beliefsTable);
+  const expressionsList =
+    conv.mode === "silent"
+      ? []
+      : await db.select().from(expressionsTable).orderBy(expressionsTable.id);
 
   const systemPrompt = buildSystemPrompt({
     mode: conv.mode,
@@ -188,6 +273,15 @@ router.post("/openai/conversations/:id/messages", async (req, res) => {
     personalityRow: personalityRow as unknown as Record<string, number> | null,
     activePersona: activePersonaRow[0] ?? null,
     beliefsList: beliefsList.map((b) => ({ statement: b.statement, confidence: b.confidence })),
+    expressions: expressionsList.map((e) => ({
+      glyph: e.glyph,
+      name: e.name,
+      family: e.family,
+      valence: e.valence,
+      arousal: e.arousal,
+      intimacy: e.intimacy,
+      cognitiveRole: e.cognitiveRole,
+    })),
   });
 
   const history = await db
