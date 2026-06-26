@@ -121,7 +121,7 @@ function clamp(n: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, n));
 }
 
-function extractJson(text: string): string {
+export function extractJson(text: string): string {
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
   if (fenced) return fenced[1].trim();
   const start = text.indexOf("{");
@@ -135,7 +135,7 @@ function extractJson(text: string): string {
  * fields. This is the only path through which "develop" can mutate an engram —
  * safety/identity fields and free-form columns are never writable here.
  */
-function sanitizeDelta(raw: unknown, engram: Engram): DevelopmentDelta {
+export function sanitizeDelta(raw: unknown, engram: Engram): DevelopmentDelta {
   const out: DevelopmentDelta = {};
   if (!raw || typeof raw !== "object") return out;
   const d = raw as Record<string, unknown>;
