@@ -1846,6 +1846,7 @@ components:
         configDelta:
           type: object
           additionalProperties: true
+          nullable: true
         createdAt:
           type: string
       required:

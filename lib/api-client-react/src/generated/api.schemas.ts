@@ -390,7 +390,7 @@ export interface EngramTransmission {
   createdAt: string;
 }
 
-export type EngramInquiryConfigDelta = { [key: string]: unknown };
+export type EngramInquiryConfigDelta = { [key: string]: unknown } | null;
 
 export interface EngramInquiry {
   id: number;

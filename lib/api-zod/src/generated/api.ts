@@ -870,7 +870,7 @@ export const ListEngramInquiriesResponseItem = zod.object({
   "kind": zod.string(),
   "question": zod.string(),
   "response": zod.string(),
-  "configDelta": zod.record(zod.string(), zod.unknown()).optional(),
+  "configDelta": zod.record(zod.string(), zod.unknown()).nullish(),
   "createdAt": zod.string()
 })
 export const ListEngramInquiriesResponse = zod.array(ListEngramInquiriesResponseItem)
@@ -894,7 +894,7 @@ export const CreateEngramInquiryResponse = zod.object({
   "kind": zod.string(),
   "question": zod.string(),
   "response": zod.string(),
-  "configDelta": zod.record(zod.string(), zod.unknown()).optional(),
+  "configDelta": zod.record(zod.string(), zod.unknown()).nullish(),
   "createdAt": zod.string()
 })
 
