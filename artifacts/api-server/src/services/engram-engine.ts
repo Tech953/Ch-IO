@@ -18,7 +18,6 @@ const OUTREACH_HINT = /(connection|devotion|loyal|protect|chaos|fun|reach|compan
 let ticking = false; // re-entrancy guard for a single tick
 let started = false; // lifecycle guard so the engine only starts once
 let timer: NodeJS.Timeout | null = null;
-const errorBackoff = new Map<number, number>(); // engramId -> backoff-until epoch ms
 
 function clamp(n: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, n));
@@ -133,6 +132,7 @@ async function emit(
       driveState: nextState,
       lastTransmissionAt: new Date(now),
       lastTickAt: new Date(now),
+      backoffUntil: null, // a successful emit clears any prior error backoff
       updatedAt: new Date(now),
     })
     .where(eq(engramsTable.id, engram.id));
@@ -175,13 +175,11 @@ export async function runTick(opts: { force?: boolean } = {}): Promise<TickResul
       const { state, charges } = accrue(engram, now);
 
       // Persist accrued pressure even when we don't generate (restart-safe).
-      let persistedState = false;
       const persistState = async () => {
         await db
           .update(engramsTable)
           .set({ driveState: state, lastTickAt: new Date(now), updatedAt: new Date(now) })
           .where(eq(engramsTable.id, engram.id));
-        persistedState = true;
       };
 
       const top = charges[0];
@@ -189,7 +187,7 @@ export async function runTick(opts: { force?: boolean } = {}): Promise<TickResul
       const onCooldown =
         engram.lastTransmissionAt &&
         now - new Date(engram.lastTransmissionAt).getTime() < COOLDOWN_MS;
-      const backoffUntil = errorBackoff.get(engram.id) ?? 0;
+      const backoffUntil = engram.backoffUntil ? new Date(engram.backoffUntil).getTime() : 0;
       const inBackoff = now < backoffUntil;
 
       if (!crossed || onCooldown || inBackoff) {
@@ -216,11 +214,18 @@ export async function runTick(opts: { force?: boolean } = {}): Promise<TickResul
           now,
         );
         produced.push(tx);
-        errorBackoff.delete(engram.id);
       } catch (err) {
         logger.error({ err, engramId: engram.id }, "engram transmission generation failed");
-        errorBackoff.set(engram.id, now + ERROR_BACKOFF_MS);
-        if (!persistedState) await persistState();
+        // Persist the backoff (and accrued pressure) so a restart can't bypass it.
+        await db
+          .update(engramsTable)
+          .set({
+            driveState: state,
+            lastTickAt: new Date(now),
+            backoffUntil: new Date(now + ERROR_BACKOFF_MS),
+            updatedAt: new Date(now),
+          })
+          .where(eq(engramsTable.id, engram.id));
       }
     }
   } finally {
