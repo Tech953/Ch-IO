@@ -1,2 +1,6 @@
 - [Database seeding](seeding.md) — this repo has no startup/auto-seed; reference data is seeded by explicit one-off scripts under `@workspace/scripts`.
 - [Expression layer safety boundary](expression-layer-safety.md) — the affect/intimacy axis is stored faithfully in DB but must be sanitized before entering the chat system prompt.
+- [Orval codegen gotchas](orval-codegen-gotchas.md) — avoid OpenAPI query params (Params name collisions); customizing a generated useQuery `query` option requires an explicit `get...QueryKey()`.
+- [Engram AI lib fixes](engram-ai-lib-fixes.md) — non-obvious fixes for the OpenAI server lib usage in engram generation.
+- [Engram chat SSE](engram-chat-sse.md) — how engram-scoped chat streams in-voice over SSE.
+- [Engram DB table names](engram-db-table-names.md) — table/export naming pointers for the engram schema.

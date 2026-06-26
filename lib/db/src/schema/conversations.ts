@@ -1,6 +1,7 @@
-import { pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, timestamp, integer } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
+import { engramsTable } from "./engrams";
 
 export const conversations = pgTable("conversations", {
   id: serial("id").primaryKey(),
@@ -8,6 +9,9 @@ export const conversations = pgTable("conversations", {
   mode: text("mode").notNull().default("companion"),
   personaName: text("persona_name"),
   customEngram: text("custom_engram"),
+  engramId: integer("engram_id").references(() => engramsTable.id, {
+    onDelete: "set null",
+  }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 

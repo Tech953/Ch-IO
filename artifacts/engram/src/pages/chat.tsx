@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { useListOpenaiConversations, useCreateOpenaiConversation, useDeleteOpenaiConversation, getListOpenaiConversationsQueryKey } from "@workspace/api-client-react";
+import { useListOpenaiConversations, useCreateOpenaiConversation, useDeleteOpenaiConversation, useListEngrams, getListOpenaiConversationsQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -29,6 +29,7 @@ interface Conversation {
   mode: string;
   personaName?: string | null;
   customEngram?: string | null;
+  engramId?: number | null;
   createdAt: string;
 }
 
@@ -46,6 +47,7 @@ export default function Chat() {
   const { data: convList, isLoading: loadingList } = useListOpenaiConversations();
   const createConv = useCreateOpenaiConversation();
   const deleteConv = useDeleteOpenaiConversation();
+  const { data: engrams } = useListEngrams();
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -55,6 +57,7 @@ export default function Chat() {
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
   const [customEngram, setCustomEngram] = useState("");
+  const [engramId, setEngramId] = useState<number | null>(null);
   const [showNewDialog, setShowNewDialog] = useState(false);
   const [newTitle, setNewTitle] = useState("");
 
@@ -75,11 +78,12 @@ export default function Chat() {
     const resp = await fetch(`${BASE}/api/openai/conversations/${id}`);
     if (!resp.ok) return;
     const data = await resp.json();
-    const conv: Conversation = { id: data.id, title: data.title, mode: data.mode, personaName: data.personaName, customEngram: data.customEngram, createdAt: data.createdAt };
+    const conv: Conversation = { id: data.id, title: data.title, mode: data.mode, personaName: data.personaName, customEngram: data.customEngram, engramId: data.engramId, createdAt: data.createdAt };
     setMessages(data.messages ?? []);
     setActiveId(id);
     setConvMode((conv.mode as ChatMode) ?? "companion");
     setCustomEngram(conv.customEngram ?? "");
+    setEngramId(conv.engramId ?? null);
     scrollToBottom();
   }, []);
 
@@ -88,8 +92,9 @@ export default function Chat() {
     const result = await createConv.mutateAsync({
       data: {
         title: newTitle.trim(),
-        mode: convMode,
-        customEngram: convMode === "custom" ? customEngram : undefined,
+        mode: engramId !== null ? "companion" : convMode,
+        customEngram: engramId === null && convMode === "custom" ? customEngram : undefined,
+        engramId: engramId ?? undefined,
       },
     });
     queryClient.invalidateQueries({ queryKey: getListOpenaiConversationsQueryKey() });
@@ -202,6 +207,7 @@ export default function Chat() {
 
   const activeConv = (convList ?? []).find((c: Conversation) => c.id === activeId);
   const modeInfo = MODES.find((m) => m.id === (activeConv?.mode ?? convMode));
+  const activeEngram = (engrams ?? []).find((e) => e.id === activeConv?.engramId);
 
   return (
     <div className="flex h-full gap-0 -m-6 md:-m-8 animate-in fade-in duration-500">
@@ -229,40 +235,69 @@ export default function Chat() {
                     placeholder="Thread name..." className="mt-1 font-mono text-sm border-border/50 bg-background/50"
                     onKeyDown={e => e.key === "Enter" && handleNewConversation()} />
                 </div>
-                <div>
-                  <label className="font-mono text-[10px] uppercase text-muted-foreground tracking-wider mb-2 block">LPEM Mode</label>
-                  <div className="grid grid-cols-2 gap-1.5">
-                    {MODES.map((m) => (
-                      <Tooltip key={m.id}>
-                        <TooltipTrigger asChild>
-                          <button
-                            onClick={() => setConvMode(m.id)}
-                            className={`flex items-center gap-2 px-2.5 py-2 border font-mono text-xs transition-colors ${convMode === m.id ? "border-primary/50 bg-primary/10 text-primary" : "border-border/30 text-muted-foreground hover:border-primary/30 hover:text-foreground"}`}
-                          >
-                            <span>{m.glyph}</span>
-                            <span className="uppercase tracking-wider text-[10px]">{m.label}</span>
-                          </button>
-                        </TooltipTrigger>
-                        <TooltipContent side="right" className="font-mono text-xs">{m.desc}</TooltipContent>
-                      </Tooltip>
-                    ))}
+                {(engrams ?? []).length > 0 && (
+                  <div>
+                    <label className="font-mono text-[10px] uppercase text-muted-foreground tracking-wider mb-2 block">Talk To</label>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <button
+                        onClick={() => setEngramId(null)}
+                        className={`flex items-center gap-2 px-2.5 py-2 border font-mono text-xs transition-colors ${engramId === null ? "border-primary/50 bg-primary/10 text-primary" : "border-border/30 text-muted-foreground hover:border-primary/30 hover:text-foreground"}`}
+                      >
+                        <span>◈</span>
+                        <span className="uppercase tracking-wider text-[10px]">PYRI</span>
+                      </button>
+                      {(engrams ?? []).map((e) => (
+                        <button
+                          key={e.id}
+                          onClick={() => setEngramId(e.id)}
+                          className={`flex items-center gap-2 px-2.5 py-2 border font-mono text-xs transition-colors ${engramId === e.id ? "border-primary/50 bg-primary/10 text-primary" : "border-border/30 text-muted-foreground hover:border-primary/30 hover:text-foreground"}`}
+                        >
+                          <span>{e.symbol}</span>
+                          <span className="uppercase tracking-wider text-[10px]">{e.name}</span>
+                        </button>
+                      ))}
+                    </div>
+                    <p className="font-mono text-[9px] text-muted-foreground/50 mt-1">PYRI uses LPEM modes; an engram replies autonomously in her own voice.</p>
                   </div>
-                </div>
-                {convMode === "custom" && (
-                  <div className="space-y-2">
-                    <label className="font-mono text-[10px] uppercase text-muted-foreground tracking-wider">Custom Engram</label>
-                    <Textarea
-                      value={customEngram}
-                      onChange={e => setCustomEngram(e.target.value)}
-                      placeholder="Paste your engram system context here..."
-                      className="font-mono text-xs border-border/50 bg-background/50 min-h-24 resize-none"
-                    />
-                    <label className="flex items-center gap-2 cursor-pointer text-xs font-mono text-primary/70 hover:text-primary transition-colors">
-                      <Upload className="w-3 h-3" />
-                      Upload .engram file
-                      <input type="file" accept=".engram,.txt,.md,.json" onChange={handleEngamorUpload} className="sr-only" />
-                    </label>
-                  </div>
+                )}
+                {engramId === null && (
+                  <>
+                    <div>
+                      <label className="font-mono text-[10px] uppercase text-muted-foreground tracking-wider mb-2 block">LPEM Mode</label>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        {MODES.map((m) => (
+                          <Tooltip key={m.id}>
+                            <TooltipTrigger asChild>
+                              <button
+                                onClick={() => setConvMode(m.id)}
+                                className={`flex items-center gap-2 px-2.5 py-2 border font-mono text-xs transition-colors ${convMode === m.id ? "border-primary/50 bg-primary/10 text-primary" : "border-border/30 text-muted-foreground hover:border-primary/30 hover:text-foreground"}`}
+                              >
+                                <span>{m.glyph}</span>
+                                <span className="uppercase tracking-wider text-[10px]">{m.label}</span>
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent side="right" className="font-mono text-xs">{m.desc}</TooltipContent>
+                          </Tooltip>
+                        ))}
+                      </div>
+                    </div>
+                    {convMode === "custom" && (
+                      <div className="space-y-2">
+                        <label className="font-mono text-[10px] uppercase text-muted-foreground tracking-wider">Custom Engram</label>
+                        <Textarea
+                          value={customEngram}
+                          onChange={e => setCustomEngram(e.target.value)}
+                          placeholder="Paste your engram system context here..."
+                          className="font-mono text-xs border-border/50 bg-background/50 min-h-24 resize-none"
+                        />
+                        <label className="flex items-center gap-2 cursor-pointer text-xs font-mono text-primary/70 hover:text-primary transition-colors">
+                          <Upload className="w-3 h-3" />
+                          Upload .engram file
+                          <input type="file" accept=".engram,.txt,.md,.json" onChange={handleEngamorUpload} className="sr-only" />
+                        </label>
+                      </div>
+                    )}
+                  </>
                 )}
                 <Button onClick={handleNewConversation} disabled={createConv.isPending || !newTitle.trim()}
                   className="w-full font-mono text-xs uppercase tracking-wider bg-primary text-primary-foreground">
@@ -284,7 +319,8 @@ export default function Chat() {
               </div>
             ) : (
               (convList as Conversation[]).map((c) => {
-                const modeGlyph = MODES.find((m) => m.id === c.mode)?.glyph ?? "◈";
+                const listEngram = (engrams ?? []).find((e) => e.id === c.engramId);
+                const modeGlyph = listEngram?.symbol ?? MODES.find((m) => m.id === c.mode)?.glyph ?? "◈";
                 return (
                   <button
                     key={c.id}
@@ -294,7 +330,7 @@ export default function Chat() {
                     <span className="text-primary/60 text-sm mt-0.5">{modeGlyph}</span>
                     <div className="flex-1 min-w-0">
                       <p className={`font-mono text-xs truncate ${activeId === c.id ? "text-primary" : "text-foreground/80"}`}>{c.title}</p>
-                      <p className="font-mono text-[9px] text-muted-foreground/50 uppercase mt-0.5">{c.mode}</p>
+                      <p className="font-mono text-[9px] text-muted-foreground/50 uppercase mt-0.5">{listEngram?.name ?? c.mode}</p>
                     </div>
                     <button
                       onClick={(e) => handleDelete(c.id, e)}
@@ -316,10 +352,10 @@ export default function Chat() {
         <div className="h-12 border-b border-border/50 px-6 flex items-center gap-3 bg-background/50 backdrop-blur-sm shrink-0">
           {activeConv ? (
             <>
-              <span className="text-primary text-base">{modeInfo?.glyph}</span>
+              <span className="text-primary text-base">{activeEngram ? activeEngram.symbol : modeInfo?.glyph}</span>
               <span className="font-mono text-xs text-foreground/80 truncate">{activeConv.title}</span>
               <Badge variant="outline" className="font-mono text-[9px] uppercase tracking-wider border-primary/30 text-primary/70 ml-auto">
-                {activeConv.mode}
+                {activeEngram ? activeEngram.name : activeConv.mode}
               </Badge>
             </>
           ) : (
@@ -353,7 +389,7 @@ export default function Chat() {
               <div key={idx} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                 <div className={`max-w-[78%] ${msg.role === "user" ? "order-1" : ""}`}>
                   <div className={`font-mono text-[9px] uppercase tracking-widest mb-1 ${msg.role === "user" ? "text-right text-muted-foreground/50" : "text-primary/50"}`}>
-                    {msg.role === "user" ? "YOU" : `PYRI · ${modeInfo?.glyph ?? "◈"}`}
+                    {msg.role === "user" ? "YOU" : activeEngram ? `${activeEngram.name.toUpperCase()} · ${activeEngram.symbol}` : `PYRI · ${modeInfo?.glyph ?? "◈"}`}
                   </div>
                   <div className={`px-4 py-3 text-sm leading-relaxed ${
                     msg.role === "user"

@@ -7,5 +7,8 @@ export * from "./evolution";
 export * from "./initiative";
 export * from "./hiero";
 export * from "./expressions";
+export * from "./engrams";
+export * from "./engram-transmissions";
+export * from "./engram-inquiries";
 export * from "./conversations";
 export * from "./messages";

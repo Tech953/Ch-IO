@@ -22,11 +22,18 @@ A full-stack dashboard for "PYRI", an AI companion built on a fictional ENGRAM c
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- API contract (source of truth): `lib/api-spec/openapi.yaml` → codegen emits `@workspace/api-zod` (Zod) and `@workspace/api-client-react` (React Query hooks + `get...QueryKey` helpers).
+- DB schema (source of truth): `lib/db/src/schema/*.ts`, re-exported from `lib/db/src/schema/index.ts`. Engram tables: `engrams.ts`, `engram-transmissions.ts`, `engram-inquiries.ts`; `conversations.ts` carries optional `engramId`.
+- Seed scripts: `scripts/src/seed-*.ts` (`seed:expressions`, `seed:engrams`).
+- API server: `artifacts/api-server/src/` — routes in `routes/`, prompt building in `lib/prompts.ts`, engram generation in `lib/engram-generation.ts`, autonomous ticker in `services/engram-engine.ts` (started/stopped from `index.ts`).
+- Frontend: `artifacts/engram/src/pages/` (Environment, Inquiry, Chat, etc.); routes in `App.tsx`, nav in `components/layout.tsx`; shadcn/ui in `components/ui/`; wouter router; Tailwind v4 cyberpunk cyan theme.
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- Engrams are autonomous: a single in-process ticker (`engram-engine.ts`) accrues per-drive "pressure" from elapsed time (no LLM) and only calls the model to emit one transmission when pressure crosses the engram's threshold. Cost guards: per-engram cooldown, hourly/daily caps, duplicate-content avoidance, and error backoff.
+- Engrams speak in their own voice/formatting (not the QUERTY expression layer). PYRI chat still uses the LPEM mode system; choosing an engram in chat bypasses LPEM modes and streams that engram's persona.
+- Inquiry has two modes: `probe` (in-voice answer, no state change) and `develop` (the engram mutates only bounded config fields — mood/threshold/cadence/focusThemes/driveWeights/addFacts — returned as a config delta).
+- Safety is enforced in code (`HARD_SAFETY`): the expression intimacy axis is sanitized out of any prompt; engram behavior stays platonic regardless of stored data.
 
 ## Product
 

@@ -11,4 +11,5 @@ export interface OpenaiConversationInput {
   mode: string;
   personaName?: string;
   customEngram?: string;
+  engramId?: number;
 }
