@@ -151,12 +151,15 @@ export function DEVELOPER(h) {
       ["LLM_BASE_URL", "Optional. OpenAI-compatible endpoint (e.g. a local server). Overrides the cloud default."],
       ["LLM_API_KEY", "Optional. Key for the endpoint; local servers usually accept any non-empty placeholder."],
       ["LLM_MODEL", "Optional. Model name to request. Defaults to the cloud model name, so local deployments should set this to a model the local server actually hosts."],
+      ["LLM_VISION_MODEL / LLM_TRANSCRIBE_MODEL", "Optional. Models for image/video vision and audio/video transcription; needed only for those media features."],
       ["AI_INTEGRATIONS_OPENAI_*", "Optional cloud fallback used when the LLM_* overrides are absent."],
-      ["SESSION_SECRET", "Server session signing secret."],
-      ["PORT / BASE_PATH", "Provided by the platform workflow; the API serves on its assigned port."],
+      ["PORT", "Port the API listens on. Provided by the platform workflow on Replit; set in .env for local runs (default 5000)."],
+      ["BASE_PATH", "Base path the frontend is built against (\"/\" for local single-port runs)."],
+      ["WEB_DIST", "Optional. Absolute path to the built dashboard (artifacts/engram/dist/public). When set, the API also serves the dashboard so the whole app runs on one port. Left unset on Replit, where the web is a separate static artifact."],
     ]),
 
-    H1("12. Local / Offline LLM Setup"),
+    H1("12. Local / Offline Operation"),
+    H2("12.1 Pointing at a local model"),
     P(
       "To run with no cloud dependency, point the provider seam at any OpenAI-compatible server (Ollama, LM Studio, llama.cpp, vLLM):",
     ),
@@ -169,17 +172,40 @@ export function DEVELOPER(h) {
     P(
       "With these set, both interactive chat and autonomous transmissions run entirely against the local model. Nothing else in the code needs to change.",
     ),
+    H2("12.2 One-command single-port run"),
+    P(
+      "The repository ships cross-platform launch scripts (scripts/local/) that build the dashboard and the API and run them together on a single port, with the API serving the built frontend. The first run also installs dependencies, pushes the schema, and seeds reference data.",
+    ),
+    CODE([
+      "# Linux / macOS",
+      "./scripts/local/start.sh",
+      "",
+      "# Windows (PowerShell)",
+      ".\\scripts\\local\\start.ps1",
+    ]),
+    P(
+      "Configuration is read from a .env file (copied from .env.example on first run); the scripts load it into the environment so the schema push, the Vite build, and the server all see it. Single-port serving is gated on WEB_DIST: when it points at the built dashboard the API serves both the UI and /api. Because the frontend calls the API with same-origin relative paths, one Express process needs no proxy or URL rewriting. On Replit WEB_DIST is unset, so the API serves only /api and the web stays a separate static artifact — behavior there is unchanged.",
+    ),
+    P(
+      "After the initial dependency download and model pull, the app runs with no outbound network: fonts are self-hosted, the frontend talks to the local API, and the API talks to the local model.",
+    ),
+    WARN(
+      "Video media perception additionally needs ffmpeg + ffprobe on PATH; image/video vision and audio/video transcription need a model that supports those modalities. A text-only local model still handles chat and autonomous transmissions.",
+    ),
 
     H1("13. Build, Run & Common Commands"),
     KV([
-      ["Run the API", "pnpm --filter @workspace/api-server run dev"],
-      ["Run the dashboard", "pnpm --filter @workspace/engram run dev"],
+      ["Run fully local (one port)", "./scripts/local/start.sh   (Windows: .\\scripts\\local\\start.ps1)"],
+      ["Run the API (dev)", "pnpm --filter @workspace/api-server run dev"],
+      ["Run the dashboard (dev)", "pnpm --filter @workspace/engram run dev"],
       ["Full typecheck", "pnpm run typecheck"],
       ["Build everything", "pnpm run build"],
       ["Regenerate API artifacts", "pnpm --filter @workspace/api-spec run codegen"],
       ["Push schema (dev only)", "pnpm --filter @workspace/db run push"],
       ["Seed expressions", "pnpm --filter @workspace/scripts run seed:expressions"],
       ["Seed engrams", "pnpm --filter @workspace/scripts run seed:engrams"],
+      ["Seed hub / spaces", "pnpm --filter @workspace/scripts run seed:hub"],
+      ["Regenerate docs (PDFs)", "node scripts/gen/generate-docs.mjs"],
     ]),
     WARN(
       "Do not run pnpm dev at the workspace root. Apps run via platform workflows that provide PORT and BASE_PATH. Verify a package with its typecheck script rather than build when running ad hoc from the shell.",
@@ -206,6 +232,8 @@ export function DEVELOPER(h) {
       ["Type errors after editing a lib", "Run the libs typecheck first to refresh declarations."],
       ["Generated hooks out of date", "Re-run codegen after any spec change."],
       ["Preview is blank in the platform", "Ensure the service binds the assigned PORT and the dev server allows proxied hosts."],
+      ["Local dashboard 404s on /api", "Confirm WEB_DIST points at a built dashboard and the API and UI share the same port."],
+      ["Video media job fails", "Install ffmpeg + ffprobe on PATH; text/image/audio modalities are unaffected."],
     ]),
   ];
 

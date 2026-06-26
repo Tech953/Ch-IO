@@ -43,11 +43,27 @@ export function README(h) {
     H1("Prerequisites"),
     UL([
       "Node.js 24 and pnpm.",
-      "A PostgreSQL database (connection string in DATABASE_URL).",
-      "Either a reachable OpenAI-compatible model endpoint or a local model runtime.",
+      "A local PostgreSQL database (connection string in DATABASE_URL).",
+      "For fully offline use: a local OpenAI-compatible model runtime (Ollama, LM Studio, llama.cpp, or vLLM).",
+      "Optional: ffmpeg + ffprobe on PATH for the video media modality (text, image, and audio work without them).",
     ]),
 
     H1("Quick Start"),
+    H2("Option A — Run fully local on one port (recommended)"),
+    P(
+      "One command builds the dashboard and the API and runs them together on a single port (default http://localhost:5000), with the API serving the built dashboard. The first run also installs dependencies, creates the database schema, and seeds reference data.",
+    ),
+    CODE([
+      "# Linux / macOS",
+      "./scripts/local/start.sh",
+      "",
+      "# Windows (PowerShell)",
+      ".\\scripts\\local\\start.ps1",
+    ]),
+    P(
+      "Windows users can also double-click scripts\\local\\start.bat. Run the one-time setup on its own with the matching setup.sh / setup.ps1. Configuration lives in .env (copied from .env.example on first run) — point DATABASE_URL at your local Postgres and LLM_BASE_URL at your local model.",
+    ),
+    H2("Option B — Development (separate servers, live reload)"),
     P("1. Install dependencies from the repo root:"),
     CODE("pnpm install"),
     P("2. Provide configuration (at minimum a database URL):"),
@@ -63,6 +79,7 @@ export function README(h) {
       "pnpm --filter @workspace/db run push",
       "pnpm --filter @workspace/scripts run seed:expressions",
       "pnpm --filter @workspace/scripts run seed:engrams",
+      "pnpm --filter @workspace/scripts run seed:hub",
     ]),
     P("4. Run the API and the dashboard:"),
     CODE([
@@ -73,11 +90,13 @@ export function README(h) {
     H1("Configuration"),
     KV([
       ["DATABASE_URL", "Required. PostgreSQL connection string."],
-      ["LLM_BASE_URL", "Optional. OpenAI-compatible endpoint; overrides the cloud default."],
-      ["LLM_API_KEY", "Optional. Endpoint key; local servers accept any non-empty value."],
-      ["LLM_MODEL", "Optional. Model name. Defaults to the cloud model, so set it to an installed local model when running offline."],
+      ["PORT", "Port the server listens on (default 5000 in local mode)."],
+      ["LLM_BASE_URL", "OpenAI-compatible endpoint; set it to a local server for offline use."],
+      ["LLM_API_KEY", "Endpoint key; local servers accept any non-empty value."],
+      ["LLM_MODEL", "Model name. Set it to an installed local model when running offline."],
+      ["LLM_VISION_MODEL / LLM_TRANSCRIBE_MODEL", "Optional models for image/video vision and audio/video transcription."],
+      ["WEB_DIST", "Optional. Absolute path to the built dashboard (artifacts/engram/dist/public). When set, the API also serves the dashboard for single-port local runs; set automatically by the local start scripts."],
       ["AI_INTEGRATIONS_OPENAI_*", "Optional cloud fallback used when LLM_* is unset."],
-      ["SESSION_SECRET", "Session signing secret."],
     ]),
     NOTE(
       "Leave the LLM_* variables unset to use the hosted model, or set them to point at any local OpenAI-compatible server for fully offline operation. No code changes are required either way.",
@@ -96,21 +115,25 @@ export function README(h) {
 
     H1("Common Commands"),
     KV([
+      ["Run fully local (one port)", "./scripts/local/start.sh   (Windows: .\\scripts\\local\\start.ps1)"],
       ["Typecheck", "pnpm run typecheck"],
       ["Build", "pnpm run build"],
       ["Regenerate API", "pnpm --filter @workspace/api-spec run codegen"],
       ["Push schema", "pnpm --filter @workspace/db run push"],
       ["Seed expressions", "pnpm --filter @workspace/scripts run seed:expressions"],
       ["Seed engrams", "pnpm --filter @workspace/scripts run seed:engrams"],
+      ["Seed hub / spaces", "pnpm --filter @workspace/scripts run seed:hub"],
     ]),
 
     H1("Notes & Gotchas"),
     UL([
-      "A fresh schema push does not seed data — run the seed scripts (the expression seed is idempotent).",
+      "A fresh schema push does not seed data — run the seed scripts (they are idempotent). The local start script seeds on first run.",
       "Re-run codegen after editing the OpenAPI spec; push after schema changes.",
       "Fonts are self-hosted via @fontsource — do not re-add CDN font references.",
       "The persona expression intimacy axis is sanitized before reaching the model; behavior stays platonic.",
-      "Do not run pnpm dev at the workspace root; run individual packages or use platform workflows.",
+      "Do not run pnpm dev at the workspace root; run individual packages, the local start script, or platform workflows.",
+      "Video media perception needs ffmpeg + ffprobe on PATH; without them, video jobs fail (text/image/audio still work).",
+      "Image/video understanding and audio/video transcription need a model that supports vision and speech-to-text; a text-only local model still handles chat and transmissions.",
     ]),
 
     H1("License"),

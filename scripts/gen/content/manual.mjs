@@ -20,6 +20,11 @@ export function MANUAL(h) {
       "You do not need any technical knowledge. Each section below corresponds to a page in the app's navigation.",
     ),
 
+    H1("Starting ENGRAM"),
+    P(
+      "If someone has already set ENGRAM up for you, just open the web address they gave you — often http://localhost:5000 — in your browser. If you are running it yourself, the project README describes a single command that starts everything on Windows, macOS, or Linux; once it is running, open that same address.",
+    ),
+
     H1("Getting Around"),
     P(
       "On a computer, the menu sits in a sidebar down the left. Click any item to open that page. The current page is highlighted, and a status line at the bottom shows the system is online.",
