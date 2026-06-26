@@ -179,6 +179,21 @@ export interface HieroSymbol {
   compounds?: string;
 }
 
+export interface Expression {
+  id: number;
+  glyph: string;
+  name: string;
+  family: string;
+  eyes: string;
+  mouth: string;
+  gesture?: string | null;
+  valence: string;
+  arousal: string;
+  intimacy: number;
+  cognitiveRole?: string | null;
+  notes: string;
+}
+
 export interface LayerCount {
   layer: string;
   count: number;

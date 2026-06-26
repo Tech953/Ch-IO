@@ -25,6 +25,8 @@ tags:
     description: Initiative event operations
   - name: hiero
     description: Hiero-Code symbol operations
+  - name: expressions
+    description: Emotive QUERTY micro-expression library operations
   - name: stats
     description: System statistics and analytics
   - name: openai
@@ -325,6 +327,21 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/HieroSymbol"
+
+  /expressions:
+    get:
+      operationId: listExpressions
+      tags: [expressions]
+      summary: List all emotive QUERTY micro-expressions
+      responses:
+        "200":
+          description: List of emotive expressions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Expression"
 
   /stats:
     get:
@@ -814,6 +831,47 @@ components:
         - name
         - meaning
         - category
+
+    Expression:
+      type: object
+      properties:
+        id:
+          type: integer
+        glyph:
+          type: string
+        name:
+          type: string
+        family:
+          type: string
+        eyes:
+          type: string
+        mouth:
+          type: string
+        gesture:
+          type: string
+          nullable: true
+        valence:
+          type: string
+        arousal:
+          type: string
+        intimacy:
+          type: integer
+        cognitiveRole:
+          type: string
+          nullable: true
+        notes:
+          type: string
+      required:
+        - id
+        - glyph
+        - name
+        - family
+        - eyes
+        - mouth
+        - valence
+        - arousal
+        - intimacy
+        - notes
 
     SystemStats:
       type: object

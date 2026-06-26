@@ -12,6 +12,7 @@ export * from './beliefUpdate';
 export * from './confidenceBucket';
 export * from './dayCount';
 export * from './evolutionEntry';
+export * from './expression';
 export * from './healthStatus';
 export * from './hieroSymbol';
 export * from './initiativeEvent';
