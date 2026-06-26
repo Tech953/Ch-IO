@@ -46,6 +46,7 @@ import type {
   ListEngramMessagesParams,
   ListHubActivityParams,
   ListMemoriesParams,
+  ListSimulationsParams,
   MarkMessagesSeenInput,
   MarkMessagesSeenResult,
   MarkSeenInput,
@@ -63,6 +64,9 @@ import type {
   PersonaActivation,
   PersonalityInput,
   PersonalityProfile,
+  Simulation,
+  SimulationControlInput,
+  SimulationStep,
   SystemStats,
   WorldModelEntry,
   WorldModelInput,
@@ -3657,5 +3661,237 @@ export const useMarkEngramMessagesSeen = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getMarkEngramMessagesSeenMutationOptions(options));
+    }
+
+export const getListSimulationsUrl = (params?: ListSimulationsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/simulations?${stringifiedParams}` : `/api/simulations`
+}
+
+/**
+ * @summary List bounded simulations, newest first
+ */
+export const listSimulations = async (params?: ListSimulationsParams, options?: RequestInit): Promise<Simulation[]> => {
+
+  return customFetch<Simulation[]>(getListSimulationsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListSimulationsQueryKey = (params?: ListSimulationsParams,) => {
+    return [
+    `/api/simulations`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListSimulationsQueryOptions = <TData = Awaited<ReturnType<typeof listSimulations>>, TError = ErrorType<unknown>>(params?: ListSimulationsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listSimulations>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListSimulationsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listSimulations>>> = ({ signal }) => listSimulations(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listSimulations>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListSimulationsQueryResult = NonNullable<Awaited<ReturnType<typeof listSimulations>>>
+export type ListSimulationsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List bounded simulations, newest first
+ */
+
+export function useListSimulations<TData = Awaited<ReturnType<typeof listSimulations>>, TError = ErrorType<unknown>>(
+ params?: ListSimulationsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listSimulations>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListSimulationsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListSimulationStepsUrl = (id: number,) => {
+
+
+
+
+  return `/api/simulations/${id}/steps`
+}
+
+/**
+ * @summary List a simulation's ordered steps
+ */
+export const listSimulationSteps = async (id: number, options?: RequestInit): Promise<SimulationStep[]> => {
+
+  return customFetch<SimulationStep[]>(getListSimulationStepsUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListSimulationStepsQueryKey = (id: number,) => {
+    return [
+    `/api/simulations/${id}/steps`
+    ] as const;
+    }
+
+
+export const getListSimulationStepsQueryOptions = <TData = Awaited<ReturnType<typeof listSimulationSteps>>, TError = ErrorType<OpenaiError>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listSimulationSteps>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListSimulationStepsQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listSimulationSteps>>> = ({ signal }) => listSimulationSteps(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listSimulationSteps>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListSimulationStepsQueryResult = NonNullable<Awaited<ReturnType<typeof listSimulationSteps>>>
+export type ListSimulationStepsQueryError = ErrorType<OpenaiError>
+
+
+/**
+ * @summary List a simulation's ordered steps
+ */
+
+export function useListSimulationSteps<TData = Awaited<ReturnType<typeof listSimulationSteps>>, TError = ErrorType<OpenaiError>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listSimulationSteps>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListSimulationStepsQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getControlSimulationUrl = (id: number,) => {
+
+
+
+
+  return `/api/simulations/${id}/control`
+}
+
+/**
+ * @summary Operator control of a simulation (start, pause, resume, end)
+ */
+export const controlSimulation = async (id: number,
+    simulationControlInput: SimulationControlInput, options?: RequestInit): Promise<Simulation> => {
+
+  return customFetch<Simulation>(getControlSimulationUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(simulationControlInput)
+  }
+);}
+
+
+
+
+export const getControlSimulationMutationOptions = <TError = ErrorType<OpenaiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof controlSimulation>>, TError,{id: number;data: BodyType<SimulationControlInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof controlSimulation>>, TError,{id: number;data: BodyType<SimulationControlInput>}, TContext> => {
+
+const mutationKey = ['controlSimulation'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof controlSimulation>>, {id: number;data: BodyType<SimulationControlInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  controlSimulation(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ControlSimulationMutationResult = NonNullable<Awaited<ReturnType<typeof controlSimulation>>>
+    export type ControlSimulationMutationBody = BodyType<SimulationControlInput>
+    export type ControlSimulationMutationError = ErrorType<OpenaiError>
+
+    /**
+ * @summary Operator control of a simulation (start, pause, resume, end)
+ */
+export const useControlSimulation = <TError = ErrorType<OpenaiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof controlSimulation>>, TError,{id: number;data: BodyType<SimulationControlInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof controlSimulation>>,
+        TError,
+        {id: number;data: BodyType<SimulationControlInput>},
+        TContext
+      > => {
+      return useMutation(getControlSimulationMutationOptions(options));
     }
 

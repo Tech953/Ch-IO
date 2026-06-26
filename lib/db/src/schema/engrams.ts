@@ -71,7 +71,7 @@ export type DriveState = Record<string, number>;
  * Explicit go-live mode gating what an engram may do autonomously:
  * - orientation: idle/reflective transmissions only — no commons conversation, no human contact.
  * - social: may converse with other engrams in shared spaces — no human contact.
- * - simulation: occupied in a (future) bounded simulation — no commons conversation, no human contact.
+ * - simulation: may run bounded simulations in a simulation chamber — no commons conversation, no human contact.
  * - initiative_limited: may converse and contact the human ONLY at urgent priority.
  * - full_bounded: full autonomy within rate limits and overrides (the default).
  * - quiescent: at rest — accrues pressure but initiates nothing.
@@ -108,6 +108,8 @@ export const engramsTable = pgTable("engrams", {
   mode: text("mode").notNull().default("full_bounded"),
   /** When false, this engram may never initiate contact with the human operator. */
   humanContactEnabled: boolean("human_contact_enabled").notNull().default(true),
+  /** When false, this engram may never propose or run a bounded simulation. The absolute off switch. */
+  simulationEnabled: boolean("simulation_enabled").notNull().default(true),
   // --- Live state ---
   driveState: jsonb("drive_state").$type<DriveState>().notNull().default({}),
   currentMood: text("current_mood"),

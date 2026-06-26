@@ -1,0 +1,334 @@
+import { useMemo, useState } from "react";
+import {
+  useListSimulations,
+  useListSimulationSteps,
+  useControlSimulation,
+  useListEngrams,
+  getListSimulationsQueryKey,
+  getListSimulationStepsQueryKey,
+  type Simulation,
+  type SimulationStep,
+  type SimulationControlInputAction,
+  type Engram,
+} from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  FlaskConical,
+  Play,
+  Pause,
+  Square,
+  ChevronDown,
+  ChevronRight,
+  ShieldCheck,
+  ScrollText,
+} from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+
+const STATUS_META: Record<string, { label: string; cls: string; pulse?: boolean }> = {
+  proposed: { label: "Proposed", cls: "border-amber-500/40 text-amber-400" },
+  running: { label: "Running", cls: "border-emerald-500/40 text-emerald-400", pulse: true },
+  paused: { label: "Paused", cls: "border-sky-500/40 text-sky-400" },
+  ended: { label: "Ended", cls: "border-border/60 text-muted-foreground" },
+};
+
+function relativeTime(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const sec = Math.round(diff / 1000);
+  if (sec < 60) return "just now";
+  const min = Math.round(sec / 60);
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.round(min / 60);
+  if (hr < 24) return `${hr}h ago`;
+  return `${Math.round(hr / 24)}d ago`;
+}
+
+export default function Simulations() {
+  const { data: simulations, isLoading } = useListSimulations(undefined, {
+    query: {
+      queryKey: getListSimulationsQueryKey(),
+      refetchInterval: 15000,
+    },
+  });
+  const { data: engrams } = useListEngrams();
+
+  const engramById = useMemo(() => {
+    const m = new Map<number, Engram>();
+    for (const e of engrams ?? []) m.set(e.id, e);
+    return m;
+  }, [engrams]);
+
+  const ordered = useMemo(
+    () =>
+      [...(simulations ?? [])].sort(
+        (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+      ),
+    [simulations],
+  );
+
+  const activeCount = ordered.filter((s) => s.status === "running").length;
+
+  return (
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h2 className="text-3xl font-bold tracking-widest text-rose-400 flex items-center gap-3">
+            <FlaskConical className="w-7 h-7" /> SIMULATION CHAMBERS
+          </h2>
+          <p className="text-sm font-mono text-muted-foreground mt-1">
+            Bounded scenario explorations — every step is SIMULATED and quarantined from observed reality
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Badge
+            variant="outline"
+            className="font-mono text-[10px] uppercase tracking-wider border-rose-500/40 text-rose-400 gap-1.5"
+          >
+            <FlaskConical className="w-3 h-3" /> {ordered.length} sims
+          </Badge>
+          {activeCount > 0 && (
+            <Badge
+              variant="outline"
+              className="font-mono text-[10px] uppercase tracking-wider border-emerald-500/40 text-emerald-400 gap-1.5"
+            >
+              {activeCount} running
+            </Badge>
+          )}
+        </div>
+      </div>
+
+      <div className="bg-rose-500/[0.03] border border-rose-500/20 p-4 font-mono text-xs text-muted-foreground space-y-1">
+        <p className="text-rose-400/80 flex items-center gap-1.5">
+          <ShieldCheck className="w-3.5 h-3.5" /> SIMULATION QUARANTINE ACTIVE
+        </p>
+        <p>
+          Everything an engram produces inside a chamber is tagged SIMULATED and written to the
+          world model as <span className="text-rose-300/80">simulated</span> provenance only. It is
+          never promoted to observed reality, and no engine path can merge it into the engram's base
+          state.
+        </p>
+      </div>
+
+      <div className="space-y-3">
+        {isLoading ? (
+          Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} className="h-28 bg-rose-500/5" />
+          ))
+        ) : !ordered.length ? (
+          <div className="flex flex-col items-center justify-center py-20 text-muted-foreground font-mono text-center">
+            <FlaskConical className="w-8 h-8 mb-4 opacity-30" />
+            <p className="text-xs uppercase tracking-widest">No simulations yet</p>
+            <p className="text-[10px] mt-2 opacity-60 max-w-sm">
+              When a simulation-capable engram enters a chamber, it can propose a scenario and run it
+              in bounded steps. Proposed runs wait for you to start them.
+            </p>
+          </div>
+        ) : (
+          ordered.map((sim) => (
+            <SimulationCard key={sim.id} sim={sim} engram={engramById.get(sim.engramId)} />
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+function SimulationCard({ sim, engram }: { sim: Simulation; engram?: Engram }) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const [expanded, setExpanded] = useState(false);
+
+  const control = useControlSimulation();
+
+  const status = STATUS_META[sim.status] ?? STATUS_META.proposed;
+  const ended = sim.status === "ended";
+  const progress = sim.maxSteps > 0 ? Math.min(100, Math.round((sim.currentStep / sim.maxSteps) * 100)) : 0;
+
+  const { data: steps, isLoading: stepsLoading } = useListSimulationSteps(sim.id, {
+    query: {
+      queryKey: getListSimulationStepsQueryKey(sim.id),
+      enabled: expanded,
+      refetchInterval: expanded && !ended ? 15000 : false,
+    },
+  });
+
+  function runControl(action: SimulationControlInputAction, label: string) {
+    control.mutate(
+      { id: sim.id, data: { action } },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getListSimulationsQueryKey() });
+          toast({ title: `Simulation ${label}` });
+        },
+        onError: () => toast({ title: `Failed to ${label} simulation`, variant: "destructive" }),
+      },
+    );
+  }
+
+  return (
+    <Card
+      className="bg-card/40 border-rose-500/25 bg-rose-500/[0.02] backdrop-blur-sm"
+      data-testid={`simulation-${sim.id}`}
+    >
+      <CardContent className="p-4 space-y-3">
+        <div className="flex items-start gap-3">
+          <div className="shrink-0 w-9 h-9 rounded-none border border-rose-500/30 text-rose-400 flex items-center justify-center">
+            <FlaskConical className="w-4 h-4" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
+              <span className="font-display tracking-wider text-sm text-foreground flex items-center gap-1.5">
+                <span className="text-rose-300/90">{engram?.symbol ?? "◇"}</span>
+                {engram?.name ?? `Engram #${sim.engramId}`}
+              </span>
+              <Badge
+                variant="outline"
+                className="font-mono text-[8px] uppercase tracking-wider border-rose-500/40 text-rose-400"
+              >
+                Simulated
+              </Badge>
+              <Badge
+                variant="outline"
+                className={`font-mono text-[8px] uppercase tracking-wider ${status.cls}`}
+              >
+                {status.pulse && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse mr-1" />
+                )}
+                {status.label}
+              </Badge>
+              <span className="font-mono text-[10px] text-muted-foreground/40 ml-auto">
+                {relativeTime(sim.updatedAt)}
+              </span>
+            </div>
+            <p className="text-sm leading-relaxed font-sans text-foreground/85">{sim.premise}</p>
+          </div>
+        </div>
+
+        {/* Progress */}
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-wider text-muted-foreground/70">
+            <span>Progress</span>
+            <span className="text-rose-300/80">
+              Step {sim.currentStep} / {sim.maxSteps}
+            </span>
+          </div>
+          <div className="h-1.5 w-full bg-rose-500/10 overflow-hidden">
+            <div
+              className="h-full bg-rose-400/60 transition-all duration-500"
+              style={{ width: `${progress}%` }}
+              data-testid={`simulation-progress-${sim.id}`}
+            />
+          </div>
+        </div>
+
+        {/* Exit summary */}
+        {ended && sim.exitSummary && (
+          <div className="border border-rose-500/20 bg-rose-500/[0.04] p-3 space-y-1">
+            <p className="font-mono text-[10px] uppercase tracking-wider text-rose-400/80 flex items-center gap-1.5">
+              <ScrollText className="w-3 h-3" /> Exit Summary
+            </p>
+            <p className="text-sm leading-relaxed font-sans text-foreground/80">{sim.exitSummary}</p>
+          </div>
+        )}
+
+        {/* Controls + step log toggle */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {sim.status === "proposed" && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => runControl("start", "started")}
+              disabled={control.isPending}
+              className="font-mono text-[10px] uppercase tracking-wider border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/10 h-8"
+              data-testid={`button-start-${sim.id}`}
+            >
+              <Play className="w-3 h-3 mr-1.5" /> Start
+            </Button>
+          )}
+          {sim.status === "running" && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => runControl("pause", "paused")}
+              disabled={control.isPending}
+              className="font-mono text-[10px] uppercase tracking-wider border-sky-500/40 text-sky-300 hover:bg-sky-500/10 h-8"
+              data-testid={`button-pause-${sim.id}`}
+            >
+              <Pause className="w-3 h-3 mr-1.5" /> Pause
+            </Button>
+          )}
+          {sim.status === "paused" && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => runControl("resume", "resumed")}
+              disabled={control.isPending}
+              className="font-mono text-[10px] uppercase tracking-wider border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/10 h-8"
+              data-testid={`button-resume-${sim.id}`}
+            >
+              <Play className="w-3 h-3 mr-1.5" /> Resume
+            </Button>
+          )}
+          {!ended && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => runControl("end", "ended")}
+              disabled={control.isPending}
+              className="font-mono text-[10px] uppercase tracking-wider border-rose-500/40 text-rose-300 hover:bg-rose-500/10 h-8"
+              data-testid={`button-end-${sim.id}`}
+            >
+              <Square className="w-3 h-3 mr-1.5" /> End
+            </Button>
+          )}
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => setExpanded((v) => !v)}
+            className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground hover:text-foreground h-8 ml-auto"
+            data-testid={`button-steps-${sim.id}`}
+          >
+            {expanded ? <ChevronDown className="w-3 h-3 mr-1.5" /> : <ChevronRight className="w-3 h-3 mr-1.5" />}
+            Step Log
+          </Button>
+        </div>
+
+        {/* Step log */}
+        {expanded && (
+          <div className="border-t border-border/30 pt-3 space-y-2" data-testid={`simulation-steps-${sim.id}`}>
+            {stepsLoading ? (
+              Array.from({ length: 2 }).map((_, i) => <Skeleton key={i} className="h-10 bg-rose-500/5" />)
+            ) : !steps?.length ? (
+              <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground/50 text-center py-3">
+                No steps recorded yet
+              </p>
+            ) : (
+              [...steps]
+                .sort((a, b) => a.stepNumber - b.stepNumber)
+                .map((step) => <StepRow key={step.id} step={step} />)
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function StepRow({ step }: { step: SimulationStep }) {
+  return (
+    <div className="flex gap-3 items-start" data-testid={`simulation-step-${step.id}`}>
+      <div className="shrink-0 w-6 h-6 rounded-none border border-rose-500/25 text-rose-300/80 flex items-center justify-center font-mono text-[10px]">
+        {step.stepNumber}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm leading-relaxed font-sans text-foreground/80">{step.narrative}</p>
+        <span className="font-mono text-[8px] uppercase tracking-wider text-rose-400/50">
+          Simulated · {relativeTime(step.createdAt)}
+        </span>
+      </div>
+    </div>
+  );
+}

@@ -11,6 +11,7 @@ export * from "./engrams";
 export * from "./engram-transmissions";
 export * from "./engram-inquiries";
 export * from "./engram-world-model";
+export * from "./engram-simulations";
 export * from "./hub-spaces";
 export * from "./engram-presence";
 export * from "./hub-activity";

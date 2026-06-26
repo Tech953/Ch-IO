@@ -17,6 +17,7 @@ import { capabilitiesFor, type Capabilities } from "../lib/engram-policy";
 import { loadControls } from "../lib/controls-store";
 import { attemptHumanContact } from "../lib/human-contact";
 import { maybeRunCommonsTurn } from "../lib/commons";
+import { maybeRunSimulationStep } from "../lib/simulations";
 
 // --- Tunable constants (cost & cadence guards) ---
 const GLOBAL_TICK_MS = 20_000; // how often the engine wakes up
@@ -328,6 +329,22 @@ export async function runTick(opts: { force?: boolean } = {}): Promise<TickResul
       });
     } catch (err) {
       logger.error({ err }, "commons conversation turn failed");
+    }
+
+    // Simulation phase: at most ONE bounded simulation action per tick (step a
+    // running sim, or a capable engram in the chamber opens a new one). Everything
+    // it writes is quarantined as a SIMULATED world-model entry. Best-effort — a
+    // failure here must not abort the tick or roll back anything above.
+    try {
+      await maybeRunSimulationStep({
+        controls,
+        engrams,
+        spaceById,
+        presenceByEngram,
+        now,
+      });
+    } catch (err) {
+      logger.error({ err }, "simulation step failed");
     }
   } finally {
     ticking = false;

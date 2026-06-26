@@ -27,10 +27,14 @@ export interface Capabilities {
   canConverse: boolean;
   /** May initiate contact with the human operator. */
   canContactHuman: boolean;
+  /** May propose/create and advance a bounded simulation in a simulation chamber. */
+  canSimulate: boolean;
   /** Lowest priority class that is still allowed through to the human (when canContactHuman). */
   minHumanPriority: EngramMessagePriority;
   /** Human-readable reason human contact is unavailable (set only when canContactHuman is false). */
   humanContactBlockReason?: string;
+  /** Human-readable reason simulation is unavailable (set only when canSimulate is false). */
+  simulationBlockReason?: string;
 }
 
 /** Higher rank = more important / harder to suppress. */
@@ -62,8 +66,10 @@ export function capabilitiesFor(opts: {
   /** Undefined when the engram has no presence row (legacy / pre-Hub behavior). */
   space?: SpaceContext;
   humanContactEnabled: boolean;
+  /** Per-engram absolute off switch for simulations. Defaults to enabled when omitted. */
+  simulationEnabled?: boolean;
 }): Capabilities {
-  const { mode, controls, space, humanContactEnabled } = opts;
+  const { mode, controls, space, humanContactEnabled, simulationEnabled = true } = opts;
 
   // Global pause and resting zones are absolute: nothing initiates.
   if (controls.paused) {
@@ -111,6 +117,22 @@ export function capabilitiesFor(opts: {
     canConverse = false;
   }
 
+  // Simulation: an independent capability gated on mode (simulation or full_bounded),
+  // physical presence in a simulate-scoped chamber, and the per-engram off switch.
+  // Unlike converse, an unknown/absent space cannot simulate — you must be in a
+  // chamber. Global pause / resting / quiescent already short-circuited above.
+  let canSimulate = false;
+  let simulationBlockReason: string | undefined;
+  if (mode !== "simulation" && mode !== "full_bounded") {
+    simulationBlockReason = `mode "${mode}" does not permit simulations`;
+  } else if (!space || space.actionScope !== "simulate") {
+    simulationBlockReason = "not in a simulation chamber";
+  } else if (!simulationEnabled) {
+    simulationBlockReason = "simulation disabled for this engram";
+  } else {
+    canSimulate = true;
+  }
+
   // Human-contact independent gates. The per-engram toggle is an absolute off
   // switch; quiet mode is NOT — it raises the bar so only urgent contact reaches
   // the operator while meaningful/social are held by the priority gate.
@@ -128,8 +150,10 @@ export function capabilitiesFor(opts: {
     canIdle,
     canConverse,
     canContactHuman: humanContact,
+    canSimulate,
     minHumanPriority,
     humanContactBlockReason,
+    simulationBlockReason,
   };
 }
 
@@ -138,8 +162,10 @@ function blocked(reason: string): Capabilities {
     canIdle: false,
     canConverse: false,
     canContactHuman: false,
+    canSimulate: false,
     minHumanPriority: "urgent",
     humanContactBlockReason: reason,
+    simulationBlockReason: reason,
   };
 }
 

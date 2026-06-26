@@ -41,6 +41,7 @@ import {
   Inbox,
   ShieldAlert,
   Power,
+  FlaskConical,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -175,6 +176,23 @@ export default function Terminal() {
           });
         },
         onError: () => toast({ title: "Failed to update human contact", variant: "destructive" }),
+        onSettled: () => setPendingEngramId(null),
+      },
+    );
+  }
+
+  function toggleSimulation(engram: Engram, enabled: boolean) {
+    setPendingEngramId(engram.id);
+    updateEngram.mutate(
+      { id: engram.id, data: { simulationEnabled: enabled } },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getListEngramsQueryKey() });
+          toast({
+            title: `${engram.name} simulations ${enabled ? "enabled" : "disabled"}`,
+          });
+        },
+        onError: () => toast({ title: "Failed to update simulations", variant: "destructive" }),
         onSettled: () => setPendingEngramId(null),
       },
     );
@@ -355,6 +373,23 @@ export default function Terminal() {
                         />
                         <span className={`font-mono text-[10px] uppercase tracking-wider ${engram.humanContactEnabled ? "text-emerald-400" : "text-muted-foreground/50"}`}>
                           {engram.humanContactEnabled ? "Enabled" : "Disabled"}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <span className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground/60 flex items-center gap-1">
+                        <FlaskConical className="w-2.5 h-2.5" /> Simulations
+                      </span>
+                      <div className="flex items-center gap-2 h-8">
+                        <Switch
+                          checked={engram.simulationEnabled}
+                          onCheckedChange={(v) => toggleSimulation(engram, v)}
+                          disabled={pendingEngramId === engram.id}
+                          data-testid={`switch-simulation-${engram.id}`}
+                        />
+                        <span className={`font-mono text-[10px] uppercase tracking-wider ${engram.simulationEnabled ? "text-rose-400" : "text-muted-foreground/50"}`}>
+                          {engram.simulationEnabled ? "Enabled" : "Disabled"}
                         </span>
                       </div>
                     </div>

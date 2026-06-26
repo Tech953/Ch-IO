@@ -13,6 +13,7 @@ const OPEN: GlobalControls = { paused: false, quietMode: false };
 const COMMONS: SpaceContext = { allowsInitiative: true, actionScope: "converse" };
 const QUIESCENCE: SpaceContext = { allowsInitiative: false, actionScope: "rest" };
 const ORIENTATION_ROOM: SpaceContext = { allowsInitiative: true, actionScope: "reflect" };
+const CHAMBER: SpaceContext = { allowsInitiative: true, actionScope: "simulate" };
 
 describe("capabilitiesFor — mode matrix", () => {
   it("full_bounded in commons allows everything (social bar)", () => {
@@ -92,6 +93,59 @@ describe("capabilitiesFor — overrides win", () => {
     const c = capabilitiesFor({ mode: "full_bounded", controls: OPEN, humanContactEnabled: true });
     expect(c.canConverse).toBe(true);
     expect(c.canIdle).toBe(true);
+  });
+});
+
+describe("capabilitiesFor — canSimulate matrix", () => {
+  it("full_bounded in a chamber with the toggle on can simulate", () => {
+    const c = capabilitiesFor({ mode: "full_bounded", controls: OPEN, space: CHAMBER, humanContactEnabled: true, simulationEnabled: true });
+    expect(c.canSimulate).toBe(true);
+    expect(c.simulationBlockReason).toBeUndefined();
+  });
+
+  it("simulation mode in a chamber can simulate (but not converse / human contact)", () => {
+    const c = capabilitiesFor({ mode: "simulation", controls: OPEN, space: CHAMBER, humanContactEnabled: true, simulationEnabled: true });
+    expect(c.canSimulate).toBe(true);
+    expect(c.canConverse).toBe(false);
+    expect(c.canContactHuman).toBe(false);
+  });
+
+  it("simulationEnabled=false is an absolute off switch (leaves idle intact)", () => {
+    const c = capabilitiesFor({ mode: "full_bounded", controls: OPEN, space: CHAMBER, humanContactEnabled: true, simulationEnabled: false });
+    expect(c.canSimulate).toBe(false);
+    expect(c.simulationBlockReason).toMatch(/disabled/i);
+    expect(c.canIdle).toBe(true);
+  });
+
+  it("cannot simulate outside a simulate-scoped space", () => {
+    const c = capabilitiesFor({ mode: "full_bounded", controls: OPEN, space: COMMONS, humanContactEnabled: true, simulationEnabled: true });
+    expect(c.canSimulate).toBe(false);
+    expect(c.simulationBlockReason).toMatch(/chamber/i);
+  });
+
+  it("cannot simulate with no presence row (not in a chamber)", () => {
+    const c = capabilitiesFor({ mode: "full_bounded", controls: OPEN, humanContactEnabled: true, simulationEnabled: true });
+    expect(c.canSimulate).toBe(false);
+  });
+
+  it("social/orientation/initiative_limited modes cannot simulate even in a chamber", () => {
+    for (const mode of ["social", "orientation", "initiative_limited"]) {
+      const c = capabilitiesFor({ mode, controls: OPEN, space: CHAMBER, humanContactEnabled: true, simulationEnabled: true });
+      expect(c.canSimulate).toBe(false);
+      expect(c.simulationBlockReason).toMatch(/does not permit/i);
+    }
+  });
+
+  it("global pause, resting space, quiescent, and unknown modes all zero canSimulate", () => {
+    expect(capabilitiesFor({ mode: "full_bounded", controls: { paused: true, quietMode: false }, space: CHAMBER, humanContactEnabled: true, simulationEnabled: true }).canSimulate).toBe(false);
+    expect(capabilitiesFor({ mode: "full_bounded", controls: OPEN, space: QUIESCENCE, humanContactEnabled: true, simulationEnabled: true }).canSimulate).toBe(false);
+    expect(capabilitiesFor({ mode: "quiescent", controls: OPEN, space: CHAMBER, humanContactEnabled: true, simulationEnabled: true }).canSimulate).toBe(false);
+    expect(capabilitiesFor({ mode: "bogus_mode", controls: OPEN, space: CHAMBER, humanContactEnabled: true, simulationEnabled: true }).canSimulate).toBe(false);
+  });
+
+  it("defaults simulationEnabled to true when omitted", () => {
+    const c = capabilitiesFor({ mode: "full_bounded", controls: OPEN, space: CHAMBER, humanContactEnabled: true });
+    expect(c.canSimulate).toBe(true);
   });
 });
 

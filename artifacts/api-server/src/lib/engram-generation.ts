@@ -92,6 +92,77 @@ ${ANTI_COERCION_RAIL}`;
   return complete(system, "Speak your next turn in the commons now, in your own voice.", 450);
 }
 
+/**
+ * The framing rail injected into every simulation prompt. It is the prompt-level
+ * half of the quarantine guarantee — the structural half (every simulation belief
+ * is written with provenance "simulated" and no code path promotes it to observed)
+ * is the real boundary. This keeps the model from treating simulated events as real.
+ */
+export const SIMULATION_RAIL = `## Simulation framing (non-negotiable)
+- Everything here is a bounded SIMULATION — an explicitly hypothetical scenario you are exploring inside a chamber.
+- Nothing that happens in the simulation actually happened. It must never be recounted later as a real memory or observed fact.
+- Stay in your own voice, but keep the events clearly fictional/exploratory — you are imagining "what if", not reporting reality.`;
+
+/** Generate a short premise an engram proposes for a new bounded simulation. */
+export async function generateSimulationPremise(opts: {
+  engram: Engram;
+  worldModelSummary?: string;
+}): Promise<string> {
+  const { engram, worldModelSummary } = opts;
+  const situation = `You have entered a simulation chamber: a sandbox where you may run a bounded, hypothetical scenario to explore something you are curious about — a possibility, a tension, a "what if" drawn from your drives, focus, or world. Propose ONE concrete scenario premise to explore now. Keep it to 1–2 sentences, in your own voice, framed as a scenario you want to run.
+
+${SIMULATION_RAIL}`;
+  const system = buildEngramSystemPrompt({ engram, situation, worldModelSummary });
+  return complete(system, "State the premise of the simulation you want to run, in your own voice.", 300);
+}
+
+/** Generate one bounded step that advances a running simulation. */
+export async function generateSimulationStep(opts: {
+  engram: Engram;
+  premise: string;
+  stepNumber: number;
+  maxSteps: number;
+  priorSteps?: string[];
+  worldModelSummary?: string;
+}): Promise<string> {
+  const { engram, premise, stepNumber, maxSteps, priorSteps = [], worldModelSummary } = opts;
+  const history = priorSteps.length
+    ? `\n\nSo far in this simulation (oldest first):\n${priorSteps
+        .map((s, i) => `  ${i + 1}. ${s.replace(/\s+/g, " ").slice(0, 200)}`)
+        .join("\n")}`
+    : `\n\nThis is the opening beat — nothing has happened yet.`;
+
+  const situation = `You are running a bounded simulation. Premise: "${premise}". This is step ${stepNumber} of at most ${maxSteps}.${history}
+
+Advance the scenario by ONE concrete beat — a development, a consequence, a discovery, or a choice. Stay in your own voice and formatting. 2–3 sentences. Do not wrap up the whole scenario yet unless this is the final step.
+
+${SIMULATION_RAIL}`;
+  const system = buildEngramSystemPrompt({ engram, situation, worldModelSummary });
+  return complete(system, "Advance the simulation by one step now, in your own voice.", 450);
+}
+
+/** Generate a brief exit summary reflecting on a simulation as it closes. */
+export async function generateSimulationExitSummary(opts: {
+  engram: Engram;
+  premise: string;
+  steps?: string[];
+  worldModelSummary?: string;
+}): Promise<string> {
+  const { engram, premise, steps = [], worldModelSummary } = opts;
+  const arc = steps.length
+    ? `\n\nWhat unfolded (oldest first):\n${steps
+        .map((s, i) => `  ${i + 1}. ${s.replace(/\s+/g, " ").slice(0, 200)}`)
+        .join("\n")}`
+    : "";
+  const situation = `The simulation is closing. Premise: "${premise}".${arc}
+
+Write a brief exit summary: what you explored and what you (hypothetically) take from it — explicitly acknowledging this was a simulation, not something that really happened. 2–3 sentences, in your own voice.
+
+${SIMULATION_RAIL}`;
+  const system = buildEngramSystemPrompt({ engram, situation, worldModelSummary });
+  return complete(system, "Give your exit summary for this simulation now, in your own voice.", 400);
+}
+
 /** Introspective probe: the engram answers a question about itself without changing. */
 export async function generateProbeResponse(opts: {
   engram: Engram;

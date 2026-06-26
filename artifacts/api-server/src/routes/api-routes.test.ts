@@ -25,6 +25,10 @@ const h = vi.hoisted(() => {
     "hubSpacesTable",
     "engramPresenceTable",
     "hubActivityLogTable",
+    "hubControlsTable",
+    "engramMessagesTable",
+    "engramSimulationsTable",
+    "engramSimulationStepsTable",
   ] as const;
 
   const store: Record<string, Row[]> = {};
@@ -50,6 +54,8 @@ const h = vi.hoisted(() => {
   }
   const schema: Record<string, unknown> = {};
   for (const t of TABLE_NAMES) schema[t] = makeTable(t);
+  // Non-table named exports the engine path imports from the schema barrel.
+  schema.HUB_CONTROLS_ID = 1;
   function tableName(t: unknown): string {
     return (t as { __table: string }).__table;
   }
@@ -146,6 +152,15 @@ const h = vi.hoisted(() => {
           },
           onConflictDoUpdate(_args: unknown) {
             return { returning: () => Promise.resolve(inserted) };
+          },
+          onConflictDoNothing(_args?: unknown) {
+            return {
+              returning: (_proj?: unknown) => Promise.resolve(inserted),
+              then: (
+                resolve: (v: unknown) => unknown,
+                reject?: (e: unknown) => unknown,
+              ) => Promise.resolve(inserted).then(resolve, reject),
+            };
           },
           then(resolve: (v: unknown) => unknown, reject?: (e: unknown) => unknown) {
             return Promise.resolve(undefined).then(resolve, reject);
@@ -311,6 +326,9 @@ function seedEngram(overrides: Record<string, unknown> = {}) {
     lastTransmissionAt: null,
     backoffUntil: null,
     isChatActive: false,
+    mode: "full_bounded",
+    humanContactEnabled: true,
+    simulationEnabled: true,
     createdAt: new Date("2026-01-01T00:00:00Z"),
     updatedAt: new Date("2026-01-01T00:00:00Z"),
     ...overrides,

@@ -989,6 +989,97 @@ paths:
               schema:
                 $ref: "#/components/schemas/MarkMessagesSeenResult"
 
+  /simulations:
+    get:
+      operationId: listSimulations
+      tags: [simulations]
+      summary: List bounded simulations, newest first
+      parameters:
+        - name: engramId
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [proposed, running, paused, ended]
+      responses:
+        "200":
+          description: Simulations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Simulation"
+
+  /simulations/{id}/steps:
+    get:
+      operationId: listSimulationSteps
+      tags: [simulations]
+      summary: List a simulation's ordered steps
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Ordered simulation steps
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SimulationStep"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpenaiError"
+
+  /simulations/{id}/control:
+    post:
+      operationId: controlSimulation
+      tags: [simulations]
+      summary: Operator control of a simulation (start, pause, resume, end)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SimulationControlInput"
+      responses:
+        "200":
+          description: Updated simulation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Simulation"
+        "400":
+          description: Invalid transition
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpenaiError"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpenaiError"
+
 components:
   schemas:
     HealthStatus:
@@ -1734,6 +1825,8 @@ components:
           enum: [orientation, social, simulation, initiative_limited, full_bounded, quiescent]
         humanContactEnabled:
           type: boolean
+        simulationEnabled:
+          type: boolean
         createdAt:
           type: string
         updatedAt:
@@ -1759,6 +1852,7 @@ components:
         - isChatActive
         - mode
         - humanContactEnabled
+        - simulationEnabled
         - createdAt
         - updatedAt
 
@@ -1776,6 +1870,8 @@ components:
           enum: [orientation, social, simulation, initiative_limited, full_bounded, quiescent]
         humanContactEnabled:
           type: boolean
+        simulationEnabled:
+          type: boolean
         focusThemes:
           type: array
           items:
@@ -1786,6 +1882,89 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/EngramDrive"
+
+    Simulation:
+      type: object
+      properties:
+        id:
+          type: integer
+        engramId:
+          type: integer
+        spaceId:
+          type: integer
+        premise:
+          type: string
+        status:
+          type: string
+          enum: [proposed, running, paused, ended]
+        currentStep:
+          type: integer
+        maxSteps:
+          type: integer
+        stepCooldownSeconds:
+          type: integer
+        lastSteppedAt:
+          type: ["string", "null"]
+        exitSummary:
+          type: ["string", "null"]
+        startedAt:
+          type: ["string", "null"]
+        pausedAt:
+          type: ["string", "null"]
+        endedAt:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - engramId
+        - spaceId
+        - premise
+        - status
+        - currentStep
+        - maxSteps
+        - stepCooldownSeconds
+        - lastSteppedAt
+        - exitSummary
+        - startedAt
+        - pausedAt
+        - endedAt
+        - createdAt
+        - updatedAt
+
+    SimulationStep:
+      type: object
+      properties:
+        id:
+          type: integer
+        simulationId:
+          type: integer
+        stepNumber:
+          type: integer
+        narrative:
+          type: string
+        worldModelEntryId:
+          type: ["integer", "null"]
+        createdAt:
+          type: string
+      required:
+        - id
+        - simulationId
+        - stepNumber
+        - narrative
+        - worldModelEntryId
+        - createdAt
+
+    SimulationControlInput:
+      type: object
+      properties:
+        action:
+          type: string
+          enum: [start, pause, resume, end]
+      required:
+        - action
 
     EngramTransmission:
       type: object

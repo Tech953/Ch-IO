@@ -347,6 +347,7 @@ export interface Engram {
   isChatActive: boolean;
   mode: EngramMode;
   humanContactEnabled: boolean;
+  simulationEnabled: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -369,9 +370,67 @@ export interface EngramConfigInput {
   initiationThreshold?: number;
   mode?: EngramConfigInputMode;
   humanContactEnabled?: boolean;
+  simulationEnabled?: boolean;
   focusThemes?: string[];
   emotionalBaseline?: EmotionalBaseline;
   drives?: EngramDrive[];
+}
+
+export type SimulationStatus = typeof SimulationStatus[keyof typeof SimulationStatus];
+
+
+export const SimulationStatus = {
+  proposed: 'proposed',
+  running: 'running',
+  paused: 'paused',
+  ended: 'ended',
+} as const;
+
+export interface Simulation {
+  id: number;
+  engramId: number;
+  spaceId: number;
+  premise: string;
+  status: SimulationStatus;
+  currentStep: number;
+  maxSteps: number;
+  stepCooldownSeconds: number;
+  /** @nullable */
+  lastSteppedAt: string | null;
+  /** @nullable */
+  exitSummary: string | null;
+  /** @nullable */
+  startedAt: string | null;
+  /** @nullable */
+  pausedAt: string | null;
+  /** @nullable */
+  endedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SimulationStep {
+  id: number;
+  simulationId: number;
+  stepNumber: number;
+  narrative: string;
+  /** @nullable */
+  worldModelEntryId: number | null;
+  createdAt: string;
+}
+
+export type SimulationControlInputAction = typeof SimulationControlInputAction[keyof typeof SimulationControlInputAction];
+
+
+export const SimulationControlInputAction = {
+  start: 'start',
+  pause: 'pause',
+  resume: 'resume',
+  end: 'end',
+} as const;
+
+export interface SimulationControlInput {
+  action: SimulationControlInputAction;
 }
 
 export interface EngramTransmission {
@@ -697,5 +756,20 @@ export type ListEngramMessagesChannel = typeof ListEngramMessagesChannel[keyof t
 export const ListEngramMessagesChannel = {
   engram: 'engram',
   human: 'human',
+} as const;
+
+export type ListSimulationsParams = {
+engramId?: number;
+status?: ListSimulationsStatus;
+};
+
+export type ListSimulationsStatus = typeof ListSimulationsStatus[keyof typeof ListSimulationsStatus];
+
+
+export const ListSimulationsStatus = {
+  proposed: 'proposed',
+  running: 'running',
+  paused: 'paused',
+  ended: 'ended',
 } as const;
 
