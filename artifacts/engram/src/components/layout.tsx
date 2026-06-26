@@ -1,6 +1,6 @@
 import { ReactNode, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Brain, Activity, Database, BookOpen, Users, Hash, FileCheck2, TrendingUp, BarChart3, MessageSquare, Radio, MessageCircleQuestion, Menu, Globe, Network, MessagesSquare, Terminal, FlaskConical } from "lucide-react";
+import { Brain, Activity, Database, BookOpen, Users, Hash, FileCheck2, TrendingUp, BarChart3, MessageSquare, Radio, MessageCircleQuestion, Menu, Globe, Network, MessagesSquare, Terminal, FlaskConical, ScanEye } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 
 const navItems = [
@@ -12,6 +12,7 @@ const navItems = [
   { href: "/chat", label: "Chat", icon: MessageSquare },
   { href: "/environment", label: "Environment", icon: Radio },
   { href: "/inquiry", label: "Inquiry", icon: MessageCircleQuestion },
+  { href: "/media", label: "Media", icon: ScanEye },
   { href: "/personality", label: "Personality", icon: Brain },
   { href: "/memory", label: "Memory", icon: Database },
   { href: "/world-model", label: "World Model", icon: Globe },

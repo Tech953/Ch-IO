@@ -750,6 +750,71 @@ export interface MarkMessagesSeenResult {
   updated: number;
 }
 
+export type MediaAssetModality = typeof MediaAssetModality[keyof typeof MediaAssetModality];
+
+
+export const MediaAssetModality = {
+  text: 'text',
+  image: 'image',
+  audio: 'audio',
+  video: 'video',
+} as const;
+
+export type MediaAssetStatus = typeof MediaAssetStatus[keyof typeof MediaAssetStatus];
+
+
+export const MediaAssetStatus = {
+  pending: 'pending',
+  processing: 'processing',
+  completed: 'completed',
+  failed: 'failed',
+} as const;
+
+export interface MediaAsset {
+  id: number;
+  engramId: number;
+  filename: string;
+  mimeType: string;
+  modality: MediaAssetModality;
+  sizeBytes: number;
+  status: MediaAssetStatus;
+  /** @nullable */
+  summary: string | null;
+  /** @nullable */
+  commentary: string | null;
+  /** @nullable */
+  transcript: string | null;
+  /** @nullable */
+  error: string | null;
+  observationCount: number;
+  /** @nullable */
+  startedAt: string | null;
+  /** @nullable */
+  completedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MediaObservationEntry {
+  id: number;
+  provenance: string;
+  content: string;
+  confidence: number;
+  scope: string;
+  /** @nullable */
+  source: string | null;
+  createdAt: string;
+}
+
+export interface MediaAssetDetail {
+  asset: MediaAsset;
+  observations: MediaObservationEntry[];
+}
+
+export interface DeleteMediaResult {
+  deleted: boolean;
+}
+
 export type ListMemoriesParams = {
 layer?: ListMemoriesLayer;
 };
@@ -797,5 +862,20 @@ export const ListSimulationsStatus = {
   running: 'running',
   paused: 'paused',
   ended: 'ended',
+} as const;
+
+export type ListMediaParams = {
+engramId?: number;
+status?: ListMediaStatus;
+};
+
+export type ListMediaStatus = typeof ListMediaStatus[keyof typeof ListMediaStatus];
+
+
+export const ListMediaStatus = {
+  pending: 'pending',
+  processing: 'processing',
+  completed: 'completed',
+  failed: 'failed',
 } as const;
 

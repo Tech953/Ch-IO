@@ -22,6 +22,7 @@ import Analytics from "@/pages/analytics";
 import Chat from "@/pages/chat";
 import Environment from "@/pages/environment";
 import Inquiry from "@/pages/inquiry";
+import Media from "@/pages/media";
 
 const queryClient = new QueryClient();
 
@@ -46,6 +47,7 @@ function Router() {
         <Route path="/chat" component={Chat} />
         <Route path="/environment" component={Environment} />
         <Route path="/inquiry" component={Inquiry} />
+        <Route path="/media" component={Media} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

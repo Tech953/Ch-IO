@@ -16,6 +16,7 @@ import engramWorldModelRouter from "./engram-world-model";
 import hubRouter from "./hub";
 import messagesRouter from "./messages";
 import simulationsRouter from "./simulations";
+import mediaRouter from "./media";
 
 const router: IRouter = Router();
 
@@ -36,5 +37,6 @@ router.use(engramWorldModelRouter);
 router.use(hubRouter);
 router.use(messagesRouter);
 router.use(simulationsRouter);
+router.use(mediaRouter);
 
 export default router;
