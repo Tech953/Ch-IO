@@ -1,0 +1,3 @@
+- [ENGRAM AI lib template fixes](engram-ai-lib-fixes.md) — Template libs need @types/react devDep and response.data?.[] optional chaining to typecheck clean.
+- [ENGRAM chat SSE pattern](engram-chat-sse.md) — SSE streaming uses raw fetch+ReadableStream; Orval-generated hooks can't do SSE.
+- [ENGRAM DB table names](engram-db-table-names.md) — Table exports use suffixed names: personalityTable, personasTable, beliefsTable; conversations/messages have no suffix.

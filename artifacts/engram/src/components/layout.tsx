@@ -1,12 +1,13 @@
 import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
-import { Brain, Activity, Database, BookOpen, Users, Hash, FileCheck2, TrendingUp, BarChart3 } from "lucide-react";
+import { Brain, Activity, Database, BookOpen, Users, Hash, FileCheck2, TrendingUp, BarChart3, MessageSquare } from "lucide-react";
 
 export default function Layout({ children }: { children: ReactNode }) {
   const [location] = useLocation();
 
   const navItems = [
     { href: "/", label: "Hub", icon: Activity },
+    { href: "/chat", label: "Chat", icon: MessageSquare },
     { href: "/personality", label: "Personality", icon: Brain },
     { href: "/memory", label: "Memory", icon: Database },
     { href: "/journal", label: "Journal", icon: BookOpen },
@@ -16,6 +17,8 @@ export default function Layout({ children }: { children: ReactNode }) {
     { href: "/evolution", label: "Evolution", icon: TrendingUp },
     { href: "/analytics", label: "Analytics", icon: BarChart3 },
   ];
+
+  const isChat = location === "/chat";
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background text-foreground">
@@ -48,15 +51,23 @@ export default function Layout({ children }: { children: ReactNode }) {
 
       {/* Main Content */}
       <main className="flex-1 relative overflow-hidden flex flex-col z-0">
-        <header className="h-14 border-b border-border/50 flex items-center px-6 bg-background/50 backdrop-blur-sm z-10 shrink-0">
-          <div className="font-mono text-xs text-primary/70 uppercase tracking-widest">
-            {location === "/" ? "/ HUB" : location.toUpperCase()}
-          </div>
-        </header>
-        <div className="flex-1 overflow-y-auto p-6 md:p-8 relative">
-          <div className="max-w-7xl mx-auto h-full">
-            {children}
-          </div>
+        {!isChat && (
+          <header className="h-14 border-b border-border/50 flex items-center px-6 bg-background/50 backdrop-blur-sm z-10 shrink-0">
+            <div className="font-mono text-xs text-primary/70 uppercase tracking-widest">
+              {location === "/" ? "/ HUB" : location.toUpperCase()}
+            </div>
+          </header>
+        )}
+        <div className={`flex-1 overflow-hidden flex flex-col relative ${isChat ? "" : "overflow-y-auto p-6 md:p-8"}`}>
+          {isChat ? (
+            <div className="flex-1 h-full overflow-hidden p-6 md:p-8">
+              {children}
+            </div>
+          ) : (
+            <div className="max-w-7xl mx-auto h-full w-full">
+              {children}
+            </div>
+          )}
         </div>
       </main>
     </div>

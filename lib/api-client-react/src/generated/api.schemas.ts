@@ -207,6 +207,48 @@ export interface SystemStats {
   beliefConfidenceDistribution: ConfidenceBucket[];
 }
 
+export interface OpenaiConversation {
+  id: number;
+  title: string;
+  mode: string;
+  personaName?: string;
+  customEngram?: string;
+  createdAt: string;
+}
+
+export interface OpenaiMessage {
+  id: number;
+  conversationId: number;
+  role: string;
+  content: string;
+  createdAt: string;
+}
+
+export interface OpenaiConversationInput {
+  title: string;
+  mode: string;
+  personaName?: string;
+  customEngram?: string;
+}
+
+export interface OpenaiMessageInput {
+  content: string;
+}
+
+export interface OpenaiConversationWithMessages {
+  id: number;
+  title: string;
+  mode: string;
+  personaName?: string;
+  customEngram?: string;
+  createdAt: string;
+  messages: OpenaiMessage[];
+}
+
+export interface OpenaiError {
+  error: string;
+}
+
 export type ListMemoriesParams = {
 layer?: ListMemoriesLayer;
 };
