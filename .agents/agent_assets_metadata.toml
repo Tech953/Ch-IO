@@ -1,5 +1,4 @@
 uploads = []
-generated = []
 
 [[outputs]]
 id = "f-hUiEFYn8IrciUuluv73"
@@ -24,3 +23,9 @@ id = "Y-GEkJIGZB-ki3nRXt7IR"
 uri = "file://docs/04_ENGRAM_User_Manual.pdf"
 type = "pdf"
 title = "User Manual"
+
+[[generated]]
+id = "rHpQ06x1368oyYumR-JHr"
+uri = "file://artifacts/engram-mobile/assets/images/icon.png"
+type = "image"
+title = "generated_image"

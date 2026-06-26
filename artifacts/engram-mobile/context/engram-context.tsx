@@ -1,0 +1,108 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+
+const STORAGE_SELECTED = "engram.selectedId";
+const STORAGE_CONVO_MAP = "engram.conversationMap";
+
+type ConversationMap = Record<string, number>;
+
+interface EngramContextValue {
+  selectedEngramId: number | null;
+  setSelectedEngramId: (id: number | null) => void;
+  hydrated: boolean;
+  getConversationId: (engramId: number) => number | null;
+  setConversationId: (engramId: number, conversationId: number) => void;
+}
+
+const EngramContext = createContext<EngramContextValue | undefined>(undefined);
+
+export function EngramProvider({ children }: { children: React.ReactNode }) {
+  const [selectedEngramId, setSelectedEngramIdState] = useState<number | null>(
+    null,
+  );
+  const [conversationMap, setConversationMap] = useState<ConversationMap>({});
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const [storedSelected, storedMap] = await Promise.all([
+          AsyncStorage.getItem(STORAGE_SELECTED),
+          AsyncStorage.getItem(STORAGE_CONVO_MAP),
+        ]);
+        if (storedSelected != null) {
+          const parsed = Number(storedSelected);
+          if (!Number.isNaN(parsed)) setSelectedEngramIdState(parsed);
+        }
+        if (storedMap) {
+          setConversationMap(JSON.parse(storedMap) as ConversationMap);
+        }
+      } catch {
+        // ignore corrupt storage
+      } finally {
+        setHydrated(true);
+      }
+    })();
+  }, []);
+
+  const setSelectedEngramId = useCallback((id: number | null) => {
+    setSelectedEngramIdState(id);
+    if (id == null) {
+      AsyncStorage.removeItem(STORAGE_SELECTED).catch(() => {});
+    } else {
+      AsyncStorage.setItem(STORAGE_SELECTED, String(id)).catch(() => {});
+    }
+  }, []);
+
+  const getConversationId = useCallback(
+    (engramId: number): number | null => conversationMap[String(engramId)] ?? null,
+    [conversationMap],
+  );
+
+  const setConversationId = useCallback(
+    (engramId: number, conversationId: number) => {
+      setConversationMap((prev) => {
+        const next = { ...prev, [String(engramId)]: conversationId };
+        AsyncStorage.setItem(STORAGE_CONVO_MAP, JSON.stringify(next)).catch(
+          () => {},
+        );
+        return next;
+      });
+    },
+    [],
+  );
+
+  const value = useMemo(
+    () => ({
+      selectedEngramId,
+      setSelectedEngramId,
+      hydrated,
+      getConversationId,
+      setConversationId,
+    }),
+    [
+      selectedEngramId,
+      setSelectedEngramId,
+      hydrated,
+      getConversationId,
+      setConversationId,
+    ],
+  );
+
+  return (
+    <EngramContext.Provider value={value}>{children}</EngramContext.Provider>
+  );
+}
+
+export function useEngram(): EngramContextValue {
+  const ctx = useContext(EngramContext);
+  if (!ctx) throw new Error("useEngram must be used within EngramProvider");
+  return ctx;
+}
