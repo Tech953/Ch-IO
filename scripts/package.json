@@ -10,7 +10,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@workspace/db": "workspace:*"
+    "@workspace/db": "workspace:*",
+    "pdfkit": "^0.19.1"
   },
   "devDependencies": {
     "@types/node": "catalog:",

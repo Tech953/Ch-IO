@@ -1,2 +1,2 @@
-- [Offline LLM seam](offline-llm-seam.md) — route model calls through app-level `api-server/src/lib/llm.ts`, NOT the Replit OpenAI integration pkg (it throws at import when cloud env is unset, which breaks local/offline).
-- [Responsive portaled dialogs](responsive-portaled-dialog.md) — branch mobile/desktop page variants with the `useIsMobile()` hook, NOT CSS `hidden md:block` duplicates, when the subtree holds a shared-state portaled Dialog (else it mounts twice).
+- [PDF generation & install quirks](pdf-and-install-quirks.md) — no Chromium here; use pdfkit + verify with pdftoppm/pdfinfo; when the install wrapper fails generically, run `pnpm --filter <pkg> add`.
+- [Responsive portaled dialog](responsive-portaled-dialog.md) — for responsive layouts wrapping a shared-state portaled dialog, branch desktop/mobile via a viewport hook; never render two CSS-toggled copies (it mounts twice).
