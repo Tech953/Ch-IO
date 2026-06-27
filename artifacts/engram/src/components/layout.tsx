@@ -22,6 +22,7 @@ const navItems = [
   { href: "/beliefs", label: "Beliefs", icon: FileCheck2 },
   { href: "/evolution", label: "Evolution", icon: TrendingUp },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
+  { href: "/download", label: "Download App", icon: Download },
 ];
 
 function SidebarContent({ location, onNavigate }: { location: string; onNavigate?: () => void }) {
