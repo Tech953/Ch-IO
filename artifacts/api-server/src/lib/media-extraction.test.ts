@@ -11,8 +11,12 @@ const h = vi.hoisted(() => {
     execCalls: [] as Array<{ bin: string; args: string[] }>,
     // What transcribeAudio gets back; "" models silence / no speech.
     transcript: "spoken words from the clip",
-    // Bytes readFile returns for sampled frames + extracted audio (non-empty).
-    readFileBuf: Buffer.from("binary-frame-or-audio-bytes"),
+    // Bytes readFile returns for sampled video frames (non-empty = a frame was
+    // extracted; empty Buffer = ffmpeg produced no usable frame).
+    frameBuf: Buffer.from("binary-frame-bytes"),
+    // Bytes readFile returns for the extracted audio track (non-empty = an audio
+    // track was present; empty Buffer = no audio track to transcribe).
+    audioBuf: Buffer.from("binary-audio-bytes"),
   };
 
   const chatCreate = vi.fn(async (_req: Record<string, unknown>) => ({
@@ -69,7 +73,13 @@ vi.mock("node:child_process", () => ({
 vi.mock("node:fs/promises", () => ({
   mkdtemp: vi.fn(async (prefix: string) => `${prefix}test`),
   writeFile: vi.fn(async () => undefined),
-  readFile: vi.fn(async () => h.state.readFileBuf),
+  // Path-aware so a test can independently control the two video channels: the
+  // audio track read (audio.mp3) vs. the sampled frame reads (frame-*.jpg).
+  readFile: vi.fn(async (path: string) =>
+    typeof path === "string" && path.includes("audio")
+      ? h.state.audioBuf
+      : h.state.frameBuf,
+  ),
   rm: vi.fn(async () => undefined),
 }));
 
@@ -83,7 +93,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   h.state.execCalls = [];
   h.state.transcript = "spoken words from the clip";
-  h.state.readFileBuf = Buffer.from("binary-frame-or-audio-bytes");
+  h.state.frameBuf = Buffer.from("binary-frame-bytes");
+  h.state.audioBuf = Buffer.from("binary-audio-bytes");
 });
 
 afterEach(() => {
@@ -398,5 +409,110 @@ describe("extractFromMedia — video", () => {
     expect(h.transcribeCreate).toHaveBeenCalledTimes(1);
     // Two chat calls: one over the sampled frames, one over the audio transcript.
     expect(h.chatCreate).toHaveBeenCalledTimes(2);
+  });
+
+  it("frames-only: a video with no speech still perceives the frames (empty transcript)", async () => {
+    // ffmpeg extracts an audio track, but transcription comes back empty — the
+    // clip has frames but no discernible speech. The vision channel must still
+    // produce observations and the transcript must be reported as null.
+    h.state.transcript = "";
+
+    const result = await extractFromMedia(
+      { modality: "video", mimeType: "video/mp4", filename: "silent-clip.mp4" },
+      Buffer.from("video-bytes"),
+    );
+
+    // Transcription was attempted (audio track present) but yielded nothing, so
+    // no audio-extraction chat call happens — only the vision pass over frames.
+    expect(h.transcribeCreate).toHaveBeenCalledTimes(1);
+    expect(h.chatCreate).toHaveBeenCalledTimes(1);
+    expect(result.observations.length).toBeGreaterThan(0);
+    // Empty transcript collapses to null (no audio channel to report).
+    expect(result.transcript).toBeNull();
+    expect(result.summary).toBe("A short harbor scene.");
+  });
+
+  it("audio-only: a video whose frames can't be extracted still perceives the audio", async () => {
+    // ffmpeg writes no usable frame (empty frame buffers) but the audio track is
+    // present and transcribes — the audio channel alone must carry perception.
+    h.state.frameBuf = Buffer.from("");
+    h.state.transcript = "the captain logged a heading of due north";
+
+    const result = await extractFromMedia(
+      { modality: "video", mimeType: "video/mp4", filename: "audio-only.mp4" },
+      Buffer.from("video-bytes"),
+    );
+
+    // No frames means the vision pass is skipped; only the transcript is perceived.
+    expect(h.transcribeCreate).toHaveBeenCalledTimes(1);
+    expect(h.chatCreate).toHaveBeenCalledTimes(1);
+    expect(result.observations.length).toBeGreaterThan(0);
+    expect(result.transcript).toBe("the captain logged a heading of due north");
+  });
+
+  it("throws when neither frames nor audio can be extracted", async () => {
+    // Empty frame buffers AND an empty audio track: there is nothing to perceive,
+    // so extraction fails loudly rather than silently returning an empty result.
+    h.state.frameBuf = Buffer.from("");
+    h.state.audioBuf = Buffer.from("");
+
+    await expect(
+      extractFromMedia(
+        { modality: "video", mimeType: "video/mp4", filename: "empty.mp4" },
+        Buffer.from("video-bytes"),
+      ),
+    ).rejects.toThrow(/Could not extract any frames or audio from the video/i);
+
+    // No usable audio bytes ⇒ transcription is never attempted.
+    expect(h.transcribeCreate).not.toHaveBeenCalled();
+    expect(h.chatCreate).not.toHaveBeenCalled();
+  });
+
+  it("caps combined observations at MAX_OBSERVATIONS (8) when both channels contribute", async () => {
+    // Vision returns 5 observations, audio returns 5 — combined 10 must be
+    // clamped to the 8-observation cap, preserving vision-first ordering.
+    h.state.transcript = "a long narration with many distinct facts";
+    const five = (label: string) =>
+      Array.from({ length: 5 }, (_, i) => `${label} ${i + 1}`);
+    // First chat call = vision over frames; second = audio transcript extraction.
+    h.chatCreate
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                observations: five("frame"),
+                summary: "Frames.",
+              }),
+            },
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                observations: five("audio"),
+                summary: "Audio.",
+              }),
+            },
+          },
+        ],
+      });
+
+    const result = await extractFromMedia(
+      { modality: "video", mimeType: "video/mp4", filename: "rich.mp4" },
+      Buffer.from("video-bytes"),
+    );
+
+    expect(h.chatCreate).toHaveBeenCalledTimes(2);
+    expect(result.observations).toHaveLength(8);
+    // Vision observations come first, then audio fills the remainder up to 8.
+    expect(result.observations[0]).toBe("frame 1");
+    expect(result.observations[4]).toBe("frame 5");
+    expect(result.observations[5]).toBe("audio 1");
+    expect(result.observations[7]).toBe("audio 3");
+    expect(result.observations).not.toContain("audio 4");
   });
 });
