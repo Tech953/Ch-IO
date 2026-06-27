@@ -72,9 +72,29 @@ a working unsigned installer:
 
 | Secret | Platform | Purpose |
 | --- | --- | --- |
-| `CSC_LINK`, `CSC_KEY_PASSWORD` | macOS | Developer ID signing certificate (base64) + password. |
-| `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID` | macOS | Notarization credentials. |
-| `WIN_CSC_LINK`, `WIN_CSC_KEY_PASSWORD` | Windows | Authenticode signing certificate (base64) + password. |
+| `CSC_LINK`, `CSC_KEY_PASSWORD` | macOS | Developer ID Application certificate (base64 `.p12`) + password. |
+| `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID` | macOS | Apple notarization credentials. |
+| `WIN_CSC_LINK`, `WIN_CSC_KEY_PASSWORD` | Windows | Authenticode signing certificate (base64 `.pfx`) + password. |
+
+**macOS needs both signing _and_ notarization.** Gatekeeper on current macOS shows
+the "unidentified developer" / "Apple could not verify this app" warning for any app
+that is signed but *not* notarized, so the two `CSC_*` secrets and the three `APPLE_*`
+secrets must be set together. The build runs with the hardened runtime enabled and
+the entitlements in `artifacts/desktop/build/entitlements.mac.plist` (required for
+notarization). If only `CSC_*` is set, electron-builder signs but skips notarization
+and the installer will still warn; if neither is set the app is left unsigned.
+
+> To obtain credentials: enroll in the [Apple Developer Program](https://developer.apple.com)
+> ($99/yr) for the Developer ID certificate and an app-specific password, and buy an
+> OV/EV Authenticode certificate from a CA (e.g. DigiCert, Sectigo) for Windows.
+> Export each certificate to a password-protected `.p12`/`.pfx`, then `base64`-encode
+> it into the matching `*_CSC_LINK` secret.
+
+**Windows SmartScreen reputation.** A valid Authenticode signature removes the
+"unknown publisher" prompt. A brand-new **OV** certificate still has no SmartScreen
+reputation, so the blue "Windows protected your PC" screen can appear until enough
+installs accrue; an **EV** certificate earns reputation immediately. Signatures are
+SHA-256 and RFC-3161 timestamped so they stay valid after the certificate expires.
 
 ---
 

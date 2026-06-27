@@ -55,13 +55,37 @@ mac:
   target:
     - dmg
   category: public.app-category.productivity
-  # Signing/notarization are opt-in via env (see .github/workflows + docs):
-  # CSC_LINK / CSC_KEY_PASSWORD and APPLE_ID / APPLE_APP_SPECIFIC_PASSWORD / APPLE_TEAM_ID.
+  # Signing + notarization. Signing is opt-in via env: provide a Developer ID
+  # certificate through CSC_LINK / CSC_KEY_PASSWORD. With no certificate present
+  # electron-builder skips signing entirely (and therefore notarization too), so
+  # local/unsigned builds keep working.
+  #
+  # Gatekeeper on modern macOS requires BOTH a Developer ID signature AND Apple
+  # notarization — a signed-but-unnotarized app still shows the "unidentified
+  # developer" / malware warning. Notarization needs the hardened runtime, which
+  # in turn needs the JIT/library entitlements below or the notarized app crashes
+  # at launch.
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.inherit.plist
+  # notarize runs only after a successful sign, and only when Apple credentials
+  # are present in the environment (APPLE_ID + APPLE_APP_SPECIFIC_PASSWORD +
+  # APPLE_TEAM_ID, or the APPLE_API_KEY trio); otherwise it is skipped gracefully.
+  notarize: true
 
 win:
   target:
     - nsis
-  # Windows signing is opt-in via WIN_CSC_LINK / WIN_CSC_KEY_PASSWORD.
+  # Authenticode signing is opt-in via WIN_CSC_LINK / WIN_CSC_KEY_PASSWORD
+  # (electron-builder maps these to the certificate file + password). With no
+  # certificate the executable is left unsigned. A timestamp countersignature
+  # keeps the signature valid after the signing certificate eventually expires,
+  # and SHA-256 is required for SmartScreen to trust the signature.
+  signtoolOptions:
+    signingHashAlgorithms:
+      - sha256
+    rfc3161TimeStampServer: http://timestamp.digicert.com
 
 nsis:
   oneClick: false
