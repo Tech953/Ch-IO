@@ -159,10 +159,15 @@ function drawFooters(ctx) {
       .strokeColor(C.border)
       .stroke();
     doc.font("Helvetica").fontSize(8).fillColor(C.muted);
+    // The footer sits below the bottom margin (fy > page.maxY). pdfkit only
+    // runs its "add a page because y > maxY" check when `width` is set (the
+    // LineWrapper path), so neither footer text may pass `width` — otherwise
+    // every footer drawn would append a trailing header-only blank page. The
+    // page number is right-aligned manually instead of via { width, align }.
     doc.text(meta.title, left, fy + 7, { lineBreak: false });
-    doc.text(`${n} / ${contentPages}`, left, fy + 7, {
-      width: contentW,
-      align: "right",
+    const pageLabel = `${n} / ${contentPages}`;
+    doc.text(pageLabel, right - doc.widthOfString(pageLabel), fy + 7, {
+      lineBreak: false,
     });
     doc.restore();
   }

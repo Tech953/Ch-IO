@@ -57,6 +57,26 @@ let quitting = false;
 // startup check stays quiet unless an update is actually downloaded).
 let manualUpdateCheck = false;
 
+// Live auto-update status, mirrored to the Settings window so the user can see
+// the installed version and whether an update is checking/downloading/ready.
+type UpdateStatus =
+  | { state: "idle" }
+  | { state: "checking" }
+  | { state: "available"; version?: string }
+  | { state: "not-available" }
+  | { state: "downloading"; percent: number }
+  | { state: "downloaded"; version?: string }
+  | { state: "error"; message: string };
+
+let updateStatus: UpdateStatus = { state: "idle" };
+
+function setUpdateStatus(status: UpdateStatus): void {
+  updateStatus = status;
+  if (settingsWindow && !settingsWindow.isDestroyed()) {
+    settingsWindow.webContents.send("update:status", status);
+  }
+}
+
 function userDataPath(...segments: string[]): string {
   return path.join(app.getPath("userData"), ...segments);
 }
@@ -457,6 +477,19 @@ ipcMain.handle("settings:close", () => {
   }
 });
 
+// App version + current auto-update status, read by the Settings window so it can
+// show which version is installed and reflect download/ready progress live.
+ipcMain.handle("app:info", () => ({
+  version: app.getVersion(),
+  updatesSupported: app.isPackaged,
+  updateStatus,
+}));
+
+// "Check for Updates" button in Settings — reuses the same flow as the menu item.
+ipcMain.handle("update:check", () => {
+  checkForUpdatesManually();
+});
+
 // ---------------------------------------------------------------------------
 // Auto-update (electron-updater). The release feed + provider are baked into
 // app-update.yml by electron-builder at package time (publish config in
@@ -476,7 +509,12 @@ function setupAutoUpdates(): void {
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = false;
 
-  autoUpdater.on("update-available", () => {
+  autoUpdater.on("checking-for-update", () => {
+    setUpdateStatus({ state: "checking" });
+  });
+
+  autoUpdater.on("update-available", (info) => {
+    setUpdateStatus({ state: "available", version: info?.version });
     if (manualUpdateCheck && mainWindow && !mainWindow.isDestroyed()) {
       void dialog.showMessageBox(mainWindow, {
         type: "info",
@@ -489,6 +527,7 @@ function setupAutoUpdates(): void {
   });
 
   autoUpdater.on("update-not-available", () => {
+    setUpdateStatus({ state: "not-available" });
     if (manualUpdateCheck && mainWindow && !mainWindow.isDestroyed()) {
       void dialog.showMessageBox(mainWindow, {
         type: "info",
@@ -500,7 +539,15 @@ function setupAutoUpdates(): void {
     manualUpdateCheck = false;
   });
 
+  autoUpdater.on("download-progress", (progress) => {
+    setUpdateStatus({
+      state: "downloading",
+      percent: Math.round(progress?.percent ?? 0),
+    });
+  });
+
   autoUpdater.on("error", (error) => {
+    setUpdateStatus({ state: "error", message: String(error) });
     // eslint-disable-next-line no-console
     console.error("[desktop] auto-update error:", error);
     if (manualUpdateCheck && mainWindow && !mainWindow.isDestroyed()) {
@@ -516,6 +563,7 @@ function setupAutoUpdates(): void {
   });
 
   autoUpdater.on("update-downloaded", (info) => {
+    setUpdateStatus({ state: "downloaded", version: info?.version });
     manualUpdateCheck = false;
     if (!mainWindow || mainWindow.isDestroyed()) return;
     void dialog
@@ -564,7 +612,9 @@ function checkForUpdatesManually(): void {
     return;
   }
   manualUpdateCheck = true;
+  setUpdateStatus({ state: "checking" });
   void autoUpdater.checkForUpdates().catch((error) => {
+    setUpdateStatus({ state: "error", message: String(error) });
     // eslint-disable-next-line no-console
     console.error("[desktop] manual update check failed:", error);
     manualUpdateCheck = false;
