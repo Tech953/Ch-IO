@@ -78,6 +78,15 @@ function setUpdateStatus(status: UpdateStatus): void {
   }
 }
 
+const WINDOW_TITLE = "ENGRAM — PYRI";
+
+// Restore the main window title after an update-download progress indicator.
+function resetWindowTitle(): void {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.setTitle(WINDOW_TITLE);
+  }
+}
+
 function userDataPath(...segments: string[]): string {
   return path.join(app.getPath("userData"), ...segments);
 }
@@ -287,7 +296,7 @@ function createMainWindow(): void {
     minWidth: 1024,
     minHeight: 700,
     backgroundColor: "#070b12",
-    title: "ENGRAM — PYRI",
+    title: WINDOW_TITLE,
     autoHideMenuBar: false,
     webPreferences: {
       contextIsolation: true,
@@ -526,15 +535,26 @@ function setupAutoUpdates(): void {
     manualUpdateCheck = false;
   });
 
+  // Unobtrusive progress feedback while the installer downloads: mirror the
+  // percentage to the Settings window and reflect it in the main window title
+  // (and the macOS dock/taskbar progress bar). Cleared on completion and on
+  // error so it never lingers.
   autoUpdater.on("download-progress", (progress) => {
-    setUpdateStatus({
-      state: "downloading",
-      percent: Math.round(progress?.percent ?? 0),
-    });
+    const percent = Math.max(0, Math.min(100, Math.round(progress?.percent ?? 0)));
+    setUpdateStatus({ state: "downloading", percent });
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.setTitle(`${WINDOW_TITLE} — Downloading update… ${percent}%`);
+      mainWindow.setProgressBar(percent / 100);
+    }
   });
 
   autoUpdater.on("error", (error) => {
     setUpdateStatus({ state: "error", message: String(error) });
+    // Clear any in-progress download indicator so it doesn't linger on failure.
+    resetWindowTitle();
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.setProgressBar(-1);
+    }
     // eslint-disable-next-line no-console
     console.error("[desktop] auto-update error:", error);
     if (manualUpdateCheck && mainWindow && !mainWindow.isDestroyed()) {
@@ -552,7 +572,11 @@ function setupAutoUpdates(): void {
   autoUpdater.on("update-downloaded", (info) => {
     setUpdateStatus({ state: "downloaded", version: info?.version });
     manualUpdateCheck = false;
+    // Clear the progress indicator now that the download is complete; the
+    // "Restart now / Later" prompt below takes over.
+    resetWindowTitle();
     if (!mainWindow || mainWindow.isDestroyed()) return;
+    mainWindow.setProgressBar(-1);
     void dialog
       .showMessageBox(mainWindow, {
         type: "info",
