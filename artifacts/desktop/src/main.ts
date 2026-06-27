@@ -7,6 +7,7 @@ import {
   shell,
   dialog,
 } from "electron";
+import { autoUpdater } from "electron-updater";
 import { spawn, type ChildProcess } from "node:child_process";
 import { createServer } from "node:net";
 import {
@@ -51,6 +52,10 @@ let mainWindow: BrowserWindow | null = null;
 let settingsWindow: BrowserWindow | null = null;
 let currentPort = 0;
 let quitting = false;
+// True while a user-initiated "Check for Updates…" is in flight, so we surface
+// the "you're up to date" / error dialogs only for manual checks (the silent
+// startup check stays quiet unless an update is actually downloaded).
+let manualUpdateCheck = false;
 
 function userDataPath(...segments: string[]): string {
   return path.join(app.getPath("userData"), ...segments);
@@ -336,6 +341,10 @@ function buildMenu(): void {
                 accelerator: "Cmd+,",
                 click: openSettingsWindow,
               },
+              {
+                label: "Check for Updates…",
+                click: checkForUpdatesManually,
+              },
               { type: "separator" as const },
               { role: "quit" as const },
             ],
@@ -349,6 +358,10 @@ function buildMenu(): void {
           label: "Settings…",
           accelerator: "CmdOrCtrl+,",
           click: openSettingsWindow,
+        },
+        {
+          label: "Check for Updates…",
+          click: checkForUpdatesManually,
         },
         { type: "separator" as const },
         isMac ? { role: "close" as const } : { role: "quit" as const },
@@ -445,6 +458,120 @@ ipcMain.handle("settings:close", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Auto-update (electron-updater). The release feed + provider are baked into
+// app-update.yml by electron-builder at package time (publish config in
+// electron-builder.yml). On launch we silently check the feed; if a newer
+// version exists it downloads in the background and we prompt the user to
+// restart to apply it. A manual "Check for Updates…" menu item reuses the same
+// flow but also reports "you're up to date" / errors.
+//
+// No-ops in dev/unpackaged runs (and when the feed metadata is absent), so it
+// never interferes with `electron .` development.
+// ---------------------------------------------------------------------------
+function setupAutoUpdates(): void {
+  if (!app.isPackaged) return;
+
+  // We drive the install ourselves via a restart prompt, so don't auto-install
+  // on quit (would surprise the user). Downloads still happen automatically.
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = false;
+
+  autoUpdater.on("update-available", () => {
+    if (manualUpdateCheck && mainWindow && !mainWindow.isDestroyed()) {
+      void dialog.showMessageBox(mainWindow, {
+        type: "info",
+        title: "Update available",
+        message: "A new version of ENGRAM is available.",
+        detail: "It is downloading now and you'll be prompted to restart when it's ready.",
+        buttons: ["OK"],
+      });
+    }
+  });
+
+  autoUpdater.on("update-not-available", () => {
+    if (manualUpdateCheck && mainWindow && !mainWindow.isDestroyed()) {
+      void dialog.showMessageBox(mainWindow, {
+        type: "info",
+        title: "You're up to date",
+        message: "ENGRAM is already running the latest version.",
+        buttons: ["OK"],
+      });
+    }
+    manualUpdateCheck = false;
+  });
+
+  autoUpdater.on("error", (error) => {
+    // eslint-disable-next-line no-console
+    console.error("[desktop] auto-update error:", error);
+    if (manualUpdateCheck && mainWindow && !mainWindow.isDestroyed()) {
+      void dialog.showMessageBox(mainWindow, {
+        type: "error",
+        title: "Update check failed",
+        message: "Could not check for updates.",
+        detail: String(error),
+        buttons: ["OK"],
+      });
+    }
+    manualUpdateCheck = false;
+  });
+
+  autoUpdater.on("update-downloaded", (info) => {
+    manualUpdateCheck = false;
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    void dialog
+      .showMessageBox(mainWindow, {
+        type: "info",
+        title: "Update ready",
+        message: `ENGRAM ${info.version} has been downloaded.`,
+        detail: "Restart now to apply the update, or keep working and it'll install the next time you quit.",
+        buttons: ["Restart now", "Later"],
+        defaultId: 0,
+        cancelId: 1,
+      })
+      .then((result) => {
+        if (result.response === 0) {
+          // The server child must shut down cleanly before the installer swaps
+          // the app files; quitForInstall() triggers before-quit, which stops it.
+          autoUpdater.autoInstallOnAppQuit = true;
+          quitting = true;
+          void stopServer().finally(() => autoUpdater.quitAndInstall());
+        } else {
+          // Honor the deferral: install silently on the next normal quit.
+          autoUpdater.autoInstallOnAppQuit = true;
+        }
+      });
+  });
+
+  // Silent check shortly after startup so it never blocks the window opening.
+  setTimeout(() => {
+    void autoUpdater.checkForUpdates().catch((error) => {
+      // eslint-disable-next-line no-console
+      console.error("[desktop] initial update check failed:", error);
+    });
+  }, 5000);
+}
+
+function checkForUpdatesManually(): void {
+  if (!app.isPackaged) {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      void dialog.showMessageBox(mainWindow, {
+        type: "info",
+        title: "Updates unavailable",
+        message: "Automatic updates only run in the packaged app.",
+        buttons: ["OK"],
+      });
+    }
+    return;
+  }
+  manualUpdateCheck = true;
+  void autoUpdater.checkForUpdates().catch((error) => {
+    // eslint-disable-next-line no-console
+    console.error("[desktop] manual update check failed:", error);
+    manualUpdateCheck = false;
+  });
+}
+
+// ---------------------------------------------------------------------------
 // App lifecycle.
 // ---------------------------------------------------------------------------
 const gotLock = app.requestSingleInstanceLock();
@@ -463,6 +590,7 @@ if (!gotLock) {
     try {
       await startServer();
       createMainWindow();
+      setupAutoUpdates();
     } catch (error) {
       dialog.showErrorBox(
         "ENGRAM failed to start",

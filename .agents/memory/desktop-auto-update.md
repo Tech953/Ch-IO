@@ -1,0 +1,17 @@
+---
+name: Desktop auto-update (electron-updater)
+description: How the Electron desktop app self-updates, and the non-obvious constraints that make it actually fire.
+---
+
+The desktop app (`artifacts/desktop`) self-updates via `electron-updater`, wired in `main.ts`.
+
+Rule: auto-update only fires in the **packaged** app (`app.isPackaged`) and only when the published release version is **strictly newer** than the installed one.
+
+**Why:** electron-updater compares the running `app.getVersion()` (from the asar package.json) against the version in the release feed's `*-latest*.yml`. If the version isn't bumped per release, installed apps never see an update even though CI published one.
+
+**How to apply:**
+- The version source of truth is `artifacts/desktop/package.json` `version`. CI (`.github/workflows/desktop-build.yml`) overwrites it from the pushed git tag (`v1.2.3` → `1.2.3`) before packaging. So every release needs a NEW tag — re-tagging the same version is a no-op for updates.
+- `electron-builder.yml` has `publish: provider: github` (owner/repo auto-detected from the git remote at package time), which makes electron-builder bake `app-update.yml` (the feed pointer) into the app and lets `--publish always` upload installers + `*-latest*.yml` manifests to the tag's GitHub Release.
+- CI needs `permissions: contents: write` for the default `GITHUB_TOKEN` to create/upload the release.
+- electron-updater is bundled into `main.cjs` by esbuild (it's a `dependencies` entry but NOT shipped via node_modules). This is fine because the `files` allowlist (`dist/**` + `package.json`) deliberately keeps node_modules out of the asar; the bundle carries it. Don't "fix" this by adding node_modules to `files`.
+- On the install path: the embedded api-server child must be stopped before `quitAndInstall()` swaps app files — the download handler sets `quitting=true` and calls `stopServer()` first. "Later" defers to `autoInstallOnAppQuit` on the next normal quit.

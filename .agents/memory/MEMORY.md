@@ -1,2 +1,3 @@
 - [Desktop embedded DB seam](desktop-embedded-db.md) — ENGRAM_DB_DRIVER switches pg↔pglite; pglite needs migrate+seed at boot; @electric-sql/pglite must be a DIRECT api-server dep.
 - [Desktop online API key storage](desktop-online-key-storage.md) — never persist the cloud API key in plaintext; safeStorage-encrypted on disk, else in-memory session-only.
+- [Desktop auto-update](desktop-auto-update.md) — electron-updater fires only in packaged app on a strictly newer version; CI sets version from git tag, publishes to GitHub Releases.
