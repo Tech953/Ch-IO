@@ -2,6 +2,7 @@ import { db } from "@workspace/db";
 import { hubControlsTable, HUB_CONTROLS_ID } from "@workspace/db/schema";
 import type { HubControls } from "@workspace/db";
 import { eq } from "drizzle-orm";
+import { publishEvent } from "./events";
 
 /**
  * Load the singleton global-controls row, creating it with defaults on first
@@ -39,5 +40,6 @@ export async function updateControls(
     .set({ ...patch, updatedAt: new Date() })
     .where(eq(hubControlsTable.id, HUB_CONTROLS_ID))
     .returning();
+  publishEvent({ type: "controls.changed", data: row });
   return row;
 }

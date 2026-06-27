@@ -88,6 +88,8 @@ cpSync(drizzleSrc, path.join(resources, "drizzle"), { recursive: true });
 //    on, so packaging on each native OS (see .github/workflows/desktop-build.yml)
 //    ships the right binaries. Only the resolved host binary is copied into the
 //    bundle; main.ts points the server child at it via FFMPEG_PATH/FFPROBE_PATH.
+//    On macOS these unsigned Mach-O binaries are code-signed during packaging via
+//    the `mac.binaries` list in electron-builder.yml so notarized builds succeed.
 const ffmpegSrc = require("ffmpeg-static");
 const ffprobeSrc = require("ffprobe-static").path;
 requireDir(

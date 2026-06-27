@@ -70,6 +70,10 @@
       button:hover { border-color: var(--cyan); }
       .hidden { display: none; }
       #status { color: var(--muted); font-size: 12px; min-height: 16px; }
+      .about-row { display: flex; align-items: baseline; gap: 12px; padding: 4px 0; }
+      .about-label { color: var(--muted); font-size: 12px; letter-spacing: 0.04em; width: 72px; flex-shrink: 0; }
+      .about-value { color: var(--text); font-family: "JetBrains Mono", monospace; font-size: 13px; }
+      .update-actions { margin-top: 12px; }
     </style>
   </head>
   <body>
@@ -104,6 +108,21 @@
       <p class="hint" id="key-hint"></p>
     </fieldset>
 
+    <fieldset>
+      <legend>About</legend>
+      <div class="about-row">
+        <span class="about-label">Version</span>
+        <span id="app-version" class="about-value">…</span>
+      </div>
+      <div class="about-row">
+        <span class="about-label">Updates</span>
+        <span id="update-status" class="about-value">…</span>
+      </div>
+      <div class="update-actions">
+        <button id="check-updates" type="button">Check for Updates</button>
+      </div>
+    </fieldset>
+
     <div class="actions">
       <span id="status"></span>
       <span style="flex:1"></span>
@@ -134,6 +153,57 @@
       document.querySelectorAll('input[name="mode"]').forEach((el) =>
         el.addEventListener("change", (e) => applyMode(e.target.value)),
       );
+      function renderUpdateStatus(info, status) {
+        const el = $("update-status");
+        const btn = $("check-updates");
+        if (!info.updatesSupported) {
+          el.textContent = "Not available in this build";
+          btn.disabled = true;
+          return;
+        }
+        const s = status || { state: "idle" };
+        switch (s.state) {
+          case "checking":
+            el.textContent = "Checking for updates…";
+            btn.disabled = true;
+            break;
+          case "available":
+            el.textContent = s.version
+              ? `Update ${s.version} found — downloading…`
+              : "Update found — downloading…";
+            btn.disabled = true;
+            break;
+          case "downloading":
+            el.textContent = `Downloading update… ${s.percent}%`;
+            btn.disabled = true;
+            break;
+          case "downloaded":
+            el.textContent = "Restart to update";
+            btn.disabled = false;
+            break;
+          case "error":
+            el.textContent = "Update check failed";
+            btn.disabled = false;
+            break;
+          case "not-available":
+          case "idle":
+          default:
+            el.textContent = "Up to date";
+            btn.disabled = false;
+            break;
+        }
+      }
+      async function initAbout() {
+        const info = await window.engram.getAppInfo();
+        $("app-version").textContent = info.version;
+        renderUpdateStatus(info, info.updateStatus);
+        window.engram.onUpdateStatus((status) =>
+          renderUpdateStatus(info, status),
+        );
+        $("check-updates").addEventListener("click", () => {
+          if (info.updatesSupported) window.engram.checkForUpdates();
+        });
+      }
       $("cancel").addEventListener("click", () => window.engram.close());
       $("save").addEventListener("click", async () => {
         $("status").textContent = "Restarting engine…";
@@ -150,6 +220,7 @@
         if (!res.ok) $("status").textContent = "Error: " + (res.error || "unknown");
       });
       init();
+      initAbout();
     </script>
   </body>
 </html>

@@ -15,6 +15,20 @@
       "when": 1782534837397,
       "tag": "0001_melodic_ink",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1782553579075,
+      "tag": "0002_huge_rattler",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1782556311510,
+      "tag": "0003_oval_sprite",
+      "breakpoints": true
     }
   ]
 }

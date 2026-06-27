@@ -2,3 +2,5 @@
 - [Desktop online API key storage](desktop-online-key-storage.md) — never persist the cloud API key in plaintext; safeStorage-encrypted on disk, else in-memory session-only.
 - [Desktop auto-update](desktop-auto-update.md) — electron-updater fires only in packaged app on a strictly newer version; CI sets version from git tag, publishes to GitHub Releases.
 - [Schema apply dual path](schema-apply-dual-path.md) — schema edits need BOTH `db push` (dev pg) AND `db generate` (desktop pglite migration); ensureDatabaseReady no-ops on pg; generate needs a RELATIVE out.
+- [pdfkit footer pagination](pdfkit-footer-pagination.md) — text drawn below the bottom margin with `width` set auto-adds blank pages (lineBreak:false won't help); right-align footers manually.
+- [Artifact generation subsystem](artifact-generation.md) — generation mirrors media perception; autonomous path is PDF-only (no paid image/video); the world-model "generated" provenance is deliberately unimplemented (conditional invariant, no write path).

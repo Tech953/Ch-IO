@@ -42,6 +42,7 @@ import {
   ShieldAlert,
   Power,
   FlaskConical,
+  FileText,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -193,6 +194,23 @@ export default function Terminal() {
           });
         },
         onError: () => toast({ title: "Failed to update simulations", variant: "destructive" }),
+        onSettled: () => setPendingEngramId(null),
+      },
+    );
+  }
+
+  function toggleArtifactGeneration(engram: Engram, enabled: boolean) {
+    setPendingEngramId(engram.id);
+    updateEngram.mutate(
+      { id: engram.id, data: { artifactGenerationEnabled: enabled } },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getListEngramsQueryKey() });
+          toast({
+            title: `${engram.name} artifact generation ${enabled ? "enabled" : "disabled"}`,
+          });
+        },
+        onError: () => toast({ title: "Failed to update artifact generation", variant: "destructive" }),
         onSettled: () => setPendingEngramId(null),
       },
     );
@@ -390,6 +408,23 @@ export default function Terminal() {
                         />
                         <span className={`font-mono text-[10px] uppercase tracking-wider ${engram.simulationEnabled ? "text-rose-400" : "text-muted-foreground/50"}`}>
                           {engram.simulationEnabled ? "Enabled" : "Disabled"}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <span className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground/60 flex items-center gap-1">
+                        <FileText className="w-2.5 h-2.5" /> Generation
+                      </span>
+                      <div className="flex items-center gap-2 h-8">
+                        <Switch
+                          checked={engram.artifactGenerationEnabled}
+                          onCheckedChange={(v) => toggleArtifactGeneration(engram, v)}
+                          disabled={pendingEngramId === engram.id}
+                          data-testid={`switch-artifact-generation-${engram.id}`}
+                        />
+                        <span className={`font-mono text-[10px] uppercase tracking-wider ${engram.artifactGenerationEnabled ? "text-amber-400" : "text-muted-foreground/50"}`}>
+                          {engram.artifactGenerationEnabled ? "Enabled" : "Disabled"}
                         </span>
                       </div>
                     </div>

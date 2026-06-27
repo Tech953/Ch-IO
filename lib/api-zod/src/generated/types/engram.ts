@@ -40,6 +40,7 @@ export interface Engram {
   mode: EngramMode;
   humanContactEnabled: boolean;
   simulationEnabled: boolean;
+  artifactGenerationEnabled: boolean;
   createdAt: string;
   updatedAt: string;
 }

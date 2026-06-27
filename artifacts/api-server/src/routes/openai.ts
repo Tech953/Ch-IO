@@ -26,6 +26,7 @@ import { loadRecentWorldModel, appendWorldModelEntry } from "../lib/world-model-
 import { buildPerceptualContext } from "../lib/perceptual-context";
 import { createMediaAsset } from "../lib/media-store";
 import { detectModality } from "../lib/media-extraction";
+import { publishEvent } from "../lib/events";
 
 const router = Router();
 
@@ -205,7 +206,16 @@ router.post("/openai/conversations/:id/messages", async (req, res) => {
     .where(eq(messages.conversationId, id))
     .orderBy(messages.createdAt);
 
-  await db.insert(messages).values({ conversationId: id, role: "user", content });
+  const [userMessage] = await db
+    .insert(messages)
+    .values({ conversationId: id, role: "user", content })
+    .returning();
+  publishEvent({
+    type: "message.created",
+    conversationId: id,
+    engramId: conv.engramId ?? null,
+    data: userMessage,
+  });
 
   // For engram-linked chats, record the user's message as an OBSERVED world-model entry:
   // the engram directly perceived them say this. Provenance is OBSERVED and never inflated.
@@ -275,7 +285,16 @@ router.post("/openai/conversations/:id/messages", async (req, res) => {
       }
     }
 
-    await db.insert(messages).values({ conversationId: id, role: "assistant", content: fullResponse });
+    const [assistantMessage] = await db
+      .insert(messages)
+      .values({ conversationId: id, role: "assistant", content: fullResponse })
+      .returning();
+    publishEvent({
+      type: "message.created",
+      conversationId: id,
+      engramId: conv.engramId ?? null,
+      data: assistantMessage,
+    });
     res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
   } catch (err) {
     req.log.error(err);

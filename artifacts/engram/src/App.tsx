@@ -23,6 +23,8 @@ import Chat from "@/pages/chat";
 import Environment from "@/pages/environment";
 import Inquiry from "@/pages/inquiry";
 import Media from "@/pages/media";
+import Studio from "@/pages/studio";
+import DownloadPage from "@/pages/download";
 
 const queryClient = new QueryClient();
 
@@ -48,6 +50,8 @@ function Router() {
         <Route path="/environment" component={Environment} />
         <Route path="/inquiry" component={Inquiry} />
         <Route path="/media" component={Media} />
+        <Route path="/studio" component={Studio} />
+        <Route path="/download" component={DownloadPage} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

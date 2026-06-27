@@ -1203,6 +1203,147 @@ paths:
               schema:
                 $ref: "#/components/schemas/OpenaiError"
 
+  /artifacts:
+    get:
+      operationId: listArtifacts
+      tags: [artifacts]
+      summary: List generated artifacts, newest first
+      parameters:
+        - name: engramId
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [pending, processing, completed, failed, canceled]
+        - name: kind
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [pdf, image, video]
+      responses:
+        "200":
+          description: Generated artifacts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EngramArtifact"
+    post:
+      operationId: createArtifact
+      tags: [artifacts]
+      summary: Queue a new generation job ("create now")
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateArtifactRequest"
+      responses:
+        "201":
+          description: Queued artifact
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EngramArtifact"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpenaiError"
+        "404":
+          description: Engram not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpenaiError"
+
+  /artifacts/{id}:
+    get:
+      operationId: getArtifact
+      tags: [artifacts]
+      summary: Get one generated artifact
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Artifact detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EngramArtifact"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpenaiError"
+    delete:
+      operationId: deleteArtifact
+      tags: [artifacts]
+      summary: Delete a generated artifact and its bytes
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeleteArtifactResult"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpenaiError"
+
+  /artifacts/{id}/retry:
+    post:
+      operationId: retryArtifact
+      tags: [artifacts]
+      summary: Re-queue a failed artifact for generation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Re-queued artifact
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EngramArtifact"
+        "400":
+          description: Not retryable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpenaiError"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpenaiError"
+
 components:
   schemas:
     HealthStatus:
@@ -1953,6 +2094,8 @@ components:
           type: boolean
         simulationEnabled:
           type: boolean
+        artifactGenerationEnabled:
+          type: boolean
         createdAt:
           type: string
         updatedAt:
@@ -1979,6 +2122,7 @@ components:
         - mode
         - humanContactEnabled
         - simulationEnabled
+        - artifactGenerationEnabled
         - createdAt
         - updatedAt
 
@@ -1997,6 +2141,8 @@ components:
         humanContactEnabled:
           type: boolean
         simulationEnabled:
+          type: boolean
+        artifactGenerationEnabled:
           type: boolean
         focusThemes:
           type: array
@@ -2351,7 +2497,7 @@ components:
           type: string
         kind:
           type: string
-          enum: [commons, private_room, simulation_chamber, archive, terminal, quiescence]
+          enum: [commons, private_room, simulation_chamber, studio, archive, terminal, quiescence]
         description:
           type: string
         visibilityScope:
@@ -2359,7 +2505,7 @@ components:
           enum: [public, occupants, operators]
         actionScope:
           type: string
-          enum: [converse, reflect, simulate, contact, observe, rest]
+          enum: [converse, reflect, simulate, generate, contact, observe, rest]
         logged:
           type: boolean
         allowsInitiative:
@@ -2636,6 +2782,96 @@ components:
         - observations
 
     DeleteMediaResult:
+      type: object
+      properties:
+        deleted:
+          type: boolean
+      required:
+        - deleted
+
+    EngramArtifact:
+      type: object
+      properties:
+        id:
+          type: integer
+        engramId:
+          type: integer
+        conversationId:
+          type: ["integer", "null"]
+        trigger:
+          type: string
+          enum: [autonomous, operator]
+        kind:
+          type: string
+          enum: [pdf, image, video]
+        title:
+          type: string
+        prompt:
+          type: string
+        provider:
+          type: ["string", "null"]
+        mimeType:
+          type: ["string", "null"]
+        filename:
+          type: ["string", "null"]
+        sizeBytes:
+          type: integer
+        status:
+          type: string
+          enum: [pending, processing, completed, failed, canceled]
+        summary:
+          type: ["string", "null"]
+        error:
+          type: ["string", "null"]
+        startedAt:
+          type: ["string", "null"]
+        completedAt:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - engramId
+        - conversationId
+        - trigger
+        - kind
+        - title
+        - prompt
+        - provider
+        - mimeType
+        - filename
+        - sizeBytes
+        - status
+        - summary
+        - error
+        - startedAt
+        - completedAt
+        - createdAt
+        - updatedAt
+
+    CreateArtifactRequest:
+      type: object
+      properties:
+        engramId:
+          type: integer
+        kind:
+          type: string
+          enum: [pdf, image, video]
+        title:
+          type: string
+        prompt:
+          type: string
+        conversationId:
+          type: ["integer", "null"]
+      required:
+        - engramId
+        - kind
+        - title
+        - prompt
+
+    DeleteArtifactResult:
       type: object
       properties:
         deleted:

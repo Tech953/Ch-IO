@@ -16,6 +16,7 @@ export interface EngramConfigInput {
   mode?: EngramConfigInputMode;
   humanContactEnabled?: boolean;
   simulationEnabled?: boolean;
+  artifactGenerationEnabled?: boolean;
   focusThemes?: string[];
   emotionalBaseline?: EmotionalBaseline;
   drives?: EngramDrive[];

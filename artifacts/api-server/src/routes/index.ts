@@ -17,6 +17,8 @@ import hubRouter from "./hub";
 import messagesRouter from "./messages";
 import simulationsRouter from "./simulations";
 import mediaRouter from "./media";
+import artifactsRouter from "./artifacts";
+import eventsRouter from "./events";
 
 const router: IRouter = Router();
 
@@ -38,5 +40,7 @@ router.use(hubRouter);
 router.use(messagesRouter);
 router.use(simulationsRouter);
 router.use(mediaRouter);
+router.use(artifactsRouter);
+router.use(eventsRouter);
 
 export default router;

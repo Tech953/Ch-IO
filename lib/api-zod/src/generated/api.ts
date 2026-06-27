@@ -544,6 +544,7 @@ export const ListEngramsResponseItem = zod.object({
   "mode": zod.enum(['orientation', 'social', 'simulation', 'initiative_limited', 'full_bounded', 'quiescent']),
   "humanContactEnabled": zod.boolean(),
   "simulationEnabled": zod.boolean(),
+  "artifactGenerationEnabled": zod.boolean(),
   "createdAt": zod.string(),
   "updatedAt": zod.string()
 })
@@ -665,6 +666,7 @@ export const GetEngramResponse = zod.object({
   "mode": zod.enum(['orientation', 'social', 'simulation', 'initiative_limited', 'full_bounded', 'quiescent']),
   "humanContactEnabled": zod.boolean(),
   "simulationEnabled": zod.boolean(),
+  "artifactGenerationEnabled": zod.boolean(),
   "createdAt": zod.string(),
   "updatedAt": zod.string()
 })
@@ -684,6 +686,7 @@ export const UpdateEngramConfigBody = zod.object({
   "mode": zod.enum(['orientation', 'social', 'simulation', 'initiative_limited', 'full_bounded', 'quiescent']).optional(),
   "humanContactEnabled": zod.boolean().optional(),
   "simulationEnabled": zod.boolean().optional(),
+  "artifactGenerationEnabled": zod.boolean().optional(),
   "focusThemes": zod.array(zod.string()).optional(),
   "emotionalBaseline": zod.object({
   "valence": zod.number(),
@@ -756,6 +759,7 @@ export const UpdateEngramConfigResponse = zod.object({
   "mode": zod.enum(['orientation', 'social', 'simulation', 'initiative_limited', 'full_bounded', 'quiescent']),
   "humanContactEnabled": zod.boolean(),
   "simulationEnabled": zod.boolean(),
+  "artifactGenerationEnabled": zod.boolean(),
   "createdAt": zod.string(),
   "updatedAt": zod.string()
 })
@@ -824,6 +828,7 @@ export const ActivateEngramResponse = zod.object({
   "mode": zod.enum(['orientation', 'social', 'simulation', 'initiative_limited', 'full_bounded', 'quiescent']),
   "humanContactEnabled": zod.boolean(),
   "simulationEnabled": zod.boolean(),
+  "artifactGenerationEnabled": zod.boolean(),
   "createdAt": zod.string(),
   "updatedAt": zod.string()
 })
@@ -1031,10 +1036,10 @@ export const ListHubSpacesResponseItem = zod.object({
   "id": zod.number(),
   "slug": zod.string(),
   "name": zod.string(),
-  "kind": zod.enum(['commons', 'private_room', 'simulation_chamber', 'archive', 'terminal', 'quiescence']),
+  "kind": zod.enum(['commons', 'private_room', 'simulation_chamber', 'studio', 'archive', 'terminal', 'quiescence']),
   "description": zod.string(),
   "visibilityScope": zod.enum(['public', 'occupants', 'operators']),
-  "actionScope": zod.enum(['converse', 'reflect', 'simulate', 'contact', 'observe', 'rest']),
+  "actionScope": zod.enum(['converse', 'reflect', 'simulate', 'generate', 'contact', 'observe', 'rest']),
   "logged": zod.boolean(),
   "allowsInitiative": zod.boolean(),
   "sortOrder": zod.number(),
@@ -1345,6 +1350,141 @@ export const RetryMediaAssetResponse = zod.object({
   "transcript": zod.string().nullable(),
   "error": zod.string().nullable(),
   "observationCount": zod.number(),
+  "startedAt": zod.string().nullable(),
+  "completedAt": zod.string().nullable(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary List generated artifacts, newest first
+ */
+export const ListArtifactsQueryParams = zod.object({
+  "engramId": zod.coerce.number().optional(),
+  "status": zod.enum(['pending', 'processing', 'completed', 'failed', 'canceled']).optional(),
+  "kind": zod.enum(['pdf', 'image', 'video']).optional()
+})
+
+export const ListArtifactsResponseItem = zod.object({
+  "id": zod.number(),
+  "engramId": zod.number(),
+  "conversationId": zod.number().nullable(),
+  "trigger": zod.enum(['autonomous', 'operator']),
+  "kind": zod.enum(['pdf', 'image', 'video']),
+  "title": zod.string(),
+  "prompt": zod.string(),
+  "provider": zod.string().nullable(),
+  "mimeType": zod.string().nullable(),
+  "filename": zod.string().nullable(),
+  "sizeBytes": zod.number(),
+  "status": zod.enum(['pending', 'processing', 'completed', 'failed', 'canceled']),
+  "summary": zod.string().nullable(),
+  "error": zod.string().nullable(),
+  "startedAt": zod.string().nullable(),
+  "completedAt": zod.string().nullable(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+export const ListArtifactsResponse = zod.array(ListArtifactsResponseItem)
+
+
+/**
+ * @summary Queue a new generation job ("create now")
+ */
+export const CreateArtifactBody = zod.object({
+  "engramId": zod.number(),
+  "kind": zod.enum(['pdf', 'image', 'video']),
+  "title": zod.string(),
+  "prompt": zod.string(),
+  "conversationId": zod.number().nullish()
+})
+
+export const CreateArtifactResponse = zod.object({
+  "id": zod.number(),
+  "engramId": zod.number(),
+  "conversationId": zod.number().nullable(),
+  "trigger": zod.enum(['autonomous', 'operator']),
+  "kind": zod.enum(['pdf', 'image', 'video']),
+  "title": zod.string(),
+  "prompt": zod.string(),
+  "provider": zod.string().nullable(),
+  "mimeType": zod.string().nullable(),
+  "filename": zod.string().nullable(),
+  "sizeBytes": zod.number(),
+  "status": zod.enum(['pending', 'processing', 'completed', 'failed', 'canceled']),
+  "summary": zod.string().nullable(),
+  "error": zod.string().nullable(),
+  "startedAt": zod.string().nullable(),
+  "completedAt": zod.string().nullable(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary Get one generated artifact
+ */
+export const GetArtifactParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetArtifactResponse = zod.object({
+  "id": zod.number(),
+  "engramId": zod.number(),
+  "conversationId": zod.number().nullable(),
+  "trigger": zod.enum(['autonomous', 'operator']),
+  "kind": zod.enum(['pdf', 'image', 'video']),
+  "title": zod.string(),
+  "prompt": zod.string(),
+  "provider": zod.string().nullable(),
+  "mimeType": zod.string().nullable(),
+  "filename": zod.string().nullable(),
+  "sizeBytes": zod.number(),
+  "status": zod.enum(['pending', 'processing', 'completed', 'failed', 'canceled']),
+  "summary": zod.string().nullable(),
+  "error": zod.string().nullable(),
+  "startedAt": zod.string().nullable(),
+  "completedAt": zod.string().nullable(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary Delete a generated artifact and its bytes
+ */
+export const DeleteArtifactParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DeleteArtifactResponse = zod.object({
+  "deleted": zod.boolean()
+})
+
+
+/**
+ * @summary Re-queue a failed artifact for generation
+ */
+export const RetryArtifactParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const RetryArtifactResponse = zod.object({
+  "id": zod.number(),
+  "engramId": zod.number(),
+  "conversationId": zod.number().nullable(),
+  "trigger": zod.enum(['autonomous', 'operator']),
+  "kind": zod.enum(['pdf', 'image', 'video']),
+  "title": zod.string(),
+  "prompt": zod.string(),
+  "provider": zod.string().nullable(),
+  "mimeType": zod.string().nullable(),
+  "filename": zod.string().nullable(),
+  "sizeBytes": zod.number(),
+  "status": zod.enum(['pending', 'processing', 'completed', 'failed', 'canceled']),
+  "summary": zod.string().nullable(),
+  "error": zod.string().nullable(),
   "startedAt": zod.string().nullable(),
   "completedAt": zod.string().nullable(),
   "createdAt": zod.string(),

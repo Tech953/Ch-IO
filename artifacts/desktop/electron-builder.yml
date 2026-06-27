@@ -15,9 +15,16 @@ artifactName: ${productName}-${version}-${arch}.${ext}
 # installers + the *-latest*.yml update manifests to a GitHub Release for the
 # pushed tag. owner/repo are left unset so they are auto-detected from the git
 # remote / GITHUB_REPOSITORY in CI; set them explicitly here if you fork/rename.
+#
+# releaseType is `draft` (not `release`): each OS matrix job uploads into a
+# hidden draft Release, so a partially-uploaded release is never publicly
+# visible and concurrent first-creators don't race a public release into
+# existence. A final CI job (`publish`, needs: build) flips the draft to public
+# once all three OS installers + manifests are attached. The published release
+# is still public and requires no GitHub login to download.
 publish:
   provider: github
-  releaseType: release
+  releaseType: draft
 
 # Native modules: none. PGlite ships as prebuilt wasm via extraResources.
 npmRebuild: false
@@ -47,8 +54,9 @@ extraResources:
   # ffmpeg + ffprobe (host-platform binaries staged by prepare-resources.mjs).
   # The embedded server child spawns these for the VIDEO modality; main.ts points
   # it at them via FFMPEG_PATH/FFPROBE_PATH so video perception works fully offline
-  # with no system ffmpeg install. On macOS, signed/notarized builds must also sign
-  # these binaries (they are unsigned Mach-O executables) — signing is opt-in here.
+  # with no system ffmpeg install. On macOS, signed/notarized builds also sign
+  # these binaries — see the `mac.binaries` list below (they are unsigned Mach-O
+  # executables that notarization would otherwise reject).
   - from: resources/bin
     to: bin
 
@@ -86,6 +94,20 @@ mac:
   gatekeeperAssess: false
   entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.inherit.plist
+  # The bundled ffmpeg/ffprobe (staged into Contents/Resources/bin by
+  # prepare-resources.mjs) are third-party, unsigned Mach-O executables. A
+  # notarized build requires EVERY executable inside the app to carry a Developer
+  # ID signature with the hardened runtime — otherwise the notary service rejects
+  # the app (or Gatekeeper blocks it at launch). Listing them here makes signing
+  # explicit and guaranteed: electron-builder resolves each path relative to the
+  # .app and hands them to @electron/osx-sign, which signs them with the same
+  # hardened runtime + inherit entitlements + secure timestamp as the rest of the
+  # bundle. Paths are relative to the .app's Contents (no extension on macOS).
+  # This is a no-op for unsigned local/CI builds (signing is skipped without a
+  # cert), so those keep working unchanged.
+  binaries:
+    - Contents/Resources/bin/ffmpeg
+    - Contents/Resources/bin/ffprobe
   # notarize runs only after a successful sign, and only when Apple credentials
   # are present in the environment (APPLE_ID + APPLE_APP_SPECIFIC_PASSWORD +
   # APPLE_TEAM_ID, or the APPLE_API_KEY trio); otherwise it is skipped gracefully.

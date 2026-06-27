@@ -1,6 +1,6 @@
 import { ReactNode, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Brain, Activity, Database, BookOpen, Users, Hash, FileCheck2, TrendingUp, BarChart3, MessageSquare, Radio, MessageCircleQuestion, Menu, Globe, Network, MessagesSquare, Terminal, FlaskConical, ScanEye } from "lucide-react";
+import { Brain, Activity, Database, BookOpen, Users, Hash, FileCheck2, TrendingUp, BarChart3, MessageSquare, Radio, MessageCircleQuestion, Menu, Globe, Network, MessagesSquare, Terminal, FlaskConical, ScanEye, Download, Hammer } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 
 const navItems = [
@@ -13,6 +13,7 @@ const navItems = [
   { href: "/environment", label: "Environment", icon: Radio },
   { href: "/inquiry", label: "Inquiry", icon: MessageCircleQuestion },
   { href: "/media", label: "Media", icon: ScanEye },
+  { href: "/studio", label: "Studio", icon: Hammer },
   { href: "/personality", label: "Personality", icon: Brain },
   { href: "/memory", label: "Memory", icon: Database },
   { href: "/world-model", label: "World Model", icon: Globe },
@@ -22,6 +23,7 @@ const navItems = [
   { href: "/beliefs", label: "Beliefs", icon: FileCheck2 },
   { href: "/evolution", label: "Evolution", icon: TrendingUp },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
+  { href: "/download", label: "Download App", icon: Download },
 ];
 
 function SidebarContent({ location, onNavigate }: { location: string; onNavigate?: () => void }) {
@@ -45,6 +47,17 @@ function SidebarContent({ location, onNavigate }: { location: string; onNavigate
           );
         })}
       </nav>
+
+      <div className="px-3 py-3 border-t border-border/50">
+        <Link
+          href="/download"
+          onClick={onNavigate}
+          className={`flex items-center gap-3 px-3 py-2.5 rounded-none border transition-all duration-200 ${location === "/download" ? "bg-primary/15 border-primary text-primary" : "border-primary/30 text-primary/80 hover:bg-primary/10 hover:border-primary hover:text-primary"}`}
+        >
+          <Download className="w-4 h-4 shrink-0" />
+          <span className="font-display font-medium uppercase tracking-wider text-sm">Download App</span>
+        </Link>
+      </div>
 
       <div className="p-4 border-t border-border/50 font-mono text-[10px] text-muted-foreground/50 uppercase flex justify-between">
         <span>SYS.ONLINE</span>

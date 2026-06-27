@@ -3,6 +3,10 @@ import { ensureDatabaseReady } from "@workspace/db";
 import { logger } from "./lib/logger";
 import { startEngramEngine, stopEngramEngine } from "./services/engram-engine";
 import { startMediaWorker, stopMediaWorker } from "./services/media-worker";
+import {
+  startArtifactWorker,
+  stopArtifactWorker,
+} from "./services/artifact-worker";
 
 const rawPort = process.env["PORT"];
 
@@ -34,6 +38,7 @@ async function main(): Promise<void> {
     logger.info({ port, host: host ?? "0.0.0.0" }, "Server listening");
     startEngramEngine();
     startMediaWorker();
+    startArtifactWorker();
   };
 
   const server = host
@@ -49,6 +54,7 @@ async function main(): Promise<void> {
     logger.info({ signal }, "Shutting down");
     stopEngramEngine();
     stopMediaWorker();
+    stopArtifactWorker();
     server.close(() => process.exit(0));
     // Force-exit if connections do not drain promptly.
     setTimeout(() => process.exit(0), 5000).unref();

@@ -13,6 +13,7 @@ export const HubSpaceActionScope = {
   converse: 'converse',
   reflect: 'reflect',
   simulate: 'simulate',
+  generate: 'generate',
   contact: 'contact',
   observe: 'observe',
   rest: 'rest',

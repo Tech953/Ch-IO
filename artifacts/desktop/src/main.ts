@@ -10,6 +10,7 @@ import {
 import { autoUpdater } from "electron-updater";
 import { spawn, type ChildProcess } from "node:child_process";
 import { createServer } from "node:net";
+import { stopProcess, installDownloadedUpdate } from "./lifecycle";
 import {
   readFileSync,
   writeFileSync,
@@ -56,6 +57,35 @@ let quitting = false;
 // the "you're up to date" / error dialogs only for manual checks (the silent
 // startup check stays quiet unless an update is actually downloaded).
 let manualUpdateCheck = false;
+
+// Live auto-update status, mirrored to the Settings window so the user can see
+// the installed version and whether an update is checking/downloading/ready.
+type UpdateStatus =
+  | { state: "idle" }
+  | { state: "checking" }
+  | { state: "available"; version?: string }
+  | { state: "not-available" }
+  | { state: "downloading"; percent: number }
+  | { state: "downloaded"; version?: string }
+  | { state: "error"; message: string };
+
+let updateStatus: UpdateStatus = { state: "idle" };
+
+function setUpdateStatus(status: UpdateStatus): void {
+  updateStatus = status;
+  if (settingsWindow && !settingsWindow.isDestroyed()) {
+    settingsWindow.webContents.send("update:status", status);
+  }
+}
+
+const WINDOW_TITLE = "ENGRAM — PYRI";
+
+// Restore the main window title after an update-download progress indicator.
+function resetWindowTitle(): void {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.setTitle(WINDOW_TITLE);
+  }
+}
 
 function userDataPath(...segments: string[]): string {
   return path.join(app.getPath("userData"), ...segments);
@@ -239,27 +269,13 @@ async function startServer(): Promise<void> {
 }
 
 function stopServer(): Promise<void> {
-  return new Promise((resolve) => {
-    const proc = serverProcess;
-    if (!proc) {
-      resolve();
-      return;
-    }
-    serverProcess = null;
-    const killTimer = setTimeout(() => {
-      try {
-        proc.kill("SIGKILL");
-      } catch {
-        /* already gone */
-      }
-      resolve();
-    }, 5000);
-    proc.once("exit", () => {
-      clearTimeout(killTimer);
-      resolve();
-    });
-    proc.kill("SIGTERM");
-  });
+  const proc = serverProcess;
+  if (!proc) return Promise.resolve();
+  serverProcess = null;
+  // Shared SIGTERM→SIGKILL shutdown used by both normal quit and the auto-update
+  // install path, so the embedded server (and its PGlite DB) is always closed
+  // cleanly before app files are swapped.
+  return stopProcess(proc);
 }
 
 async function restartServer(): Promise<void> {
@@ -280,7 +296,7 @@ function createMainWindow(): void {
     minWidth: 1024,
     minHeight: 700,
     backgroundColor: "#070b12",
-    title: "ENGRAM — PYRI",
+    title: WINDOW_TITLE,
     autoHideMenuBar: false,
     webPreferences: {
       contextIsolation: true,
@@ -457,6 +473,19 @@ ipcMain.handle("settings:close", () => {
   }
 });
 
+// App version + current auto-update status, read by the Settings window so it can
+// show which version is installed and reflect download/ready progress live.
+ipcMain.handle("app:info", () => ({
+  version: app.getVersion(),
+  updatesSupported: app.isPackaged,
+  updateStatus,
+}));
+
+// "Check for Updates" button in Settings — reuses the same flow as the menu item.
+ipcMain.handle("update:check", () => {
+  checkForUpdatesManually();
+});
+
 // ---------------------------------------------------------------------------
 // Auto-update (electron-updater). The release feed + provider are baked into
 // app-update.yml by electron-builder at package time (publish config in
@@ -476,7 +505,12 @@ function setupAutoUpdates(): void {
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = false;
 
-  autoUpdater.on("update-available", () => {
+  autoUpdater.on("checking-for-update", () => {
+    setUpdateStatus({ state: "checking" });
+  });
+
+  autoUpdater.on("update-available", (info) => {
+    setUpdateStatus({ state: "available", version: info?.version });
     if (manualUpdateCheck && mainWindow && !mainWindow.isDestroyed()) {
       void dialog.showMessageBox(mainWindow, {
         type: "info",
@@ -489,6 +523,7 @@ function setupAutoUpdates(): void {
   });
 
   autoUpdater.on("update-not-available", () => {
+    setUpdateStatus({ state: "not-available" });
     if (manualUpdateCheck && mainWindow && !mainWindow.isDestroyed()) {
       void dialog.showMessageBox(mainWindow, {
         type: "info",
@@ -500,7 +535,26 @@ function setupAutoUpdates(): void {
     manualUpdateCheck = false;
   });
 
+  // Unobtrusive progress feedback while the installer downloads: mirror the
+  // percentage to the Settings window and reflect it in the main window title
+  // (and the macOS dock/taskbar progress bar). Cleared on completion and on
+  // error so it never lingers.
+  autoUpdater.on("download-progress", (progress) => {
+    const percent = Math.max(0, Math.min(100, Math.round(progress?.percent ?? 0)));
+    setUpdateStatus({ state: "downloading", percent });
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.setTitle(`${WINDOW_TITLE} — Downloading update… ${percent}%`);
+      mainWindow.setProgressBar(percent / 100);
+    }
+  });
+
   autoUpdater.on("error", (error) => {
+    setUpdateStatus({ state: "error", message: String(error) });
+    // Clear any in-progress download indicator so it doesn't linger on failure.
+    resetWindowTitle();
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.setProgressBar(-1);
+    }
     // eslint-disable-next-line no-console
     console.error("[desktop] auto-update error:", error);
     if (manualUpdateCheck && mainWindow && !mainWindow.isDestroyed()) {
@@ -516,8 +570,13 @@ function setupAutoUpdates(): void {
   });
 
   autoUpdater.on("update-downloaded", (info) => {
+    setUpdateStatus({ state: "downloaded", version: info?.version });
     manualUpdateCheck = false;
+    // Clear the progress indicator now that the download is complete; the
+    // "Restart now / Later" prompt below takes over.
+    resetWindowTitle();
     if (!mainWindow || mainWindow.isDestroyed()) return;
+    mainWindow.setProgressBar(-1);
     void dialog
       .showMessageBox(mainWindow, {
         type: "info",
@@ -530,11 +589,19 @@ function setupAutoUpdates(): void {
       })
       .then((result) => {
         if (result.response === 0) {
-          // The server child must shut down cleanly before the installer swaps
-          // the app files; quitForInstall() triggers before-quit, which stops it.
-          autoUpdater.autoInstallOnAppQuit = true;
-          quitting = true;
-          void stopServer().finally(() => autoUpdater.quitAndInstall());
+          // The server child holds the PGlite DB open, so it must shut down
+          // cleanly BEFORE the installer swaps app files. installDownloadedUpdate
+          // awaits stopServer() (shared SIGTERM→SIGKILL path) before quitAndInstall.
+          void installDownloadedUpdate({
+            stopServer,
+            quitAndInstall: () => autoUpdater.quitAndInstall(),
+            setAutoInstallOnAppQuit: (value) => {
+              autoUpdater.autoInstallOnAppQuit = value;
+            },
+            markQuitting: () => {
+              quitting = true;
+            },
+          });
         } else {
           // Honor the deferral: install silently on the next normal quit.
           autoUpdater.autoInstallOnAppQuit = true;
@@ -564,7 +631,9 @@ function checkForUpdatesManually(): void {
     return;
   }
   manualUpdateCheck = true;
+  setUpdateStatus({ state: "checking" });
   void autoUpdater.checkForUpdates().catch((error) => {
+    setUpdateStatus({ state: "error", message: String(error) });
     // eslint-disable-next-line no-console
     console.error("[desktop] manual update check failed:", error);
     manualUpdateCheck = false;

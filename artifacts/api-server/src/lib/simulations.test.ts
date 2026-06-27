@@ -84,6 +84,7 @@ function makeEngram(overrides: Partial<Engram> = {}): Engram {
     mode: "simulation",
     humanContactEnabled: true,
     simulationEnabled: true,
+    artifactGenerationEnabled: true,
     drives: [],
     emotionalBaseline: { valence: 0, arousal: 0.3, volatility: 0.2, mood: "even" },
     currentMood: null,

@@ -23,8 +23,11 @@ import type {
   Belief,
   BeliefInput,
   BeliefUpdate,
+  CreateArtifactRequest,
+  DeleteArtifactResult,
   DeleteMediaResult,
   Engram,
+  EngramArtifact,
   EngramConfigInput,
   EngramInquiry,
   EngramInquiryInput,
@@ -45,6 +48,7 @@ import type {
   InitiativeInput,
   JournalEntry,
   JournalInput,
+  ListArtifactsParams,
   ListEngramMessagesParams,
   ListHubActivityParams,
   ListMediaParams,
@@ -4276,5 +4280,376 @@ export const useRetryMediaAsset = <TError = ErrorType<OpenaiError>,
         TContext
       > => {
       return useMutation(getRetryMediaAssetMutationOptions(options));
+    }
+
+export const getListArtifactsUrl = (params?: ListArtifactsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/artifacts?${stringifiedParams}` : `/api/artifacts`
+}
+
+/**
+ * @summary List generated artifacts, newest first
+ */
+export const listArtifacts = async (params?: ListArtifactsParams, options?: RequestInit): Promise<EngramArtifact[]> => {
+
+  return customFetch<EngramArtifact[]>(getListArtifactsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListArtifactsQueryKey = (params?: ListArtifactsParams,) => {
+    return [
+    `/api/artifacts`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListArtifactsQueryOptions = <TData = Awaited<ReturnType<typeof listArtifacts>>, TError = ErrorType<unknown>>(params?: ListArtifactsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listArtifacts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListArtifactsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listArtifacts>>> = ({ signal }) => listArtifacts(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listArtifacts>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListArtifactsQueryResult = NonNullable<Awaited<ReturnType<typeof listArtifacts>>>
+export type ListArtifactsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List generated artifacts, newest first
+ */
+
+export function useListArtifacts<TData = Awaited<ReturnType<typeof listArtifacts>>, TError = ErrorType<unknown>>(
+ params?: ListArtifactsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listArtifacts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListArtifactsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateArtifactUrl = () => {
+
+
+
+
+  return `/api/artifacts`
+}
+
+/**
+ * @summary Queue a new generation job ("create now")
+ */
+export const createArtifact = async (createArtifactRequest: CreateArtifactRequest, options?: RequestInit): Promise<EngramArtifact> => {
+
+  return customFetch<EngramArtifact>(getCreateArtifactUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(createArtifactRequest)
+  }
+);}
+
+
+
+
+export const getCreateArtifactMutationOptions = <TError = ErrorType<OpenaiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createArtifact>>, TError,{data: BodyType<CreateArtifactRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createArtifact>>, TError,{data: BodyType<CreateArtifactRequest>}, TContext> => {
+
+const mutationKey = ['createArtifact'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createArtifact>>, {data: BodyType<CreateArtifactRequest>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createArtifact(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateArtifactMutationResult = NonNullable<Awaited<ReturnType<typeof createArtifact>>>
+    export type CreateArtifactMutationBody = BodyType<CreateArtifactRequest>
+    export type CreateArtifactMutationError = ErrorType<OpenaiError>
+
+    /**
+ * @summary Queue a new generation job ("create now")
+ */
+export const useCreateArtifact = <TError = ErrorType<OpenaiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createArtifact>>, TError,{data: BodyType<CreateArtifactRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createArtifact>>,
+        TError,
+        {data: BodyType<CreateArtifactRequest>},
+        TContext
+      > => {
+      return useMutation(getCreateArtifactMutationOptions(options));
+    }
+
+export const getGetArtifactUrl = (id: number,) => {
+
+
+
+
+  return `/api/artifacts/${id}`
+}
+
+/**
+ * @summary Get one generated artifact
+ */
+export const getArtifact = async (id: number, options?: RequestInit): Promise<EngramArtifact> => {
+
+  return customFetch<EngramArtifact>(getGetArtifactUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetArtifactQueryKey = (id: number,) => {
+    return [
+    `/api/artifacts/${id}`
+    ] as const;
+    }
+
+
+export const getGetArtifactQueryOptions = <TData = Awaited<ReturnType<typeof getArtifact>>, TError = ErrorType<OpenaiError>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getArtifact>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetArtifactQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getArtifact>>> = ({ signal }) => getArtifact(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getArtifact>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetArtifactQueryResult = NonNullable<Awaited<ReturnType<typeof getArtifact>>>
+export type GetArtifactQueryError = ErrorType<OpenaiError>
+
+
+/**
+ * @summary Get one generated artifact
+ */
+
+export function useGetArtifact<TData = Awaited<ReturnType<typeof getArtifact>>, TError = ErrorType<OpenaiError>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getArtifact>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetArtifactQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getDeleteArtifactUrl = (id: number,) => {
+
+
+
+
+  return `/api/artifacts/${id}`
+}
+
+/**
+ * @summary Delete a generated artifact and its bytes
+ */
+export const deleteArtifact = async (id: number, options?: RequestInit): Promise<DeleteArtifactResult> => {
+
+  return customFetch<DeleteArtifactResult>(getDeleteArtifactUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getDeleteArtifactMutationOptions = <TError = ErrorType<OpenaiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteArtifact>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteArtifact>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['deleteArtifact'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteArtifact>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteArtifact(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteArtifactMutationResult = NonNullable<Awaited<ReturnType<typeof deleteArtifact>>>
+
+    export type DeleteArtifactMutationError = ErrorType<OpenaiError>
+
+    /**
+ * @summary Delete a generated artifact and its bytes
+ */
+export const useDeleteArtifact = <TError = ErrorType<OpenaiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteArtifact>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteArtifact>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDeleteArtifactMutationOptions(options));
+    }
+
+export const getRetryArtifactUrl = (id: number,) => {
+
+
+
+
+  return `/api/artifacts/${id}/retry`
+}
+
+/**
+ * @summary Re-queue a failed artifact for generation
+ */
+export const retryArtifact = async (id: number, options?: RequestInit): Promise<EngramArtifact> => {
+
+  return customFetch<EngramArtifact>(getRetryArtifactUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getRetryArtifactMutationOptions = <TError = ErrorType<OpenaiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof retryArtifact>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof retryArtifact>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['retryArtifact'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof retryArtifact>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  retryArtifact(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RetryArtifactMutationResult = NonNullable<Awaited<ReturnType<typeof retryArtifact>>>
+
+    export type RetryArtifactMutationError = ErrorType<OpenaiError>
+
+    /**
+ * @summary Re-queue a failed artifact for generation
+ */
+export const useRetryArtifact = <TError = ErrorType<OpenaiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof retryArtifact>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof retryArtifact>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getRetryArtifactMutationOptions(options));
     }
 

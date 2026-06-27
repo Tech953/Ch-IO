@@ -13,8 +13,56 @@ import { Plus, Trash2, Send, Upload, X, Loader2, MessageSquare, PanelLeft, Paper
 import { useToast } from "@/hooks/use-toast";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useEventStream, type EngramEvent } from "@/hooks/use-event-stream";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+type EventTone = "info" | "warn" | "good";
+
+interface SystemEvent {
+  id: string;
+  label: string;
+  tone: EventTone;
+  ts: string;
+}
+
+/** Render a live system event as a one-line strip entry, or null to hide it. */
+function describeEvent(ev: EngramEvent): { label: string; tone: EventTone } | null {
+  const d = (ev.data ?? {}) as Record<string, unknown>;
+  switch (ev.type) {
+    case "presence.changed":
+      return {
+        label: `${(d["engramName"] as string) ?? "An engram"} moved to ${(d["spaceName"] as string) ?? "a space"}`,
+        tone: "info",
+      };
+    case "controls.changed": {
+      const bits = [d["paused"] ? "paused" : "active"];
+      if (d["quietMode"]) bits.push("quiet");
+      return { label: `Controls updated — ${bits.join(", ")}`, tone: "warn" };
+    }
+    case "simulation.step":
+      return {
+        label: `Simulation advanced — step ${(d["step"] as number) ?? "?"}/${(d["maxSteps"] as number) ?? "?"}`,
+        tone: "info",
+      };
+    case "media.completed":
+      return {
+        label: `Perceived ${(d["modality"] as string) ?? "media"}: ${(d["filename"] as string) ?? ""}`,
+        tone: "good",
+      };
+    case "artifact.created":
+      return { label: `Generating ${(d["kind"] as string) ?? "artifact"}: ${(d["title"] as string) ?? ""}`, tone: "info" };
+    case "artifact.completed":
+      return { label: `Generated ${(d["kind"] as string) ?? "artifact"}: ${(d["title"] as string) ?? ""}`, tone: "good" };
+    case "artifact.failed":
+      return { label: `Generation failed: ${(d["title"] as string) ?? ""}`, tone: "warn" };
+    case "chat.self_initiated":
+      return { label: "An engram reached out", tone: "good" };
+    case "artifact.updated":
+    case "message.created":
+      return null;
+  }
+}
 
 type ChatMode = "informational" | "alert" | "tutorial" | "companion" | "analyst" | "silent" | "custom";
 
@@ -77,6 +125,7 @@ export default function Chat() {
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const [sysEvents, setSysEvents] = useState<SystemEvent[]>([]);
   const isMobile = useIsMobile();
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -295,6 +344,34 @@ export default function Chat() {
   const modeInfo = MODES.find((m) => m.id === (activeConv?.mode ?? convMode));
   const activeEngram = (engrams ?? []).find((e) => e.id === activeConv?.engramId);
 
+  // Live push: subscribe scoped to this conversation + its engram. Server filters so we
+  // only receive global events plus those matching our engramId/conversationId.
+  const liveConnected = useEventStream(
+    { engramId: activeConv?.engramId ?? null, conversationId: activeId },
+    (ev) => {
+      // A new chat turn we didn't author (self-initiated post, or another viewer) — pull it
+      // in, but never mid-stream so we don't clobber an in-progress reply.
+      if (ev.type === "message.created" || ev.type === "chat.self_initiated") {
+        if (activeId !== null && ev.conversationId === activeId && !streaming) {
+          reloadMessages(activeId);
+        }
+      }
+      const described = describeEvent(ev);
+      if (!described) return;
+      setSysEvents((prev) =>
+        [
+          {
+            id: `${ev.type}-${ev.ts}-${Math.random().toString(36).slice(2, 7)}`,
+            label: described.label,
+            tone: described.tone,
+            ts: ev.ts,
+          },
+          ...prev,
+        ].slice(0, 4),
+      );
+    },
+  );
+
   const sidebar = (
     <div className="flex flex-col h-full bg-card/20 backdrop-blur-sm">
         <div className="p-4 border-b border-border/50 flex items-center justify-between">
@@ -464,14 +541,40 @@ export default function Chat() {
             <>
               <span className="text-primary text-base">{activeEngram ? activeEngram.symbol : modeInfo?.glyph}</span>
               <span className="font-mono text-xs text-foreground/80 truncate">{activeConv.title}</span>
-              <Badge variant="outline" className="font-mono text-[9px] uppercase tracking-wider border-primary/30 text-primary/70 ml-auto">
-                {activeEngram ? activeEngram.name : activeConv.mode}
-              </Badge>
+              <div className="ml-auto flex items-center gap-2 shrink-0">
+                <span
+                  title={liveConnected ? "Live updates connected" : "Live updates reconnecting…"}
+                  className={`flex items-center gap-1 font-mono text-[9px] uppercase tracking-wider ${liveConnected ? "text-emerald-400/80" : "text-muted-foreground/40"}`}
+                >
+                  <span className={`inline-block w-1.5 h-1.5 rounded-full ${liveConnected ? "bg-emerald-400 animate-pulse" : "bg-muted-foreground/40"}`} />
+                  Live
+                </span>
+                <Badge variant="outline" className="font-mono text-[9px] uppercase tracking-wider border-primary/30 text-primary/70">
+                  {activeEngram ? activeEngram.name : activeConv.mode}
+                </Badge>
+              </div>
             </>
           ) : (
             <span className="font-mono text-xs text-muted-foreground/50 uppercase tracking-widest">Select or create a conversation</span>
           )}
         </div>
+
+        {/* Live system-event strip */}
+        {sysEvents.length > 0 && (
+          <div className="border-b border-border/40 bg-background/30 px-4 md:px-6 py-1.5 space-y-1 shrink-0">
+            {sysEvents.map((e) => (
+              <div key={e.id} className="flex items-center gap-2 font-mono text-[10px]">
+                <span
+                  className={`inline-block w-1.5 h-1.5 rounded-full shrink-0 ${
+                    e.tone === "good" ? "bg-emerald-400" : e.tone === "warn" ? "bg-amber-400" : "bg-cyan-400"
+                  }`}
+                />
+                <span className="text-muted-foreground/70 truncate">{e.label}</span>
+                <span className="text-muted-foreground/30 ml-auto shrink-0">{new Date(e.ts).toLocaleTimeString()}</span>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Messages */}
         <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 md:px-6 py-4 space-y-4">

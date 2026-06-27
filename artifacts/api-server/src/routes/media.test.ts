@@ -7,6 +7,9 @@ import express from "express";
 // REAL multer multipart parsing, REAL Zod param validation, and REAL MIME→modality
 // detection over a real HTTP listener.
 const h = vi.hoisted(() => {
+  // Shrink the upload cap so the oversize (413) path is testable with a small
+  // body. Read by media.ts at import time, so it must be set inside vi.hoisted.
+  process.env["MEDIA_MAX_BYTES"] = "1024";
   const state = { engram: { id: 3 } as { id: number } | undefined };
   const db = {
     select: () => {
@@ -252,6 +255,17 @@ describe("POST /media (upload)", () => {
     form.append("file", new Blob(["PK..."], { type: "application/zip" }), "x.zip");
     const res = await fetch(`${base}/media`, { method: "POST", body: form });
     expect(res.status).toBe(415);
+    expect(h.createMediaAsset).not.toHaveBeenCalled();
+  });
+
+  it("rejects an upload over the size cap with 413", async () => {
+    // MEDIA_MAX_BYTES is 1024 (set in the hoisted block); 2 KiB exceeds it.
+    const oversize = "x".repeat(2048);
+    const form = new FormData();
+    form.append("engramId", "3");
+    form.append("file", new Blob([oversize], { type: "text/plain" }), "big.txt");
+    const res = await fetch(`${base}/media`, { method: "POST", body: form });
+    expect(res.status).toBe(413);
     expect(h.createMediaAsset).not.toHaveBeenCalled();
   });
 

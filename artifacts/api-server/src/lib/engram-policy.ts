@@ -29,12 +29,23 @@ export interface Capabilities {
   canContactHuman: boolean;
   /** May propose/create and advance a bounded simulation in a simulation chamber. */
   canSimulate: boolean;
+  /** May autonomously author a bounded artifact in a studio space. */
+  canGenerateArtifacts: boolean;
+  /**
+   * May mirror self-initiated human contact into the engram's chat thread (vs the
+   * audit bus only). True only when contact is already permitted AND the mode is
+   * permissive enough to reach the operator at social priority — urgent-only /
+   * quiet-mode contact stays bus-only.
+   */
+  canMirrorHumanContactToChat: boolean;
   /** Lowest priority class that is still allowed through to the human (when canContactHuman). */
   minHumanPriority: EngramMessagePriority;
   /** Human-readable reason human contact is unavailable (set only when canContactHuman is false). */
   humanContactBlockReason?: string;
   /** Human-readable reason simulation is unavailable (set only when canSimulate is false). */
   simulationBlockReason?: string;
+  /** Human-readable reason artifact generation is unavailable (set only when canGenerateArtifacts is false). */
+  generationBlockReason?: string;
 }
 
 /** Higher rank = more important / harder to suppress. */
@@ -68,8 +79,17 @@ export function capabilitiesFor(opts: {
   humanContactEnabled: boolean;
   /** Per-engram absolute off switch for simulations. Defaults to enabled when omitted. */
   simulationEnabled?: boolean;
+  /** Per-engram absolute off switch for artifact generation. Defaults to enabled when omitted. */
+  artifactGenerationEnabled?: boolean;
 }): Capabilities {
-  const { mode, controls, space, humanContactEnabled, simulationEnabled = true } = opts;
+  const {
+    mode,
+    controls,
+    space,
+    humanContactEnabled,
+    simulationEnabled = true,
+    artifactGenerationEnabled = true,
+  } = opts;
 
   // Global pause and resting zones are absolute: nothing initiates.
   if (controls.paused) {
@@ -133,6 +153,23 @@ export function capabilitiesFor(opts: {
     canSimulate = true;
   }
 
+  // Artifact generation: the mirror of simulation. An independent capability gated
+  // on the comprehensive bounded mode (full_bounded only — narrower than simulation),
+  // physical presence in a generate-scoped studio, and the per-engram off switch.
+  // Like simulation, an unknown/absent space cannot generate — you must be in a
+  // studio. Global pause / resting / quiescent already short-circuited above.
+  let canGenerateArtifacts = false;
+  let generationBlockReason: string | undefined;
+  if (mode !== "full_bounded") {
+    generationBlockReason = `mode "${mode}" does not permit artifact generation`;
+  } else if (!space || space.actionScope !== "generate") {
+    generationBlockReason = "not in a studio space";
+  } else if (!artifactGenerationEnabled) {
+    generationBlockReason = "artifact generation disabled for this engram";
+  } else {
+    canGenerateArtifacts = true;
+  }
+
   // Human-contact independent gates. The per-engram toggle is an absolute off
   // switch; quiet mode is NOT — it raises the bar so only urgent contact reaches
   // the operator while meaningful/social are held by the priority gate.
@@ -146,14 +183,23 @@ export function capabilitiesFor(opts: {
     minHumanPriority = "urgent";
   }
 
+  // Mirroring contact into chat is only appropriate when contact is permitted AND
+  // the engram may still reach the operator at social priority. Quiet mode or an
+  // urgent-only mode (initiative_limited) raises the bar above social, so those
+  // attempts stay on the audit bus only and never post into the chat thread.
+  const canMirrorHumanContactToChat = humanContact && minHumanPriority === "social";
+
   return {
     canIdle,
     canConverse,
     canContactHuman: humanContact,
     canSimulate,
+    canGenerateArtifacts,
+    canMirrorHumanContactToChat,
     minHumanPriority,
     humanContactBlockReason,
     simulationBlockReason,
+    generationBlockReason,
   };
 }
 
@@ -163,9 +209,12 @@ function blocked(reason: string): Capabilities {
     canConverse: false,
     canContactHuman: false,
     canSimulate: false,
+    canGenerateArtifacts: false,
+    canMirrorHumanContactToChat: false,
     minHumanPriority: "urgent",
     humanContactBlockReason: reason,
     simulationBlockReason: reason,
+    generationBlockReason: reason,
   };
 }
 
