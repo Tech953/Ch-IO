@@ -34,6 +34,13 @@ extraResources:
     to: web
   - from: resources/drizzle
     to: drizzle
+  # ffmpeg + ffprobe (host-platform binaries staged by prepare-resources.mjs).
+  # The embedded server child spawns these for the VIDEO modality; main.ts points
+  # it at them via FFMPEG_PATH/FFPROBE_PATH so video perception works fully offline
+  # with no system ffmpeg install. On macOS, signed/notarized builds must also sign
+  # these binaries (they are unsigned Mach-O executables) — signing is opt-in here.
+  - from: resources/bin
+    to: bin
 
 linux:
   target:

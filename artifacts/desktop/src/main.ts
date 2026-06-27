@@ -32,6 +32,20 @@ const serverEntry = path.join(resourcesDir, "server", "index.mjs");
 const webDist = path.join(resourcesDir, "web");
 const migrationsDir = path.join(resourcesDir, "drizzle");
 
+// Bundled ffmpeg/ffprobe (staged by prepare-resources.mjs, shipped via
+// extraResources). The embedded server spawns these for the VIDEO modality, so
+// video perception works fully offline with no system ffmpeg install.
+const ffmpegBin = path.join(
+  resourcesDir,
+  "bin",
+  process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg",
+);
+const ffprobeBin = path.join(
+  resourcesDir,
+  "bin",
+  process.platform === "win32" ? "ffprobe.exe" : "ffprobe",
+);
+
 let serverProcess: ChildProcess | null = null;
 let mainWindow: BrowserWindow | null = null;
 let settingsWindow: BrowserWindow | null = null;
@@ -114,7 +128,7 @@ function buildServerEnv(
   const active =
     settings.mode === "offline" ? settings.offline : settings.online;
   const apiKey = resolveApiKey(settings) || "local-placeholder";
-  return {
+  const env: NodeJS.ProcessEnv = {
     ...process.env,
     ELECTRON_RUN_AS_NODE: "1",
     NODE_ENV: "production",
@@ -128,6 +142,12 @@ function buildServerEnv(
     LLM_MODEL: active.model,
     LLM_API_KEY: apiKey,
   };
+  // Point the server child at the bundled ffmpeg/ffprobe when present so video
+  // perception runs offline. If a binary is missing (e.g. a partial build), leave
+  // the var unset so the extractor falls back to a system install on PATH.
+  if (existsSync(ffmpegBin)) env.FFMPEG_PATH = ffmpegBin;
+  if (existsSync(ffprobeBin)) env.FFPROBE_PATH = ffprobeBin;
+  return env;
 }
 
 // ---------------------------------------------------------------------------
