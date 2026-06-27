@@ -110,9 +110,13 @@ jobs:
         # Publishing is gated on the trigger being a `v*` tag push:
         #   - tag push  -> `--publish always`: uploads the installers + the
         #     *-latest*.yml update manifests (consumed by electron-updater in the
-        #     installed app) to a public GitHub Release for the pushed tag. Each
-        #     OS job publishes its own artifacts to the same release;
-        #     electron-builder de-duplicates safely.
+        #     installed app) to a *draft* GitHub Release for the pushed tag
+        #     (releaseType: draft in electron-builder.yml). Each OS job uploads
+        #     its own artifacts to the same draft; electron-builder
+        #     de-duplicates safely. Because the release stays a draft, a
+        #     partially-uploaded release is never publicly visible. The separate
+        #     `publish` job below flips it to public once all three OS jobs are
+        #     done.
         #   - manual run (workflow_dispatch) -> `--publish never`: only the
         #     workflow-artifact upload below runs, so manual builds never create
         #     an accidental Release.
@@ -145,3 +149,45 @@ jobs:
             artifacts/desktop/release/*.deb
             artifacts/desktop/release/*.dmg
             artifacts/desktop/release/*.exe
+
+  # Flip the draft Release to public only after ALL three OS build jobs have
+  # finished uploading their installers + update manifests, so users never land
+  # on a half-finished release. Runs only on a `v*` tag push (the build jobs
+  # only create a draft on a tag); manual (workflow_dispatch) runs publish
+  # nothing, so there is no draft to un-draft and this job is skipped.
+  publish:
+    name: Publish release
+    needs: build
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    # Required to flip the draft Release to public via the GitHub API.
+    permissions:
+      contents: write
+    steps:
+      # Find the draft Release for this tag and un-draft it. electron-builder
+      # draft releases are not yet attached to a real git tag, so resolve the
+      # draft by its name (electron-builder names it after the tag/version) and
+      # edit that release id to draft=false. Setting draft=false makes the
+      # release public; downloads need no GitHub login.
+      - name: Un-draft the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Looking for draft release named '$TAG' in $REPO"
+          RELEASE_ID="$(gh api "repos/$REPO/releases" --paginate \
+            --jq ".[] | select(.draft == true and (.tag_name == \"$TAG\" or .name == \"$TAG\")) | .id" \
+            | head -n1)"
+          if [ -z "$RELEASE_ID" ]; then
+            echo "No draft release found for tag '$TAG' — nothing to publish." >&2
+            exit 1
+          fi
+          echo "Publishing draft release id $RELEASE_ID"
+          gh api -X PATCH "repos/$REPO/releases/$RELEASE_ID" \
+            -F draft=false \
+            -f tag_name="$TAG" \
+            -f make_latest=true >/dev/null
+          echo "Release '$TAG' is now public."
