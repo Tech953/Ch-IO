@@ -76,6 +76,11 @@ jobs:
           # macOS signing + notarization (optional)
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          # When no Developer ID cert is supplied, disable keychain identity
+          # auto-discovery so the macOS runner produces a deterministic unsigned
+          # build instead of hanging/failing on a missing/locked keychain. When a
+          # cert IS supplied (CSC_LINK set) discovery is left on so signing works.
+          CSC_IDENTITY_AUTO_DISCOVERY: ${{ secrets.CSC_LINK != '' }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
