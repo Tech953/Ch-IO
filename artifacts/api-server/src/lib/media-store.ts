@@ -4,6 +4,7 @@ import {
   mediaBlobsTable,
   mediaObservationsTable,
   engramWorldModelTable,
+  messages,
   type MediaAsset,
   type MediaModality,
   type MediaJobStatus,
@@ -13,7 +14,10 @@ import { and, asc, desc, eq, lt } from "drizzle-orm";
 import { appendWorldModelEntry } from "./world-model-store";
 
 export interface CreateMediaAssetInput {
-  engramId: number;
+  /** Owning engram, or null for a default-PYRI-chat upload (no world-model writes). */
+  engramId: number | null;
+  /** The chat thread this upload was dropped into, if inline. */
+  conversationId?: number | null;
   filename: string;
   mimeType: string;
   modality: MediaModality;
@@ -32,6 +36,7 @@ export async function createMediaAsset(
       .insert(mediaAssetsTable)
       .values({
         engramId: input.engramId,
+        conversationId: input.conversationId ?? null,
         filename: input.filename,
         mimeType: input.mimeType,
         modality: input.modality,
@@ -43,6 +48,52 @@ export async function createMediaAsset(
       .insert(mediaBlobsTable)
       .values({ assetId: asset.id, data: input.data });
     return asset;
+  });
+}
+
+/** Media assets bound to one conversation (inline chat uploads), newest first. */
+export async function loadConversationMedia(
+  conversationId: number,
+): Promise<MediaAsset[]> {
+  return db
+    .select()
+    .from(mediaAssetsTable)
+    .where(eq(mediaAssetsTable.conversationId, conversationId))
+    .orderBy(desc(mediaAssetsTable.createdAt));
+}
+
+/**
+ * Insert (or, on retry, update) the single `context` message that surfaces a
+ * completed inline upload inside its chat thread. Idempotent via the asset's
+ * `contextMessageId`: the first completion inserts the message and stamps the id;
+ * a re-perception updates that same message instead of duplicating it. No-op when
+ * the asset is not bound to a conversation.
+ */
+export async function upsertMediaContextMessage(
+  asset: MediaAsset,
+  content: string,
+): Promise<void> {
+  const conversationId = asset.conversationId;
+  if (conversationId == null) return;
+  if (asset.contextMessageId != null) {
+    await db
+      .update(messages)
+      .set({ content })
+      .where(eq(messages.id, asset.contextMessageId));
+    return;
+  }
+  // Insert-the-message and stamp-the-asset must be atomic: a crash between them
+  // would leave the asset with no `contextMessageId`, so a retry would insert a
+  // SECOND context message into the thread. The transaction makes the pair all-or-nothing.
+  await db.transaction(async (tx) => {
+    const [msg] = await tx
+      .insert(messages)
+      .values({ conversationId, role: "context", content })
+      .returning();
+    await tx
+      .update(mediaAssetsTable)
+      .set({ contextMessageId: msg.id, updatedAt: new Date() })
+      .where(eq(mediaAssetsTable.id, asset.id));
   });
 }
 

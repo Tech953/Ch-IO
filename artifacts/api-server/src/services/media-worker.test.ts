@@ -32,6 +32,9 @@ const h = vi.hoisted(() => {
     ),
     appendMediaObservation: vi.fn(async () => ({ id: 1 })),
     clearMediaObservations: vi.fn(async () => undefined),
+    upsertMediaContextMessage: vi.fn(
+      async (_asset: MediaAsset, _content: string) => undefined,
+    ),
     recoverStuckJobs: vi.fn(async () => 0),
     extractFromMedia: vi.fn(),
     generateMediaCommentary: vi.fn(async () => "in-voice reaction"),
@@ -52,6 +55,7 @@ vi.mock("../lib/media-store", () => ({
   updateMediaAsset: h.updateMediaAsset,
   appendMediaObservation: h.appendMediaObservation,
   clearMediaObservations: h.clearMediaObservations,
+  upsertMediaContextMessage: h.upsertMediaContextMessage,
   recoverStuckJobs: h.recoverStuckJobs,
 }));
 vi.mock("../lib/media-extraction", () => ({ extractFromMedia: h.extractFromMedia }));
@@ -171,6 +175,29 @@ describe("runMediaTick — completes a claimed job", () => {
     const [, patch] = h.updateMediaAsset.mock.calls[0];
     expect(patch.observationCount).toBe(1);
     expect(patch.status).toBe("completed");
+  });
+});
+
+// --- Inline chat upload: surface a context message in the thread ---------------
+describe("runMediaTick — conversation-bound (inline) uploads", () => {
+  it("upserts a context message carrying the summary when conversationId is set", async () => {
+    h.claimNextPendingJob.mockResolvedValueOnce(makeAsset({ conversationId: 9 }));
+
+    await runMediaTick();
+
+    expect(h.upsertMediaContextMessage).toHaveBeenCalledTimes(1);
+    const [asset, content] = h.upsertMediaContextMessage.mock.calls[0];
+    expect(asset).toMatchObject({ id: 7, conversationId: 9 });
+    expect(content).toContain("Two short images of a harbor.");
+    expect(content).toContain("harbor.txt");
+  });
+
+  it("does NOT upsert a context message for a non-conversation-bound asset", async () => {
+    h.claimNextPendingJob.mockResolvedValueOnce(makeAsset({ conversationId: null }));
+
+    await runMediaTick();
+
+    expect(h.upsertMediaContextMessage).not.toHaveBeenCalled();
   });
 });
 

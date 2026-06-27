@@ -36,6 +36,7 @@ function serializeAsset(a: MediaAsset) {
   return {
     id: a.id,
     engramId: a.engramId,
+    conversationId: a.conversationId,
     filename: a.filename,
     mimeType: a.mimeType,
     modality: a.modality,

@@ -224,3 +224,32 @@ describe("buildSystemPrompt — HARD_SAFETY constraints (PYRI)", () => {
     expect(prompt).toMatch(/netrunning/i);
   });
 });
+
+describe("perceptualContext injection", () => {
+  const PERCEPT = "## Recent Perceptual Inputs\n  - Perceived image \"sunset.png\": warm tones";
+
+  it("weaves the perceptual section into the PYRI prompt when provided", () => {
+    const prompt = buildSystemPrompt({ mode: "companion", perceptualContext: PERCEPT });
+    expect(prompt).toContain("Recent Perceptual Inputs");
+    expect(prompt).toContain("sunset.png");
+  });
+
+  it("omits the perceptual section from the PYRI prompt when absent", () => {
+    const prompt = buildSystemPrompt({ mode: "companion" });
+    expect(prompt).not.toContain("Recent Perceptual Inputs");
+  });
+
+  it("weaves the perceptual section into an engram prompt when provided", () => {
+    const prompt = buildEngramSystemPrompt({
+      engram: makeEngram(),
+      perceptualContext: PERCEPT,
+    });
+    expect(prompt).toContain("Recent Perceptual Inputs");
+    expect(prompt).toContain("sunset.png");
+  });
+
+  it("omits the perceptual section from an engram prompt when absent", () => {
+    const prompt = buildEngramSystemPrompt({ engram: makeEngram() });
+    expect(prompt).not.toContain("Recent Perceptual Inputs");
+  });
+});

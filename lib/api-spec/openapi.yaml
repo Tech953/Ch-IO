@@ -2544,7 +2544,9 @@ components:
         id:
           type: integer
         engramId:
-          type: integer
+          type: ["integer", "null"]
+        conversationId:
+          type: ["integer", "null"]
         filename:
           type: string
         mimeType:
@@ -2578,6 +2580,7 @@ components:
       required:
         - id
         - engramId
+        - conversationId
         - filename
         - mimeType
         - modality

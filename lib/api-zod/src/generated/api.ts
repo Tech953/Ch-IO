@@ -1253,7 +1253,8 @@ export const ListMediaQueryParams = zod.object({
 
 export const ListMediaResponseItem = zod.object({
   "id": zod.number(),
-  "engramId": zod.number(),
+  "engramId": zod.number().nullable(),
+  "conversationId": zod.number().nullable(),
   "filename": zod.string(),
   "mimeType": zod.string(),
   "modality": zod.enum(['text', 'image', 'audio', 'video']),
@@ -1282,7 +1283,8 @@ export const GetMediaAssetParams = zod.object({
 export const GetMediaAssetResponse = zod.object({
   "asset": zod.object({
   "id": zod.number(),
-  "engramId": zod.number(),
+  "engramId": zod.number().nullable(),
+  "conversationId": zod.number().nullable(),
   "filename": zod.string(),
   "mimeType": zod.string(),
   "modality": zod.enum(['text', 'image', 'audio', 'video']),
@@ -1331,7 +1333,8 @@ export const RetryMediaAssetParams = zod.object({
 
 export const RetryMediaAssetResponse = zod.object({
   "id": zod.number(),
-  "engramId": zod.number(),
+  "engramId": zod.number().nullable(),
+  "conversationId": zod.number().nullable(),
   "filename": zod.string(),
   "mimeType": zod.string(),
   "modality": zod.enum(['text', 'image', 'audio', 'video']),

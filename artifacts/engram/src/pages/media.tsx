@@ -254,7 +254,7 @@ export default function Media() {
             <MediaCard
               key={asset.id}
               asset={asset}
-              engram={engramById.get(asset.engramId)}
+              engram={asset.engramId == null ? undefined : engramById.get(asset.engramId)}
             />
           ))
         )}
@@ -352,7 +352,7 @@ function MediaCard({ asset, engram }: { asset: MediaAsset; engram?: Engram }) {
             </div>
             <div className="flex items-center gap-3 font-mono text-[10px] text-muted-foreground/60">
               <span className="text-primary/70">
-                {engram?.symbol ?? "◇"} {engram?.name ?? `Engram #${asset.engramId}`}
+                {engram?.symbol ?? "◇"} {engram?.name ?? (asset.engramId == null ? "PYRI · chat" : `Engram #${asset.engramId}`)}
               </span>
               <span>{formatBytes(asset.sizeBytes)}</span>
               {asset.status === "completed" && (
