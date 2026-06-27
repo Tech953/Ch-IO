@@ -196,6 +196,170 @@ describe("extractFromMedia — audio", () => {
   });
 });
 
+// --- parseExtractionJson (exercised via the text path) ------------------------
+// parseExtractionJson is intentionally not exported; the text modality calls it
+// directly on the chat reply (extractFromMedia → extractFromText →
+// parseExtractionJson), so crafting the chat reply lets us cover its parsing
+// branches without weakening its encapsulation. The result's `observations` +
+// `summary` come straight back through, untouched.
+describe("parseExtractionJson (via extractFromMedia text path)", () => {
+  // Set the next chat reply, then perceive a text document so the reply flows
+  // through parseExtractionJson unchanged.
+  async function perceiveTextWithReply(content: string) {
+    h.chatCreate.mockResolvedValueOnce({
+      choices: [{ message: { content } }],
+    });
+    return extractFromMedia(
+      { modality: "text", mimeType: "text/plain", filename: "doc.txt" },
+      Buffer.from("the document body to perceive"),
+    );
+  }
+
+  it("parses a clean JSON object", async () => {
+    const result = await perceiveTextWithReply(
+      JSON.stringify({
+        observations: ["a beacon turns", "the tide is out"],
+        summary: "A calm coastline.",
+      }),
+    );
+
+    expect(result.observations).toEqual(["a beacon turns", "the tide is out"]);
+    expect(result.summary).toBe("A calm coastline.");
+    expect(result.transcript).toBeNull();
+  });
+
+  it("parses JSON wrapped in ```json fences", async () => {
+    const result = await perceiveTextWithReply(
+      '```json\n{"observations": ["a single fact"], "summary": "One thing."}\n```',
+    );
+
+    expect(result.observations).toEqual(["a single fact"]);
+    expect(result.summary).toBe("One thing.");
+  });
+
+  it("parses JSON embedded in surrounding prose", async () => {
+    const result = await perceiveTextWithReply(
+      'Sure! Here is what I found:\n' +
+        '{"observations": ["one", "two"], "summary": "Two things."}\n' +
+        "Hope that helps!",
+    );
+
+    expect(result.observations).toEqual(["one", "two"]);
+    expect(result.summary).toBe("Two things.");
+  });
+
+  it("falls back to line parsing when the reply is plain bullet/numbered lines, not JSON", async () => {
+    const result = await perceiveTextWithReply(
+      "- The lighthouse blinks twice\n" +
+        "* A gull rests on the rail\n" +
+        "1. Fog rolls across the bay",
+    );
+
+    // Leading bullet/number markers are stripped; the first line is the summary.
+    expect(result.observations).toEqual([
+      "The lighthouse blinks twice",
+      "A gull rests on the rail",
+      "Fog rolls across the bay",
+    ]);
+    expect(result.summary).toBe("The lighthouse blinks twice");
+  });
+
+  it("falls back to line parsing when an attempted JSON object is malformed (truncated / trailing comma)", async () => {
+    // A real LLM failure: it tries to emit the JSON object but the payload is
+    // syntactically broken (unterminated string + trailing comma + truncation).
+    // JSON.parse throws, so the parser drops to line extraction over the raw reply.
+    const result = await perceiveTextWithReply(
+      '{\n' +
+        '  "observations": [\n' +
+        '    "the reactor hums steadily",\n' +
+        '    "a warning light flickers,\n' +
+        '  ],\n' +
+        '  "summary":',
+    );
+
+    // Each non-blank raw line, with leading JSON/list punctuation stripped by the
+    // ^[-*\\d.\\s]+ rule, survives as an observation; the first line is the summary.
+    expect(result.observations).toContain('"observations": [');
+    expect(result.observations.some((o) => o.includes("the reactor hums steadily"))).toBe(
+      true,
+    );
+    expect(
+      result.observations.some((o) => o.includes("a warning light flickers")),
+    ).toBe(true);
+    expect(result.summary).toBe("{");
+  });
+
+  it("falls back to line parsing when fenced JSON contains a syntax error", async () => {
+    // The model wraps its answer in ```json fences but the JSON has an invalid
+    // token, so fence-stripping still yields unparseable text → line fallback.
+    const result = await perceiveTextWithReply(
+      "```json\n" +
+        "{ observations: [the lens is cracked, the frame is bent] }\n" +
+        "```",
+    );
+
+    // Fences are stripped first; the remaining (unparseable) line is kept verbatim
+    // aside from leading list/number punctuation.
+    expect(result.observations.length).toBeGreaterThan(0);
+    expect(
+      result.observations.some((o) => o.includes("the lens is cracked")),
+    ).toBe(true);
+  });
+
+  it("filters blank/whitespace-only entries in the JSON path", async () => {
+    const result = await perceiveTextWithReply(
+      JSON.stringify({
+        observations: ["a real observation", "", "   ", "another real one"],
+        summary: "  trimmed summary  ",
+      }),
+    );
+
+    expect(result.observations).toEqual([
+      "a real observation",
+      "another real one",
+    ]);
+    expect(result.summary).toBe("trimmed summary");
+  });
+
+  it("filters blank lines in the line-parsing fallback", async () => {
+    const result = await perceiveTextWithReply(
+      "- alpha\n\n- beta\n   \n- gamma\n",
+    );
+
+    expect(result.observations).toEqual(["alpha", "beta", "gamma"]);
+  });
+
+  it("caps observations at MAX_OBSERVATIONS (8) in the JSON path", async () => {
+    const many = Array.from({ length: 12 }, (_, i) => `observation ${i + 1}`);
+    const result = await perceiveTextWithReply(
+      JSON.stringify({ observations: many, summary: "Too many facts." }),
+    );
+
+    expect(result.observations).toHaveLength(8);
+    expect(result.observations[0]).toBe("observation 1");
+    expect(result.observations[7]).toBe("observation 8");
+    expect(result.observations).not.toContain("observation 9");
+  });
+
+  it("caps observations at MAX_OBSERVATIONS (8) in the line-parsing fallback", async () => {
+    const lines = Array.from({ length: 12 }, (_, i) => `- line ${i + 1}`).join(
+      "\n",
+    );
+    const result = await perceiveTextWithReply(lines);
+
+    expect(result.observations).toHaveLength(8);
+    expect(result.observations[0]).toBe("line 1");
+    expect(result.observations[7]).toBe("line 8");
+  });
+
+  it("returns empty observations and summary for an empty reply", async () => {
+    const result = await perceiveTextWithReply("");
+
+    expect(result.observations).toEqual([]);
+    expect(result.summary).toBe("");
+  });
+});
+
 describe("extractFromMedia — unsupported modality", () => {
   it("throws for a modality outside the known set", async () => {
     await expect(
