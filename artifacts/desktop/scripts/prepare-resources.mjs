@@ -2,12 +2,15 @@ import {
   cpSync,
   rmSync,
   mkdirSync,
+  chmodSync,
   existsSync,
   readdirSync,
 } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { createRequire } from "node:module";
 
+const require = createRequire(import.meta.url);
 const here = path.dirname(fileURLToPath(import.meta.url));
 const desktopDir = path.join(here, ".."); // artifacts/desktop
 const repoRoot = path.join(desktopDir, "..", ".."); // workspace root
@@ -78,5 +81,32 @@ cpSync(webSrc, path.join(resources, "web"), { recursive: true });
 
 // 4. Drizzle migrations (run by ensureDatabaseReady on first launch).
 cpSync(drizzleSrc, path.join(resources, "drizzle"), { recursive: true });
+
+// 5. ffmpeg + ffprobe — the host-platform binaries the media worker needs for the
+//    VIDEO modality (frame sampling + audio extraction). ffmpeg-static downloads,
+//    and ffprobe-static selects, the binary matching the OS/arch this build runs
+//    on, so packaging on each native OS (see .github/workflows/desktop-build.yml)
+//    ships the right binaries. Only the resolved host binary is copied into the
+//    bundle; main.ts points the server child at it via FFMPEG_PATH/FFPROBE_PATH.
+const ffmpegSrc = require("ffmpeg-static");
+const ffprobeSrc = require("ffprobe-static").path;
+requireDir(
+  ffmpegSrc,
+  "ffmpeg-static did not provide a binary; reinstall deps (its postinstall downloads it).",
+);
+requireDir(
+  ffprobeSrc,
+  "ffprobe-static did not provide a binary; reinstall deps.",
+);
+
+const binOut = path.join(resources, "bin");
+mkdirSync(binOut, { recursive: true });
+const exe = process.platform === "win32" ? ".exe" : "";
+const ffmpegOut = path.join(binOut, `ffmpeg${exe}`);
+const ffprobeOut = path.join(binOut, `ffprobe${exe}`);
+cpSync(ffmpegSrc, ffmpegOut);
+cpSync(ffprobeSrc, ffprobeOut);
+chmodSync(ffmpegOut, 0o755);
+chmodSync(ffprobeOut, 0o755);
 
 console.log("[desktop] resources prepared ->", resources);

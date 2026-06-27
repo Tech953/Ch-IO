@@ -10,8 +10,9 @@ import {
   appendMediaObservation,
   clearMediaObservations,
   recoverStuckJobs,
+  upsertMediaContextMessage,
 } from "../lib/media-store";
-import { extractFromMedia } from "../lib/media-extraction";
+import { extractFromMedia, type MediaExtraction } from "../lib/media-extraction";
 import { generateMediaCommentary } from "../lib/engram-generation";
 import { summarizeWorldModel } from "../lib/world-model";
 import { loadRecentWorldModel } from "../lib/world-model-store";
@@ -51,40 +52,45 @@ async function processAsset(asset: MediaAsset): Promise<void> {
     blob.data,
   );
 
-  // Persist each extracted observation as a provenance-tagged OBSERVED world-model
-  // entry. There is no path here to choose a different provenance or source.
+  // Perceive into the world model ONLY when an engram owns this asset. A default-PYRI
+  // chat upload (engramId null) has no engram-scoped world model to write to — it still
+  // extracts a summary/transcript and surfaces them as conversation context below, but
+  // creates no observations and no in-voice commentary. Provenance/source stay hardcoded
+  // inside appendMediaObservation; there is no path here to choose them.
   let written = 0;
-  for (const content of extraction.observations) {
-    const trimmed = content.trim();
-    if (!trimmed) continue;
-    await appendMediaObservation({
-      assetId: asset.id,
-      engramId: asset.engramId,
-      content: trimmed,
-      confidence: OBSERVATION_CONFIDENCE,
-    });
-    written++;
-  }
-
-  // In-voice reaction. Best-effort: extraction already succeeded and observations are
-  // persisted, so a commentary failure must not fail the whole job.
   let commentary = "";
-  const engram = await loadEngram(asset.engramId);
-  if (engram) {
-    try {
-      const worldModelSummary = summarizeWorldModel(
-        await loadRecentWorldModel(engram.id),
-      );
-      commentary = await generateMediaCommentary({
-        engram,
-        modality: asset.modality,
-        filename: asset.filename,
-        summary: extraction.summary,
-        observations: extraction.observations,
-        worldModelSummary,
+  if (asset.engramId != null) {
+    for (const content of extraction.observations) {
+      const trimmed = content.trim();
+      if (!trimmed) continue;
+      await appendMediaObservation({
+        assetId: asset.id,
+        engramId: asset.engramId,
+        content: trimmed,
+        confidence: OBSERVATION_CONFIDENCE,
       });
-    } catch (err) {
-      logger.error({ err, assetId: asset.id }, "media commentary generation failed");
+      written++;
+    }
+
+    // In-voice reaction. Best-effort: extraction already succeeded and observations are
+    // persisted, so a commentary failure must not fail the whole job.
+    const engram = await loadEngram(asset.engramId);
+    if (engram) {
+      try {
+        const worldModelSummary = summarizeWorldModel(
+          await loadRecentWorldModel(engram.id),
+        );
+        commentary = await generateMediaCommentary({
+          engram,
+          modality: asset.modality,
+          filename: asset.filename,
+          summary: extraction.summary,
+          observations: extraction.observations,
+          worldModelSummary,
+        });
+      } catch (err) {
+        logger.error({ err, assetId: asset.id }, "media commentary generation failed");
+      }
     }
   }
 
@@ -98,15 +104,47 @@ async function processAsset(asset: MediaAsset): Promise<void> {
     error: null,
   });
 
+  // Surface the perception inside the chat thread it was dropped into (idempotent on
+  // retry via the asset's contextMessageId). No-op when the asset isn't conversation-bound.
+  if (asset.conversationId != null) {
+    try {
+      await upsertMediaContextMessage(asset, buildContextMessage(asset, extraction));
+    } catch (err) {
+      logger.error(
+        { err, assetId: asset.id },
+        "media context message upsert failed",
+      );
+    }
+  }
+
   logger.info(
     {
       assetId: asset.id,
       engramId: asset.engramId,
+      conversationId: asset.conversationId,
       modality: asset.modality,
       observations: written,
     },
     "media asset perceived",
   );
+}
+
+/**
+ * Compose the `context` message body shown in a chat thread when an inline upload
+ * finishes perceiving. Neutral, factual framing — it is conversation context, not an
+ * instruction; the prompt layer frames it as such for the model.
+ */
+function buildContextMessage(asset: MediaAsset, extraction: MediaExtraction): string {
+  const parts: string[] = [`[Perceived ${asset.modality}: ${asset.filename}]`];
+  const summary = extraction.summary.trim();
+  if (summary) parts.push(summary);
+  const transcript = extraction.transcript?.trim();
+  if (transcript) {
+    parts.push(
+      `Transcript: ${transcript.length > 600 ? `${transcript.slice(0, 600)}…` : transcript}`,
+    );
+  }
+  return parts.join("\n");
 }
 
 /**

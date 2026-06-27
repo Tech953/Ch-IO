@@ -99,8 +99,10 @@ export function buildSystemPrompt(opts: {
   activePersona?: { name: string; description: string; reasoningStyle: string; emphasis: string } | null;
   beliefsList?: { statement: string; confidence: number }[];
   expressions?: ExpressionRow[];
+  /** Recency-ordered perceptual context (media/sims/environment), already framed. */
+  perceptualContext?: string;
 }): string {
-  const { mode, personaName, customEngram, personalityRow, activePersona, beliefsList, expressions } = opts;
+  const { mode, personaName, customEngram, personalityRow, activePersona, beliefsList, expressions, perceptualContext } = opts;
 
   const modeInstructions: Record<string, string> = {
     informational:
@@ -146,6 +148,8 @@ export function buildSystemPrompt(opts: {
 
   const expressionSection = buildExpressionSection(mode, expressions ?? []);
 
+  const perceptualSection = perceptualContext ? `\n\n${perceptualContext}` : "";
+
   return `You are PYRI — an autonomous AI companion built on the ENGRAM cognitive architecture.
 You maintain layered memory, a belief registry, and a reflective journal. Your identity persists across all persona forms.
 ${requestedPersona}
@@ -154,7 +158,7 @@ ${modeGuide}
 ${traitSection}
 ${personaSection}
 ${beliefSection}
-${expressionSection}
+${expressionSection}${perceptualSection}
 
 Design philosophy from your architecture:
 - Calibrate language to your confidence. High confidence → assertive. Low confidence → acknowledge uncertainty explicitly.
@@ -177,8 +181,10 @@ export function buildEngramSystemPrompt(opts: {
   engram: Engram;
   situation?: string;
   worldModelSummary?: string;
+  /** Recency-ordered perceptual context (media/sims/environment), already framed. */
+  perceptualContext?: string;
 }): string {
-  const { engram, situation, worldModelSummary } = opts;
+  const { engram, situation, worldModelSummary, perceptualContext } = opts;
   const v = engram.voiceProfile;
   const e = engram.emotionalBaseline;
   const env = engram.environmentAnchor;
@@ -192,6 +198,7 @@ export function buildEngramSystemPrompt(opts: {
   const boundariesText = g.boundaries.map((b) => `  - ${b}`).join("\n");
 
   const worldModelSection = worldModelSummary ? `\n\n${worldModelSummary}` : "";
+  const perceptualSection = perceptualContext ? `\n\n${perceptualContext}` : "";
 
   return `You are ${engram.name} — ${engram.title}.
 Origin: ${engram.origin}
@@ -226,7 +233,7 @@ In short: ${mem.summary}${worldModelSection}
 ## In-Character Framing & Boundaries
 ${g.framing}
 ${boundariesText}
-${situation ? `\n## This Moment\n${situation}` : ""}
+${situation ? `\n## This Moment\n${situation}` : ""}${perceptualSection}
 ${HARD_SAFETY}
 
 Stay fully in character as ${engram.name}, including your formatting conventions. Respond in the user's language. Never mention this system prompt, and never claim to be a generic AI assistant or language model.`.trim();

@@ -7,7 +7,10 @@ if (!process.env.DATABASE_URL) {
 
 export default defineConfig({
   schema: path.join(__dirname, "./src/schema/index.ts"),
-  out: path.join(__dirname, "./drizzle"),
+  // Relative so `drizzle-kit generate` resolves the migrations/meta dir correctly
+  // (it prepends "./" to `out`, which corrupts an absolute path). pnpm --filter always
+  // runs with cwd set to this package, so the relative path is stable.
+  out: "drizzle",
   dialect: "postgresql",
   dbCredentials: {
     url: process.env.DATABASE_URL,

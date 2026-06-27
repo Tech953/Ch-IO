@@ -10,7 +10,10 @@ import type { MediaAssetStatus } from './mediaAssetStatus';
 
 export interface MediaAsset {
   id: number;
-  engramId: number;
+  /** @nullable */
+  engramId: number | null;
+  /** @nullable */
+  conversationId: number | null;
   filename: string;
   mimeType: string;
   modality: MediaAssetModality;

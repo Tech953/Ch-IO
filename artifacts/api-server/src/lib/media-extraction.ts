@@ -15,6 +15,15 @@ const VISION_MODEL = process.env.LLM_VISION_MODEL ?? LLM_MODEL;
 const TRANSCRIBE_MODEL =
   process.env.LLM_TRANSCRIBE_MODEL ?? "gpt-4o-mini-transcribe";
 
+/**
+ * ffmpeg/ffprobe binary paths. Resolved from env when set (the packaged desktop
+ * app points these at its bundled binaries so video perception works offline with
+ * no system install) and otherwise fall back to the names on PATH — unchanged for
+ * Replit/dev/server, where ffmpeg/ffprobe are provided by the environment.
+ */
+const FFMPEG_BIN = process.env.FFMPEG_PATH ?? "ffmpeg";
+const FFPROBE_BIN = process.env.FFPROBE_PATH ?? "ffprobe";
+
 const FFMPEG_TIMEOUT_MS = 60_000;
 const MAX_VIDEO_FRAMES = 4;
 const MAX_TEXT_CHARS = 12_000;
@@ -172,7 +181,7 @@ function extForMime(mime: string): string {
 async function probeDuration(input: string): Promise<number> {
   try {
     const { stdout } = await execFileAsync(
-      "ffprobe",
+      FFPROBE_BIN,
       [
         "-v",
         "error",
@@ -210,7 +219,7 @@ async function extractFromVideo(
         // execFile (never a shell) with an args array — no shell interpolation of
         // the (untrusted) filename is possible.
         await execFileAsync(
-          "ffmpeg",
+          FFMPEG_BIN,
           ["-y", "-ss", String(ts), "-i", input, "-frames:v", "1", "-q:v", "4", out],
           { timeout: FFMPEG_TIMEOUT_MS },
         );
@@ -225,7 +234,7 @@ async function extractFromVideo(
     const audioOut = join(dir, "audio.mp3");
     try {
       await execFileAsync(
-        "ffmpeg",
+        FFMPEG_BIN,
         ["-y", "-i", input, "-vn", "-ac", "1", "-ar", "16000", "-b:a", "64k", audioOut],
         { timeout: FFMPEG_TIMEOUT_MS },
       );

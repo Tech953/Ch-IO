@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Plus, Trash2, Send, Upload, X, Loader2, MessageSquare, PanelLeft } from "lucide-react";
+import { Plus, Trash2, Send, Upload, X, Loader2, MessageSquare, PanelLeft, Paperclip, Eye, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -20,10 +20,21 @@ type ChatMode = "informational" | "alert" | "tutorial" | "companion" | "analyst"
 
 interface Message {
   id?: number;
-  role: "user" | "assistant";
+  role: "user" | "assistant" | "context";
   content: string;
   streaming?: boolean;
 }
+
+interface Attachment {
+  id: number;
+  filename: string;
+  modality: string;
+  status: "pending" | "processing" | "completed" | "failed";
+  error?: string | null;
+}
+
+const UPLOAD_ACCEPT =
+  "image/png,image/jpeg,image/webp,image/gif,audio/*,video/mp4,video/quicktime,video/webm,.txt,.md,.csv,.json,text/plain,text/markdown,text/csv,application/json";
 
 interface Conversation {
   id: number;
@@ -63,10 +74,14 @@ export default function Chat() {
   const [showNewDialog, setShowNewDialog] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [convSheetOpen, setConvSheetOpen] = useState(false);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
   const isMobile = useIsMobile();
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   function scrollToBottom() {
     setTimeout(() => {
@@ -78,12 +93,20 @@ export default function Chat() {
 
   useEffect(() => { scrollToBottom(); }, [messages]);
 
+  const reloadMessages = useCallback(async (id: number) => {
+    const resp = await fetch(`${BASE}/api/openai/conversations/${id}`);
+    if (!resp.ok) return;
+    const data = await resp.json();
+    setMessages(data.messages ?? []);
+  }, []);
+
   const loadConversation = useCallback(async (id: number) => {
     const resp = await fetch(`${BASE}/api/openai/conversations/${id}`);
     if (!resp.ok) return;
     const data = await resp.json();
     const conv: Conversation = { id: data.id, title: data.title, mode: data.mode, personaName: data.personaName, customEngram: data.customEngram, engramId: data.engramId, createdAt: data.createdAt };
     setMessages(data.messages ?? []);
+    setAttachments([]);
     setActiveId(id);
     setConvMode((conv.mode as ChatMode) ?? "companion");
     setCustomEngram(conv.customEngram ?? "");
@@ -91,6 +114,63 @@ export default function Chat() {
     setConvSheetOpen(false);
     scrollToBottom();
   }, []);
+
+  const uploadFile = useCallback(async (file: File) => {
+    const convId = activeId;
+    if (!convId) return;
+    setUploading(true);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const resp = await fetch(`${BASE}/api/openai/conversations/${convId}/media`, { method: "POST", body: form });
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        toast({ title: "Upload rejected", description: err.error ?? `HTTP ${resp.status}`, variant: "destructive" });
+        return;
+      }
+      const asset = await resp.json();
+      setAttachments((prev) => [...prev, { id: asset.id, filename: asset.filename, modality: asset.modality, status: asset.status, error: asset.error }]);
+    } catch {
+      toast({ title: "Upload failed", description: "Could not reach the API", variant: "destructive" });
+    } finally {
+      setUploading(false);
+    }
+  }, [activeId, toast]);
+
+  // Poll perception status for in-flight attachments until each settles.
+  useEffect(() => {
+    const inFlight = attachments.filter((a) => a.status === "pending" || a.status === "processing");
+    if (inFlight.length === 0) return;
+    let cancelled = false;
+    const timer = setInterval(async () => {
+      for (const att of inFlight) {
+        try {
+          const resp = await fetch(`${BASE}/api/media/${att.id}`);
+          if (!resp.ok || cancelled) continue;
+          const data = await resp.json();
+          const status = data.asset.status as Attachment["status"];
+          if (status !== att.status) {
+            setAttachments((prev) => prev.map((a) => (a.id === att.id ? { ...a, status, error: data.asset.error } : a)));
+          }
+        } catch { /* transient — retry next tick */ }
+      }
+    }, 2000);
+    return () => { cancelled = true; clearInterval(timer); };
+  }, [attachments]);
+
+  // When a perception completes, pull the `context` message the worker inserted into the
+  // thread (only while not streaming, so we don't clobber an in-progress reply), then drop
+  // the now-redundant attachment card. Failed cards stay until dismissed.
+  useEffect(() => {
+    const hasCompleted = attachments.some((a) => a.status === "completed");
+    if (!hasCompleted || streaming || !activeId) return;
+    let cancelled = false;
+    (async () => {
+      await reloadMessages(activeId);
+      if (!cancelled) setAttachments((prev) => prev.filter((a) => a.status !== "completed"));
+    })();
+    return () => { cancelled = true; };
+  }, [attachments, streaming, activeId, reloadMessages]);
 
   async function handleNewConversation() {
     if (!newTitle.trim()) return;
@@ -415,36 +495,107 @@ export default function Chat() {
               <p className="text-[10px] mt-1 text-muted-foreground/30">Send a message to begin</p>
             </div>
           ) : (
-            messages.map((msg, idx) => (
-              <div key={idx} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                <div className={`max-w-[85%] md:max-w-[78%] ${msg.role === "user" ? "order-1" : ""}`}>
-                  <div className={`font-mono text-[9px] uppercase tracking-widest mb-1 ${msg.role === "user" ? "text-right text-muted-foreground/50" : "text-primary/50"}`}>
-                    {msg.role === "user" ? "YOU" : activeEngram ? `${activeEngram.name.toUpperCase()} · ${activeEngram.symbol}` : `PYRI · ${modeInfo?.glyph ?? "◈"}`}
+            messages.map((msg, idx) => {
+              if (msg.role === "context") {
+                return (
+                  <div key={idx} className="flex justify-center">
+                    <div className="w-full max-w-[90%] md:max-w-[82%]">
+                      <div className="font-mono text-[9px] uppercase tracking-widest mb-1 text-cyan-300/60 flex items-center justify-center gap-1.5">
+                        <Eye className="w-3 h-3" /> Perceived Context
+                      </div>
+                      <div className="px-4 py-3 text-xs leading-relaxed font-mono whitespace-pre-wrap bg-cyan-500/[0.06] border border-dashed border-cyan-400/30 text-foreground/70">
+                        {msg.content}
+                      </div>
+                    </div>
                   </div>
-                  <div className={`px-4 py-3 text-sm leading-relaxed ${
-                    msg.role === "user"
-                      ? "bg-primary/10 border border-primary/20 text-foreground"
-                      : "bg-card/40 border border-border/50 text-foreground/90 backdrop-blur-sm"
-                  }`}>
-                    {msg.content || (msg.streaming && (
-                      <span className="flex items-center gap-1 text-muted-foreground/50">
-                        <Loader2 className="w-3 h-3 animate-spin" />
-                        <span className="font-mono text-[10px]">generating</span>
-                      </span>
-                    ))}
-                    {msg.streaming && msg.content && (
-                      <span className="inline-block w-0.5 h-4 bg-primary/70 animate-pulse ml-0.5 align-text-bottom" />
-                    )}
+                );
+              }
+              return (
+                <div key={idx} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                  <div className={`max-w-[85%] md:max-w-[78%] ${msg.role === "user" ? "order-1" : ""}`}>
+                    <div className={`font-mono text-[9px] uppercase tracking-widest mb-1 ${msg.role === "user" ? "text-right text-muted-foreground/50" : "text-primary/50"}`}>
+                      {msg.role === "user" ? "YOU" : activeEngram ? `${activeEngram.name.toUpperCase()} · ${activeEngram.symbol}` : `PYRI · ${modeInfo?.glyph ?? "◈"}`}
+                    </div>
+                    <div className={`px-4 py-3 text-sm leading-relaxed ${
+                      msg.role === "user"
+                        ? "bg-primary/10 border border-primary/20 text-foreground"
+                        : "bg-card/40 border border-border/50 text-foreground/90 backdrop-blur-sm"
+                    }`}>
+                      {msg.content || (msg.streaming && (
+                        <span className="flex items-center gap-1 text-muted-foreground/50">
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          <span className="font-mono text-[10px]">generating</span>
+                        </span>
+                      ))}
+                      {msg.streaming && msg.content && (
+                        <span className="inline-block w-0.5 h-4 bg-primary/70 animate-pulse ml-0.5 align-text-bottom" />
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
 
         {/* Input area */}
-        <div className="border-t border-border/50 p-3 md:p-4 bg-background/50 backdrop-blur-sm shrink-0">
+        <div
+          className={`border-t p-3 md:p-4 bg-background/50 backdrop-blur-sm shrink-0 transition-colors ${dragOver ? "border-primary/60 bg-primary/5" : "border-border/50"}`}
+          onDragOver={(e) => { if (activeId && !streaming) { e.preventDefault(); setDragOver(true); } }}
+          onDragLeave={(e) => { e.preventDefault(); setDragOver(false); }}
+          onDrop={(e) => {
+            e.preventDefault();
+            setDragOver(false);
+            if (!activeId || streaming) return;
+            const file = e.dataTransfer.files?.[0];
+            if (file) uploadFile(file);
+          }}
+        >
+          {attachments.length > 0 && (
+            <div className="max-w-4xl mx-auto mb-2 flex flex-wrap gap-2">
+              {attachments.map((att) => (
+                <div
+                  key={att.id}
+                  className={`flex items-center gap-2 px-2.5 py-1.5 border font-mono text-[10px] ${att.status === "failed" ? "border-rose-500/40 bg-rose-500/5 text-rose-300" : "border-primary/30 bg-primary/5 text-primary/80"}`}
+                >
+                  {att.status === "failed" ? <AlertTriangle className="w-3 h-3 shrink-0" /> : <Loader2 className="w-3 h-3 animate-spin shrink-0" />}
+                  <span className="truncate max-w-[140px]">{att.filename}</span>
+                  <span className="uppercase text-muted-foreground/50">{att.status === "failed" ? "failed" : "perceiving…"}</span>
+                  {att.status === "failed" && (
+                    <button
+                      onClick={() => setAttachments((p) => p.filter((a) => a.id !== att.id))}
+                      className="hover:text-rose-200"
+                      aria-label="Dismiss attachment"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
           <div className="flex gap-2 md:gap-3 items-end max-w-4xl mx-auto">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept={UPLOAD_ACCEPT}
+              className="sr-only"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) uploadFile(file);
+                e.target.value = "";
+              }}
+            />
+            <Button
+              size="icon"
+              variant="outline"
+              disabled={!activeId || uploading || streaming}
+              onClick={() => fileInputRef.current?.click()}
+              className="shrink-0 border-border/50 text-primary/70 hover:bg-primary/10 h-11 w-11"
+              aria-label="Attach media"
+            >
+              {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Paperclip className="w-4 h-4" />}
+            </Button>
             <Textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
@@ -475,7 +626,7 @@ export default function Chat() {
             )}
           </div>
           <p className="font-mono text-[9px] text-muted-foreground/30 text-center mt-2">
-            Enter to send · Shift+Enter for newline · {streaming ? "Generating…" : "Ready"}
+            Enter to send · Shift+Enter for newline · Attach or drop media for {activeEngram ? activeEngram.name : "PYRI"} to perceive
           </p>
         </div>
       </div>

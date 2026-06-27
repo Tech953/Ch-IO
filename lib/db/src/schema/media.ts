@@ -11,6 +11,8 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { engramsTable } from "./engrams";
 import { engramWorldModelTable } from "./engram-world-model";
+import { conversations } from "./conversations";
+import { messages } from "./messages";
 
 /**
  * Perceptual modality of an uploaded media asset. Detected from MIME type on
@@ -45,17 +47,35 @@ const bytea = customType<{ data: Buffer; default: false }>({
 });
 
 /**
- * An uploaded media asset tied to one engram, plus its perception-job lifecycle
- * and results. The raw bytes live in `media_blobs` (1:1) so list/status queries
- * never drag megabytes into memory — this table carries metadata + results only.
+ * An uploaded media asset, plus its perception-job lifecycle and results. The raw
+ * bytes live in `media_blobs` (1:1) so list/status queries never drag megabytes into
+ * memory — this table carries metadata + results only.
+ *
+ * `engramId` is NULLABLE: an upload tied to an engram (Media page, or an engram-linked
+ * chat) perceives into that engram's world model; an upload made inside the default
+ * PYRI chat has no owning engram, so it extracts a summary/transcript but writes NO
+ * world-model rows (the world model stays strictly engram-scoped). `conversationId`
+ * binds an inline chat upload to the thread it was dropped into, and `contextMessageId`
+ * is the idempotency anchor for the single `context` message the worker inserts on
+ * completion (so a retry updates that message rather than duplicating it).
  */
 export const mediaAssetsTable = pgTable(
   "media_assets",
   {
     id: serial("id").primaryKey(),
-    engramId: integer("engram_id")
-      .notNull()
-      .references(() => engramsTable.id, { onDelete: "cascade" }),
+    engramId: integer("engram_id").references(() => engramsTable.id, {
+      onDelete: "cascade",
+    }),
+    /** The chat thread an inline upload was dropped into, if any. */
+    conversationId: integer("conversation_id").references(
+      () => conversations.id,
+      { onDelete: "cascade" },
+    ),
+    /** The single `context` message the worker inserted for this asset, if any. */
+    contextMessageId: integer("context_message_id").references(
+      () => messages.id,
+      { onDelete: "set null" },
+    ),
     filename: text("filename").notNull(),
     mimeType: text("mime_type").notNull(),
     /** One of MEDIA_MODALITIES — derived from MIME on upload. */
@@ -81,6 +101,7 @@ export const mediaAssetsTable = pgTable(
   (t) => [
     index("media_assets_engram_idx").on(t.engramId),
     index("media_assets_status_idx").on(t.status),
+    index("media_assets_conversation_idx").on(t.conversationId),
   ],
 );
 

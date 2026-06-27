@@ -9,6 +9,16 @@ directories:
 
 artifactName: ${productName}-${version}-${arch}.${ext}
 
+# Release feed for auto-update (electron-updater). At package time
+# electron-builder bakes provider+owner+repo into app-update.yml inside the app,
+# and `--publish` (see .github/workflows/desktop-build.yml) uploads the
+# installers + the *-latest*.yml update manifests to a GitHub Release for the
+# pushed tag. owner/repo are left unset so they are auto-detected from the git
+# remote / GITHUB_REPOSITORY in CI; set them explicitly here if you fork/rename.
+publish:
+  provider: github
+  releaseType: release
+
 # Native modules: none. PGlite ships as prebuilt wasm via extraResources.
 npmRebuild: false
 asar: true
@@ -34,6 +44,13 @@ extraResources:
     to: web
   - from: resources/drizzle
     to: drizzle
+  # ffmpeg + ffprobe (host-platform binaries staged by prepare-resources.mjs).
+  # The embedded server child spawns these for the VIDEO modality; main.ts points
+  # it at them via FFMPEG_PATH/FFPROBE_PATH so video perception works fully offline
+  # with no system ffmpeg install. On macOS, signed/notarized builds must also sign
+  # these binaries (they are unsigned Mach-O executables) — signing is opt-in here.
+  - from: resources/bin
+    to: bin
 
 linux:
   target:
