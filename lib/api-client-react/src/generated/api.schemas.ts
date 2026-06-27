@@ -349,6 +349,7 @@ export interface Engram {
   mode: EngramMode;
   humanContactEnabled: boolean;
   simulationEnabled: boolean;
+  artifactGenerationEnabled: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -372,6 +373,7 @@ export interface EngramConfigInput {
   mode?: EngramConfigInputMode;
   humanContactEnabled?: boolean;
   simulationEnabled?: boolean;
+  artifactGenerationEnabled?: boolean;
   focusThemes?: string[];
   emotionalBaseline?: EmotionalBaseline;
   drives?: EngramDrive[];
@@ -594,6 +596,7 @@ export const HubSpaceKind = {
   commons: 'commons',
   private_room: 'private_room',
   simulation_chamber: 'simulation_chamber',
+  studio: 'studio',
   archive: 'archive',
   terminal: 'terminal',
   quiescence: 'quiescence',
@@ -615,6 +618,7 @@ export const HubSpaceActionScope = {
   converse: 'converse',
   reflect: 'reflect',
   simulate: 'simulate',
+  generate: 'generate',
   contact: 'contact',
   observe: 'observe',
   rest: 'rest',
@@ -818,6 +822,85 @@ export interface DeleteMediaResult {
   deleted: boolean;
 }
 
+export type EngramArtifactTrigger = typeof EngramArtifactTrigger[keyof typeof EngramArtifactTrigger];
+
+
+export const EngramArtifactTrigger = {
+  autonomous: 'autonomous',
+  operator: 'operator',
+} as const;
+
+export type EngramArtifactKind = typeof EngramArtifactKind[keyof typeof EngramArtifactKind];
+
+
+export const EngramArtifactKind = {
+  pdf: 'pdf',
+  image: 'image',
+  video: 'video',
+} as const;
+
+export type EngramArtifactStatus = typeof EngramArtifactStatus[keyof typeof EngramArtifactStatus];
+
+
+export const EngramArtifactStatus = {
+  pending: 'pending',
+  processing: 'processing',
+  completed: 'completed',
+  failed: 'failed',
+  canceled: 'canceled',
+} as const;
+
+export interface EngramArtifact {
+  id: number;
+  engramId: number;
+  /** @nullable */
+  conversationId: number | null;
+  trigger: EngramArtifactTrigger;
+  kind: EngramArtifactKind;
+  title: string;
+  prompt: string;
+  /** @nullable */
+  provider: string | null;
+  /** @nullable */
+  mimeType: string | null;
+  /** @nullable */
+  filename: string | null;
+  sizeBytes: number;
+  status: EngramArtifactStatus;
+  /** @nullable */
+  summary: string | null;
+  /** @nullable */
+  error: string | null;
+  /** @nullable */
+  startedAt: string | null;
+  /** @nullable */
+  completedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type CreateArtifactRequestKind = typeof CreateArtifactRequestKind[keyof typeof CreateArtifactRequestKind];
+
+
+export const CreateArtifactRequestKind = {
+  pdf: 'pdf',
+  image: 'image',
+  video: 'video',
+} as const;
+
+export interface CreateArtifactRequest {
+  engramId: number;
+  kind: CreateArtifactRequestKind;
+  title: string;
+  prompt: string;
+  /** @nullable */
+  conversationId?: number | null;
+}
+
+export interface DeleteArtifactResult {
+  deleted: boolean;
+}
+
 export type ListMemoriesParams = {
 layer?: ListMemoriesLayer;
 };
@@ -880,5 +963,31 @@ export const ListMediaStatus = {
   processing: 'processing',
   completed: 'completed',
   failed: 'failed',
+} as const;
+
+export type ListArtifactsParams = {
+engramId?: number;
+status?: ListArtifactsStatus;
+kind?: ListArtifactsKind;
+};
+
+export type ListArtifactsStatus = typeof ListArtifactsStatus[keyof typeof ListArtifactsStatus];
+
+
+export const ListArtifactsStatus = {
+  pending: 'pending',
+  processing: 'processing',
+  completed: 'completed',
+  failed: 'failed',
+  canceled: 'canceled',
+} as const;
+
+export type ListArtifactsKind = typeof ListArtifactsKind[keyof typeof ListArtifactsKind];
+
+
+export const ListArtifactsKind = {
+  pdf: 'pdf',
+  image: 'image',
+  video: 'video',
 } as const;
 

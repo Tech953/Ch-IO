@@ -14,6 +14,7 @@ const COMMONS: SpaceContext = { allowsInitiative: true, actionScope: "converse" 
 const QUIESCENCE: SpaceContext = { allowsInitiative: false, actionScope: "rest" };
 const ORIENTATION_ROOM: SpaceContext = { allowsInitiative: true, actionScope: "reflect" };
 const CHAMBER: SpaceContext = { allowsInitiative: true, actionScope: "simulate" };
+const STUDIO: SpaceContext = { allowsInitiative: true, actionScope: "generate" };
 
 describe("capabilitiesFor — mode matrix", () => {
   it("full_bounded in commons allows everything (social bar)", () => {
@@ -146,6 +147,79 @@ describe("capabilitiesFor — canSimulate matrix", () => {
   it("defaults simulationEnabled to true when omitted", () => {
     const c = capabilitiesFor({ mode: "full_bounded", controls: OPEN, space: CHAMBER, humanContactEnabled: true });
     expect(c.canSimulate).toBe(true);
+  });
+});
+
+describe("capabilitiesFor — canGenerateArtifacts matrix (mirror of canSimulate)", () => {
+  it("full_bounded in a studio with the toggle on can generate", () => {
+    const c = capabilitiesFor({ mode: "full_bounded", controls: OPEN, space: STUDIO, humanContactEnabled: true, artifactGenerationEnabled: true });
+    expect(c.canGenerateArtifacts).toBe(true);
+    expect(c.generationBlockReason).toBeUndefined();
+  });
+
+  it("artifactGenerationEnabled=false is an absolute off switch (leaves idle intact)", () => {
+    const c = capabilitiesFor({ mode: "full_bounded", controls: OPEN, space: STUDIO, humanContactEnabled: true, artifactGenerationEnabled: false });
+    expect(c.canGenerateArtifacts).toBe(false);
+    expect(c.generationBlockReason).toMatch(/disabled/i);
+    expect(c.canIdle).toBe(true);
+  });
+
+  it("cannot generate outside a generate-scoped studio", () => {
+    const c = capabilitiesFor({ mode: "full_bounded", controls: OPEN, space: COMMONS, humanContactEnabled: true, artifactGenerationEnabled: true });
+    expect(c.canGenerateArtifacts).toBe(false);
+    expect(c.generationBlockReason).toMatch(/studio/i);
+  });
+
+  it("cannot generate with no presence row (not in a studio)", () => {
+    const c = capabilitiesFor({ mode: "full_bounded", controls: OPEN, humanContactEnabled: true, artifactGenerationEnabled: true });
+    expect(c.canGenerateArtifacts).toBe(false);
+  });
+
+  it("generation is NARROWER than simulation: only full_bounded qualifies (simulation mode cannot)", () => {
+    // simulation mode CAN simulate but must NOT be able to generate artifacts.
+    const sim = capabilitiesFor({ mode: "simulation", controls: OPEN, space: STUDIO, humanContactEnabled: true });
+    expect(sim.canGenerateArtifacts).toBe(false);
+    expect(sim.generationBlockReason).toMatch(/does not permit/i);
+    for (const mode of ["social", "orientation", "initiative_limited"]) {
+      const c = capabilitiesFor({ mode, controls: OPEN, space: STUDIO, humanContactEnabled: true });
+      expect(c.canGenerateArtifacts).toBe(false);
+    }
+  });
+
+  it("global pause, resting space, quiescent, and unknown modes all zero canGenerateArtifacts", () => {
+    expect(capabilitiesFor({ mode: "full_bounded", controls: { paused: true, quietMode: false }, space: STUDIO, humanContactEnabled: true }).canGenerateArtifacts).toBe(false);
+    expect(capabilitiesFor({ mode: "full_bounded", controls: OPEN, space: QUIESCENCE, humanContactEnabled: true }).canGenerateArtifacts).toBe(false);
+    expect(capabilitiesFor({ mode: "quiescent", controls: OPEN, space: STUDIO, humanContactEnabled: true }).canGenerateArtifacts).toBe(false);
+    expect(capabilitiesFor({ mode: "bogus_mode", controls: OPEN, space: STUDIO, humanContactEnabled: true }).canGenerateArtifacts).toBe(false);
+  });
+
+  it("defaults artifactGenerationEnabled to true when omitted", () => {
+    const c = capabilitiesFor({ mode: "full_bounded", controls: OPEN, space: STUDIO, humanContactEnabled: true });
+    expect(c.canGenerateArtifacts).toBe(true);
+  });
+});
+
+describe("capabilitiesFor — canMirrorHumanContactToChat", () => {
+  it("true only when contact is permitted at the social bar (full_bounded, not quiet)", () => {
+    const c = capabilitiesFor({ mode: "full_bounded", controls: OPEN, space: COMMONS, humanContactEnabled: true });
+    expect(c.canMirrorHumanContactToChat).toBe(true);
+  });
+
+  it("false under quiet mode (bar raised to urgent)", () => {
+    const c = capabilitiesFor({ mode: "full_bounded", controls: { paused: false, quietMode: true }, space: COMMONS, humanContactEnabled: true });
+    expect(c.canContactHuman).toBe(true);
+    expect(c.canMirrorHumanContactToChat).toBe(false);
+  });
+
+  it("false for initiative_limited (urgent-only bar)", () => {
+    const c = capabilitiesFor({ mode: "initiative_limited", controls: OPEN, space: COMMONS, humanContactEnabled: true });
+    expect(c.canContactHuman).toBe(true);
+    expect(c.canMirrorHumanContactToChat).toBe(false);
+  });
+
+  it("false when human contact is disabled for the engram", () => {
+    const c = capabilitiesFor({ mode: "full_bounded", controls: OPEN, space: COMMONS, humanContactEnabled: false });
+    expect(c.canMirrorHumanContactToChat).toBe(false);
   });
 });
 

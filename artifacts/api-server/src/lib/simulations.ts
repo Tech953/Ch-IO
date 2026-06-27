@@ -3,6 +3,7 @@ import { engramsTable, type Engram, type EngramSimulation } from "@workspace/db/
 import type { EngramPresence, HubSpace } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { logger } from "./logger";
+import { publishEvent } from "./events";
 import { capabilitiesFor, type GlobalControls } from "./engram-policy";
 import {
   generateSimulationPremise,
@@ -165,6 +166,18 @@ async function advanceSimulation(
   const updated = await updateSimulation(sim.id, {
     currentStep: nextStep,
     lastSteppedAt: new Date(now),
+  });
+
+  publishEvent({
+    type: "simulation.step",
+    engramId: engram.id,
+    data: {
+      simulationId: sim.id,
+      spaceId: sim.spaceId,
+      step: nextStep,
+      maxSteps,
+      narrative,
+    },
   });
 
   try {

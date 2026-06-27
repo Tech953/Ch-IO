@@ -110,6 +110,8 @@ export const engramsTable = pgTable("engrams", {
   humanContactEnabled: boolean("human_contact_enabled").notNull().default(true),
   /** When false, this engram may never propose or run a bounded simulation. The absolute off switch. */
   simulationEnabled: boolean("simulation_enabled").notNull().default(true),
+  /** When false, this engram may never autonomously generate an artifact. The absolute off switch. */
+  artifactGenerationEnabled: boolean("artifact_generation_enabled").notNull().default(true),
   // --- Live state ---
   driveState: jsonb("drive_state").$type<DriveState>().notNull().default({}),
   currentMood: text("current_mood"),

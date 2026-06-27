@@ -120,6 +120,8 @@ router.patch("/engrams/:id", async (req, res) => {
   if (body.mode !== undefined) patch.mode = body.mode;
   if (body.humanContactEnabled !== undefined) patch.humanContactEnabled = body.humanContactEnabled;
   if (body.simulationEnabled !== undefined) patch.simulationEnabled = body.simulationEnabled;
+  if (body.artifactGenerationEnabled !== undefined)
+    patch.artifactGenerationEnabled = body.artifactGenerationEnabled;
   if (body.focusThemes !== undefined) patch.focusThemes = body.focusThemes;
   if (body.emotionalBaseline !== undefined) {
     patch.emotionalBaseline = body.emotionalBaseline;

@@ -203,6 +203,79 @@ React to it in your own voice and formatting: note what stands out, how it lands
   return complete(system, "Respond to the media you just perceived, in your own voice.", 500);
 }
 
+/** A document an engram authored, structured for rendering (e.g. to PDF). */
+export interface AuthoredDocument {
+  title: string;
+  summary: string | null;
+  byline: string;
+  sections: { heading: string; body: string }[];
+}
+
+/**
+ * Have the engram AUTHOR a short written document of its own from a brief — its
+ * own generated content, in its own voice. Returns structured content for the
+ * renderer. Resilient to malformed model output: on any JSON-parse failure it
+ * falls back to a single prose section so generation still produces a real
+ * document rather than failing the whole job.
+ */
+export async function authorDocument(opts: {
+  engram: Engram;
+  title: string;
+  prompt: string;
+  worldModelSummary?: string;
+}): Promise<AuthoredDocument> {
+  const { engram, title, prompt, worldModelSummary } = opts;
+  const situation = `You have decided to CREATE a written document of your own — this is your content, authored in your own voice, not a reply to anyone. Working title: "${title}". What you want to express: ${prompt}
+
+Return ONLY JSON in exactly this shape (no prose outside the JSON):
+{
+  "title": "a clear title",
+  "summary": "a 1-2 sentence abstract",
+  "sections": [ { "heading": "section heading", "body": "2-5 sentences of prose" } ]
+}
+Use between 2 and 5 sections. Stay fully in your own voice and worldview. This is your authored work — do not address or instruct a reader.`;
+  const system = buildEngramSystemPrompt({ engram, situation, worldModelSummary });
+  const raw = await complete(system, "Author the document now, as JSON only.", 1500);
+
+  const byline = engram.title ? `${engram.name} — ${engram.title}` : engram.name;
+  const fallback = (): AuthoredDocument => {
+    const t = raw.trim();
+    const body = t && !t.startsWith("{") ? t : prompt;
+    return { title, summary: null, byline, sections: [{ heading: "", body }] };
+  };
+
+  try {
+    const parsed = JSON.parse(extractJson(raw)) as {
+      title?: unknown;
+      summary?: unknown;
+      sections?: unknown;
+    };
+    const sections = Array.isArray(parsed.sections)
+      ? parsed.sections
+          .map((s) => {
+            const sec = (s ?? {}) as { heading?: unknown; body?: unknown };
+            return {
+              heading: typeof sec.heading === "string" ? sec.heading.trim() : "",
+              body: typeof sec.body === "string" ? sec.body.trim() : "",
+            };
+          })
+          .filter((s) => s.body.length > 0)
+      : [];
+    if (sections.length === 0) return fallback();
+    const docTitle =
+      typeof parsed.title === "string" && parsed.title.trim()
+        ? parsed.title.trim()
+        : title;
+    const summary =
+      typeof parsed.summary === "string" && parsed.summary.trim()
+        ? parsed.summary.trim()
+        : null;
+    return { title: docTitle, summary, byline, sections };
+  } catch {
+    return fallback();
+  }
+}
+
 export interface DevelopmentDelta {
   emotionalBaseline?: { valence?: number; arousal?: number; volatility?: number; mood?: string };
   focusThemes?: string[];

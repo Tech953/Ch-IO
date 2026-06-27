@@ -16,6 +16,7 @@ import { extractFromMedia, type MediaExtraction } from "../lib/media-extraction"
 import { generateMediaCommentary } from "../lib/engram-generation";
 import { summarizeWorldModel } from "../lib/world-model";
 import { loadRecentWorldModel } from "../lib/world-model-store";
+import { publishEvent } from "../lib/events";
 
 const WORKER_INTERVAL_MS = Number(process.env.MEDIA_WORKER_INTERVAL_MS) || 5_000;
 /** A job stuck "processing" longer than this (e.g. a crash mid-job) is failed and unwedged. */
@@ -102,6 +103,18 @@ async function processAsset(asset: MediaAsset): Promise<void> {
     observationCount: written,
     completedAt: new Date(),
     error: null,
+  });
+
+  publishEvent({
+    type: "media.completed",
+    engramId: asset.engramId,
+    conversationId: asset.conversationId,
+    data: {
+      id: asset.id,
+      modality: asset.modality,
+      filename: asset.filename,
+      observationCount: written,
+    },
   });
 
   // Surface the perception inside the chat thread it was dropped into (idempotent on

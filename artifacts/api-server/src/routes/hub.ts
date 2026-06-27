@@ -18,6 +18,7 @@ import {
   movePresence,
 } from "../lib/hub-store";
 import { loadControls, updateControls } from "../lib/controls-store";
+import { publishEvent } from "../lib/events";
 
 const router = Router();
 
@@ -110,7 +111,13 @@ router.put("/hub/presence/:engramId", async (req, res) => {
     targetSpace,
     note: parsedBody.data.note ?? null,
   });
-  res.json(serializePresence(presence));
+  const serialized = serializePresence(presence);
+  publishEvent({
+    type: "presence.changed",
+    engramId: presence.engramId,
+    data: { presence: serialized, spaceName: targetSpace.name, engramName: engram.name },
+  });
+  res.json(serialized);
 });
 
 router.get("/hub/activity", async (req, res) => {

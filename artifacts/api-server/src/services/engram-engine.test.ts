@@ -11,6 +11,8 @@ const h = vi.hoisted(() => {
   const hubActivityLogTable = { __table: "hub_activity_log" } as Record<string, unknown>;
   const engramMessagesTable = { __table: "engram_messages" } as Record<string, unknown>;
   const hubControlsTable = { __table: "hub_controls" } as Record<string, unknown>;
+  const conversations = { __table: "conversations" } as Record<string, unknown>;
+  const messages = { __table: "messages" } as Record<string, unknown>;
 
   const state = {
     engrams: [] as unknown[],
@@ -20,6 +22,7 @@ const h = vi.hoisted(() => {
     presence: [] as unknown[],
     messages: [] as unknown[],
     controls: [] as unknown[],
+    conversations: [] as unknown[],
     inserts: [] as Record<string, unknown>[],
     updates: [] as Record<string, unknown>[],
   };
@@ -57,7 +60,9 @@ const h = vi.hoisted(() => {
                     ? state.messages
                     : table === hubControlsTable
                       ? state.controls
-                      : state.recent;
+                      : table === conversations
+                        ? state.conversations
+                        : state.recent;
         return Promise.resolve(data).then(resolve, reject);
       },
     };
@@ -96,6 +101,8 @@ const h = vi.hoisted(() => {
     hubActivityLogTable,
     engramMessagesTable,
     hubControlsTable,
+    conversations,
+    messages,
     state,
     db,
     generateTransmission,
@@ -112,6 +119,8 @@ vi.mock("@workspace/db/schema", () => ({
   hubActivityLogTable: h.hubActivityLogTable,
   engramMessagesTable: h.engramMessagesTable,
   hubControlsTable: h.hubControlsTable,
+  conversations: h.conversations,
+  messages: h.messages,
   HUB_CONTROLS_ID: 1,
 }));
 vi.mock("drizzle-orm", () => ({
@@ -175,6 +184,7 @@ function makeEngram(overrides: Partial<Engram> = {}): Engram {
     mode: "full_bounded",
     humanContactEnabled: true,
     simulationEnabled: true,
+    artifactGenerationEnabled: true,
     driveState: {},
     currentMood: null,
     lastTickAt: null,
@@ -199,6 +209,7 @@ beforeEach(() => {
   h.state.presence = [];
   h.state.messages = [];
   h.state.controls = [{ id: 1, paused: false, quietMode: false, updatedAt: new Date() }];
+  h.state.conversations = [];
   h.state.inserts = [];
   h.state.updates = [];
   h.generateTransmission.mockClear();

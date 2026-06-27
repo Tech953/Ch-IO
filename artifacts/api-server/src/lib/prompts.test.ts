@@ -62,6 +62,7 @@ function makeEngram(overrides: Partial<Engram> = {}): Engram {
     mode: "full_bounded",
     humanContactEnabled: true,
     simulationEnabled: true,
+    artifactGenerationEnabled: true,
     driveState: {},
     currentMood: null,
     lastTickAt: null,

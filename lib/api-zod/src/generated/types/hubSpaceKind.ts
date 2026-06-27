@@ -13,6 +13,7 @@ export const HubSpaceKind = {
   commons: 'commons',
   private_room: 'private_room',
   simulation_chamber: 'simulation_chamber',
+  studio: 'studio',
   archive: 'archive',
   terminal: 'terminal',
   quiescence: 'quiescence',

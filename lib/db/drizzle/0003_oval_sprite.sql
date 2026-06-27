@@ -1,0 +1,1 @@
+ALTER TABLE "engrams" ADD COLUMN "artifact_generation_enabled" boolean DEFAULT true NOT NULL;

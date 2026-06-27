@@ -15,9 +15,10 @@ import { loadRecentWorldModel, appendWorldModelEntry } from "../lib/world-model-
 import { loadSpaces, loadPresence, loadPresenceForEngram, loadSpaceById } from "../lib/hub-store";
 import { capabilitiesFor, type Capabilities } from "../lib/engram-policy";
 import { loadControls } from "../lib/controls-store";
-import { attemptHumanContact } from "../lib/human-contact";
+import { attemptOperatorContact } from "../lib/operator-contact";
 import { maybeRunCommonsTurn } from "../lib/commons";
 import { maybeRunSimulationStep } from "../lib/simulations";
+import { maybeRunArtifactGeneration } from "../lib/artifacts-scheduler";
 
 // --- Tunable constants (cost & cadence guards) ---
 const GLOBAL_TICK_MS = 20_000; // how often the engine wakes up
@@ -123,15 +124,21 @@ async function emit(
   // Outreach is the engram self-initiating contact with the operator. Route the SAME
   // generated content through the bounded human-contact bus (one extra DB write, no
   // extra LLM call): the policy classifies priority from charge and decides whether
-  // it is delivered now / queued / digested / blocked. The transmission's delivery
-  // flag mirrors that decision so the legacy transmission feed stays consistent.
+  // it is delivered now / queued / digested / blocked. With the chatConversation
+  // target this ALSO mirrors the contact into the engram's own chat thread (unless the
+  // bus blocked it) so the operator sees the engram speak up live. The transmission's
+  // delivery flag mirrors the bus decision so the legacy transmission feed stays consistent.
   let wasDelivered = false;
   if (kind === "outreach") {
-    const { delivered } = await attemptHumanContact({
+    // Only mirror into the engram's chat thread when the policy permits social-priority
+    // contact (full_bounded, not quiet mode). Urgent-only / quiet contact still routes
+    // through the bounded human-contact bus for audit, but stays off the chat feed.
+    const { delivered } = await attemptOperatorContact({
       engram,
       capabilities,
       charge: top.charge,
       content: content || "…",
+      target: capabilities.canMirrorHumanContactToChat ? "chatConversation" : "busOnly",
       now: new Date(now),
     });
     wasDelivered = delivered;
@@ -345,6 +352,23 @@ export async function runTick(opts: { force?: boolean } = {}): Promise<TickResul
       });
     } catch (err) {
       logger.error({ err }, "simulation step failed");
+    }
+
+    // Artifact phase: at most ONE autonomous artifact enqueued per tick (a capable
+    // engram present in the studio authors a bounded document). Always a PDF —
+    // always-local, zero-cost, offline-safe; cost-incurring image/video stays
+    // operator-consented. The artifact worker generates the queued job. Best-effort
+    // — a failure here must not abort the tick or roll back anything above.
+    try {
+      await maybeRunArtifactGeneration({
+        controls,
+        engrams,
+        spaceById,
+        presenceByEngram,
+        now,
+      });
+    } catch (err) {
+      logger.error({ err }, "artifact generation step failed");
     }
   } finally {
     ticking = false;
