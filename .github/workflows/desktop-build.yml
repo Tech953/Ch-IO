@@ -118,6 +118,23 @@ jobs:
         #     an accidental Release.
         run: pnpm --filter @workspace/desktop exec electron-builder --${{ matrix.platform }} --publish ${{ github.ref_type == 'tag' && 'always' || 'never' }}
 
+      # Confirm the packaged app actually LAUNCHES, not just that an installer was
+      # produced. Launches the unpacked build via Playwright's Electron driver and
+      # asserts: pglite.wasm/pglite.data shipped next to the server bundle, the
+      # embedded server reaches /api/healthz, and the dashboard renders. A genuine
+      # runtime break (stripped wasm, bad migrate/seed) fails the job here. On
+      # Linux the Electron GUI needs a virtual display (xvfb).
+      - name: Smoke test packaged app
+        shell: bash
+        run: |
+          if [ "${{ matrix.platform }}" = "linux" ]; then
+            sudo apt-get update
+            sudo apt-get install -y xvfb
+            xvfb-run -a pnpm --filter @workspace/desktop run smoke
+          else
+            pnpm --filter @workspace/desktop run smoke
+          fi
+
       - name: Upload installers
         uses: actions/upload-artifact@v4
         with:

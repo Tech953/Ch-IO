@@ -15,6 +15,7 @@
     "build": "node ./build.mjs && node ./scripts/prepare-resources.mjs",
     "dist": "pnpm run build && electron-builder --linux",
     "dist:all": "pnpm run build && electron-builder -mwl",
+    "smoke": "node ./scripts/smoke-test.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {
@@ -24,6 +25,7 @@
     "esbuild": "0.27.3",
     "ffmpeg-static": "^5.3.0",
     "ffprobe-static": "^3.1.0",
+    "playwright-core": "^1.61.1",
     "typescript": "^5.9.0"
   },
   "dependencies": {
