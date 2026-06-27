@@ -8,6 +8,13 @@ const h = vi.hoisted(() => {
     updates: [] as Record<string, unknown>[],
     nextId: 100,
     conversationMedia: [] as Record<string, unknown>[],
+    // Names of the tables each db.delete(...) targeted, in call order.
+    deletes: [] as string[],
+    // Every value passed as the second arg of eq(...), so we can assert the
+    // hardcoded `media:<id>` source tag is what clears the world-model rows.
+    eqValues: [] as unknown[],
+    // Rows the next del(...).returning() should resolve to (drives the boolean).
+    deleteReturning: [{ id: 7 }] as Array<{ id: number }>,
   };
 
   const db = {
@@ -39,6 +46,17 @@ const h = vi.hoisted(() => {
       return chain;
     },
     transaction: async (fn: (tx: unknown) => unknown) => fn(db),
+    delete: (t: { __table?: string }) => {
+      state.deletes.push(t.__table ?? "unknown");
+      return {
+        // .where() must be awaitable on its own (clearMediaObservations awaits it
+        // directly) AND expose .returning() (deleteMediaAsset chains it).
+        where: () =>
+          Object.assign(Promise.resolve(undefined), {
+            returning: () => Promise.resolve(state.deleteReturning),
+          }),
+      };
+    },
   };
 
   const appendWorldModelEntry = vi.fn(async (entry: Record<string, unknown>) => ({
@@ -61,7 +79,10 @@ vi.mock("drizzle-orm", () => ({
   and: () => ({}),
   asc: () => ({}),
   desc: () => ({}),
-  eq: () => ({}),
+  eq: (_col: unknown, value: unknown) => {
+    h.state.eqValues.push(value);
+    return {};
+  },
   lt: () => ({}),
 }));
 vi.mock("./world-model-store", () => ({
@@ -70,6 +91,8 @@ vi.mock("./world-model-store", () => ({
 
 import {
   appendMediaObservation,
+  clearMediaObservations,
+  deleteMediaAsset,
   loadConversationMedia,
   upsertMediaContextMessage,
 } from "./media-store";
@@ -80,6 +103,9 @@ beforeEach(() => {
   h.state.updates = [];
   h.state.nextId = 100;
   h.state.conversationMedia = [];
+  h.state.deletes = [];
+  h.state.eqValues = [];
+  h.state.deleteReturning = [{ id: 7 }];
   h.appendWorldModelEntry.mockClear();
 });
 
@@ -196,5 +222,37 @@ describe("loadConversationMedia", () => {
     h.state.conversationMedia = rows as unknown as Record<string, unknown>[];
     const result = await loadConversationMedia(5);
     expect(result.map((r) => r.id)).toEqual([1, 2]);
+  });
+});
+
+// --- Idempotent retry: clear replaces, never duplicates ------------------------
+describe("clearMediaObservations — idempotent (re)processing", () => {
+  it("drops BOTH the mapping rows and the world-model entries tagged media:<id>", async () => {
+    await clearMediaObservations(7);
+
+    // One delete against the mapping table and one against the world model.
+    expect(h.state.deletes).toEqual(["media_observations", "world_model"]);
+    // The world-model rows are matched by the hardcoded source tag, not by id.
+    expect(h.state.eqValues).toContain("media:7");
+  });
+});
+
+// --- Delete preserves the engram's genuine observations -----------------------
+describe("deleteMediaAsset — preserves the world model", () => {
+  it("deletes only the asset row, never the world-model entries", async () => {
+    const deleted = await deleteMediaAsset(7);
+
+    expect(deleted).toBe(true);
+    // The ONLY table this function deletes from is the asset row itself. The
+    // mapping rows go via DB cascade; the observations themselves must outlive
+    // the source file, so there must be no world_model delete here.
+    expect(h.state.deletes).toEqual(["media_assets"]);
+    expect(h.state.deletes).not.toContain("world_model");
+  });
+
+  it("reports false when no asset row matched", async () => {
+    h.state.deleteReturning = [];
+    const deleted = await deleteMediaAsset(999);
+    expect(deleted).toBe(false);
   });
 });
