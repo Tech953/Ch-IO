@@ -15,6 +15,7 @@ import {
   ensureDatabaseReady,
   closeDb,
   mediaAssetsTable,
+  mediaBlobsTable,
   mediaObservationsTable,
   engramWorldModelTable,
   engramsTable,
@@ -28,6 +29,10 @@ import {
   clearMediaObservations,
   requeueMediaAsset,
   loadMediaObservations,
+  createMediaAsset,
+  deleteMediaAsset,
+  loadMediaAssetById,
+  loadMediaBlob,
 } from "./media-store";
 
 // Bring the in-memory schema up before any test runs (migrate only — no seed).
@@ -277,12 +282,19 @@ describe("recoverStuckJobs — stuck-job recovery against a real DB", () => {
 
 /** Every world-model row currently in the DB, with the fields we care about. */
 async function allWorldModelRows(): Promise<
-  Array<{ id: number; engramId: number; source: string | null; content: string }>
+  Array<{
+    id: number;
+    engramId: number;
+    provenance: string;
+    source: string | null;
+    content: string;
+  }>
 > {
   return db
     .select({
       id: engramWorldModelTable.id,
       engramId: engramWorldModelTable.engramId,
+      provenance: engramWorldModelTable.provenance,
       source: engramWorldModelTable.source,
       content: engramWorldModelTable.content,
     })
@@ -311,20 +323,94 @@ describe("appendMediaObservation — real world-model + mapping write", () => {
       confidence: 0.85,
     });
 
-    // The world-model row really exists, with hardcoded provenance + source tag.
+    // The world-model row really exists, read back from the DB (not the return
+    // value), with provenance EXACTLY "observed" and source EXACTLY media:<id>.
     const rows = await allWorldModelRows();
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({
       id: entry.id,
       engramId,
+      provenance: "observed",
       source: `media:${assetId}`,
       content: "A lighthouse blinks twice.",
     });
+    // The locked provenance/source are also what the function returned.
     expect(entry.provenance).toBe("observed");
+    expect(entry.source).toBe(`media:${assetId}`);
     // ...and exactly one mapping row links the asset to that entry.
     expect(await observationLinkCount(assetId)).toBe(1);
     const linked = await loadMediaObservations(assetId);
     expect(linked.map((e) => e.id)).toEqual([entry.id]);
+  });
+});
+
+// --- deleteMediaAsset: removes the file, PRESERVES the observation ------------
+describe("deleteMediaAsset — drops asset/blob/mapping, keeps world-model entry", () => {
+  it("removes the asset, its bytes, and its mapping rows but PRESERVES the OBSERVED entry", async () => {
+    const engramId = await insertEngram();
+    // Go through the real upload path so a genuine blob row exists alongside the asset.
+    const asset = await createMediaAsset({
+      engramId,
+      filename: "scene.txt",
+      mimeType: "text/plain",
+      modality: "text",
+      data: Buffer.from("a lighthouse on a cliff"),
+    });
+
+    const entry = await appendMediaObservation({
+      assetId: asset.id,
+      engramId,
+      content: "A lighthouse stands on a cliff.",
+      confidence: 0.9,
+    });
+
+    // Pre-conditions: asset, blob, mapping row, and world-model entry all present.
+    expect(await loadMediaAssetById(asset.id)).toBeDefined();
+    expect(await loadMediaBlob(asset.id)).toBeDefined();
+    expect(await observationLinkCount(asset.id)).toBe(1);
+    expect(await allWorldModelRows()).toHaveLength(1);
+
+    const deleted = await deleteMediaAsset(asset.id);
+    expect(deleted).toBe(true);
+
+    // The source file and everything that points back to it is gone...
+    expect(await loadMediaAssetById(asset.id)).toBeUndefined();
+    expect(await loadMediaBlob(asset.id)).toBeUndefined();
+    expect(await observationLinkCount(asset.id)).toBe(0);
+    expect(
+      await db
+        .select({ assetId: mediaBlobsTable.assetId })
+        .from(mediaBlobsTable)
+        .where(eq(mediaBlobsTable.assetId, asset.id)),
+    ).toHaveLength(0);
+
+    // ...but the genuine OBSERVED entry outlives the file, provenance/source intact.
+    const rows = await allWorldModelRows();
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      id: entry.id,
+      engramId,
+      provenance: "observed",
+      source: `media:${asset.id}`,
+      content: "A lighthouse stands on a cliff.",
+    });
+  });
+
+  it("returns false when the asset does not exist and touches no world-model rows", async () => {
+    const engramId = await insertEngram();
+    const assetId = await insertAsset({ status: "completed", engramId });
+    await appendMediaObservation({
+      assetId,
+      engramId,
+      content: "kept observation",
+      confidence: 0.5,
+    });
+
+    expect(await deleteMediaAsset(999)).toBe(false);
+
+    // The unrelated asset and its observation are untouched.
+    expect(await loadMediaAssetById(assetId)).toBeDefined();
+    expect(await allWorldModelRows()).toHaveLength(1);
   });
 });
 
