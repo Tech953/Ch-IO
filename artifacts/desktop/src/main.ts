@@ -10,6 +10,7 @@ import {
 import { autoUpdater } from "electron-updater";
 import { spawn, type ChildProcess } from "node:child_process";
 import { createServer } from "node:net";
+import { stopProcess, installDownloadedUpdate } from "./lifecycle";
 import {
   readFileSync,
   writeFileSync,
@@ -259,27 +260,13 @@ async function startServer(): Promise<void> {
 }
 
 function stopServer(): Promise<void> {
-  return new Promise((resolve) => {
-    const proc = serverProcess;
-    if (!proc) {
-      resolve();
-      return;
-    }
-    serverProcess = null;
-    const killTimer = setTimeout(() => {
-      try {
-        proc.kill("SIGKILL");
-      } catch {
-        /* already gone */
-      }
-      resolve();
-    }, 5000);
-    proc.once("exit", () => {
-      clearTimeout(killTimer);
-      resolve();
-    });
-    proc.kill("SIGTERM");
-  });
+  const proc = serverProcess;
+  if (!proc) return Promise.resolve();
+  serverProcess = null;
+  // Shared SIGTERM→SIGKILL shutdown used by both normal quit and the auto-update
+  // install path, so the embedded server (and its PGlite DB) is always closed
+  // cleanly before app files are swapped.
+  return stopProcess(proc);
 }
 
 async function restartServer(): Promise<void> {
@@ -578,11 +565,19 @@ function setupAutoUpdates(): void {
       })
       .then((result) => {
         if (result.response === 0) {
-          // The server child must shut down cleanly before the installer swaps
-          // the app files; quitForInstall() triggers before-quit, which stops it.
-          autoUpdater.autoInstallOnAppQuit = true;
-          quitting = true;
-          void stopServer().finally(() => autoUpdater.quitAndInstall());
+          // The server child holds the PGlite DB open, so it must shut down
+          // cleanly BEFORE the installer swaps app files. installDownloadedUpdate
+          // awaits stopServer() (shared SIGTERM→SIGKILL path) before quitAndInstall.
+          void installDownloadedUpdate({
+            stopServer,
+            quitAndInstall: () => autoUpdater.quitAndInstall(),
+            setAutoInstallOnAppQuit: (value) => {
+              autoUpdater.autoInstallOnAppQuit = value;
+            },
+            markQuitting: () => {
+              quitting = true;
+            },
+          });
         } else {
           // Honor the deferral: install silently on the next normal quit.
           autoUpdater.autoInstallOnAppQuit = true;
