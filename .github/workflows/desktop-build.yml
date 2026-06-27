@@ -107,11 +107,16 @@ jobs:
           WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
           # Avoids GitHub API rate limits when electron-builder fetches tooling
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        # `--publish always` uploads the installers + the *-latest*.yml update
-        # manifests (consumed by electron-updater in the installed app) to a
-        # GitHub Release for the pushed tag. Each OS job publishes its own
-        # artifacts to the same release; electron-builder de-duplicates safely.
-        run: pnpm --filter @workspace/desktop exec electron-builder --${{ matrix.platform }} --publish always
+        # Publishing is gated on the trigger being a `v*` tag push:
+        #   - tag push  -> `--publish always`: uploads the installers + the
+        #     *-latest*.yml update manifests (consumed by electron-updater in the
+        #     installed app) to a public GitHub Release for the pushed tag. Each
+        #     OS job publishes its own artifacts to the same release;
+        #     electron-builder de-duplicates safely.
+        #   - manual run (workflow_dispatch) -> `--publish never`: only the
+        #     workflow-artifact upload below runs, so manual builds never create
+        #     an accidental Release.
+        run: pnpm --filter @workspace/desktop exec electron-builder --${{ matrix.platform }} --publish ${{ github.ref_type == 'tag' && 'always' || 'never' }}
 
       - name: Upload installers
         uses: actions/upload-artifact@v4
