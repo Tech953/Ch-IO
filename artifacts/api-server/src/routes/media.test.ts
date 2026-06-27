@@ -249,6 +249,27 @@ describe("POST /media (upload)", () => {
     });
   });
 
+  it("derives modality from the server-side MIME, ignoring a conflicting client-supplied modality field", async () => {
+    h.createMediaAsset.mockResolvedValueOnce(makeAsset({ status: "pending" }));
+    const form = new FormData();
+    form.append("engramId", "3");
+    // A malicious client tries to mislabel a text file as a video to slip past
+    // the modality gate; the server must ignore this and derive from the MIME.
+    form.append("modality", "video");
+    form.append("mimeType", "video/mp4");
+    form.append("file", new Blob(["the harbor"], { type: "text/plain" }), "harbor.txt");
+    const res = await fetch(`${base}/media`, { method: "POST", body: form });
+    expect(res.status).toBe(201);
+    expect(h.createMediaAsset).toHaveBeenCalledTimes(1);
+    // Modality + mimeType come from the uploaded file's real MIME, never the
+    // client-supplied fields.
+    expect(h.createMediaAsset.mock.calls[0][0]).toMatchObject({
+      engramId: 3,
+      modality: "text",
+      mimeType: "text/plain",
+    });
+  });
+
   it("rejects a non-allowlisted MIME type with 415 (modality comes from the server)", async () => {
     const form = new FormData();
     form.append("engramId", "3");
