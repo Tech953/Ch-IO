@@ -7,6 +7,7 @@ import {
   Apple,
   MonitorDown,
   Terminal as TerminalIcon,
+  Smartphone,
   RefreshCw,
   CheckCircle2,
   AlertTriangle,
@@ -16,8 +17,8 @@ import {
 // GitHub repository (owner/repo) that hosts the desktop releases produced by
 // .github/workflows/desktop-build.yml. Configurable so a fork can point the
 // page at its own release feed without code changes; falls back to the project
-// default. The CI publisher (electron-builder) uploads installers + update
-// manifests to this repo's Releases.
+// default. The CI publisher (electron-builder + the android job) uploads
+// installers, the Android .apk, and update manifests to this repo's Releases.
 const GITHUB_REPO =
   (import.meta.env.VITE_GITHUB_REPO as string | undefined)?.trim() ||
   "pyri-ai/engram";
@@ -25,7 +26,7 @@ const GITHUB_REPO =
 const RELEASES_PAGE = `https://github.com/${GITHUB_REPO}/releases`;
 const LATEST_RELEASE_API = `https://api.github.com/repos/${GITHUB_REPO}/releases/latest`;
 
-type Os = "mac" | "win" | "linux";
+type Os = "mac" | "win" | "linux" | "android";
 
 type GithubAsset = {
   name: string;
@@ -58,15 +59,22 @@ const OS_META: Record<
     icon: TerminalIcon,
     note: "AppImage (portable) or .deb (Debian/Ubuntu)",
   },
+  android: {
+    name: "Android",
+    icon: Smartphone,
+    note: "Android 8+ — sideload the .apk (enable unknown sources)",
+  },
 };
 
 function detectOs(): Os | null {
   if (typeof navigator === "undefined") return null;
   const ua = `${navigator.userAgent} ${navigator.platform ?? ""}`.toLowerCase();
+  // Android must be checked first: its UA string also contains "linux", so the
+  // Linux check below would otherwise swallow it.
+  if (ua.includes("android")) return "android";
   if (ua.includes("mac")) return "mac";
   if (ua.includes("win")) return "win";
-  if (ua.includes("linux") || ua.includes("x11") || ua.includes("android"))
-    return "linux";
+  if (ua.includes("linux") || ua.includes("x11")) return "linux";
   return null;
 }
 
@@ -75,6 +83,7 @@ function osForAsset(name: string): Os | null {
   if (lower.endsWith(".dmg")) return "mac";
   if (lower.endsWith(".exe")) return "win";
   if (lower.endsWith(".appimage") || lower.endsWith(".deb")) return "linux";
+  if (lower.endsWith(".apk")) return "android";
   return null;
 }
 
@@ -116,8 +125,8 @@ export default function DownloadPage() {
         asset,
       });
     }
-    // Group order: detected OS first, then mac/win/linux.
-    const order: Os[] = ["mac", "win", "linux"];
+    // Group order: detected OS first, then mac/win/linux/android.
+    const order: Os[] = ["mac", "win", "linux", "android"];
     return out.sort((a, b) => {
       if (a.os === detectedOs && b.os !== detectedOs) return -1;
       if (b.os === detectedOs && a.os !== detectedOs) return 1;
@@ -133,7 +142,7 @@ export default function DownloadPage() {
         <div>
           <h2 className="text-3xl font-bold tracking-widest text-primary">DOWNLOAD PYRI</h2>
           <p className="text-sm font-mono text-muted-foreground mt-1">
-            Native desktop app — runs fully offline on your machine
+            Native desktop app (runs fully offline) — plus an Android APK for your phone
           </p>
         </div>
         <div className="flex items-center gap-3 font-mono text-xs">
@@ -152,16 +161,17 @@ export default function DownloadPage() {
         <CardContent className="p-4 flex items-start gap-3">
           <RefreshCw className="w-4 h-4 text-primary mt-0.5 shrink-0" />
           <p className="text-sm text-muted-foreground">
-            <span className="text-foreground font-medium">Auto-updates after install.</span>{" "}
+            <span className="text-foreground font-medium">Desktop auto-updates after install.</span>{" "}
             Once installed, the desktop app checks for new releases on launch and
-            updates itself silently in the background — you only install once.
+            updates itself silently in the background. The Android APK is
+            sideloaded — grab the newest build here whenever you want to update.
           </p>
         </CardContent>
       </Card>
 
       {isLoading && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {[0, 1, 2].map((i) => (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[0, 1, 2, 3].map((i) => (
             <Skeleton key={i} className="h-44 w-full bg-primary/5" />
           ))}
         </div>
@@ -192,8 +202,8 @@ export default function DownloadPage() {
           <CardContent className="p-6 flex flex-col items-center text-center gap-3">
             <AlertTriangle className="w-8 h-8 text-muted-foreground/60" />
             <p className="text-sm text-muted-foreground max-w-md">
-              No desktop installers found in the latest release yet. Check the
-              GitHub Releases page for available builds.
+              No installers found in the latest release yet. Check the GitHub
+              Releases page for available builds.
             </p>
             <a
               href={RELEASES_PAGE}
@@ -208,8 +218,8 @@ export default function DownloadPage() {
       )}
 
       {!isLoading && !isError && installers.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {(["mac", "win", "linux"] as Os[])
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {(["mac", "win", "linux", "android"] as Os[])
             .sort((a, b) => {
               if (a === detectedOs && b !== detectedOs) return -1;
               if (b === detectedOs && a !== detectedOs) return 1;
@@ -236,7 +246,8 @@ export default function DownloadPage() {
                       {meta.name}
                       {isRecommended && (
                         <span className="ml-auto inline-flex items-center gap-1 text-[10px] text-primary font-mono uppercase tracking-widest">
-                          <CheckCircle2 className="w-3 h-3" /> Your OS
+                          <CheckCircle2 className="w-3 h-3" />{" "}
+                          {os === "android" ? "Your device" : "Your OS"}
                         </span>
                       )}
                     </CardTitle>
@@ -254,7 +265,11 @@ export default function DownloadPage() {
                         }`}
                       >
                         <Download className="w-4 h-4 shrink-0" />
-                        <span className="truncate">Download {inst.ext}</span>
+                        <span className="truncate">
+                          {inst.os === "android"
+                            ? "Install APK"
+                            : `Download ${inst.ext}`}
+                        </span>
                         {inst.asset.size ? (
                           <span className="ml-auto text-muted-foreground normal-case">
                             {formatSize(inst.asset.size)}
