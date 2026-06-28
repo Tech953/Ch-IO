@@ -19,9 +19,11 @@ import {
   mediaObservationsTable,
   engramWorldModelTable,
   engramsTable,
+  conversations,
+  messages,
 } from "@workspace/db";
 import { eq } from "drizzle-orm";
-import type { MediaModality, MediaJobStatus } from "@workspace/db/schema";
+import type { MediaModality, MediaJobStatus, MediaAsset } from "@workspace/db/schema";
 import {
   claimNextPendingJob,
   recoverStuckJobs,
@@ -33,6 +35,7 @@ import {
   deleteMediaAsset,
   loadMediaAssetById,
   loadMediaBlob,
+  upsertMediaContextMessage,
 } from "./media-store";
 
 // Bring the in-memory schema up before any test runs (migrate only — no seed).
@@ -41,10 +44,14 @@ const ready = ensureDatabaseReady({ seed: false });
 beforeEach(async () => {
   await ready;
   // Each test starts from an empty queue. Order matters: world-model + observation
-  // rows reference assets/engrams, so clear children before parents.
+  // rows reference assets/engrams, so clear children before parents. Media assets
+  // reference messages (contextMessageId, set null) and conversations (cascade);
+  // clear assets before messages/conversations so no asset points at a dropped row.
   await db.delete(mediaObservationsTable);
   await db.delete(engramWorldModelTable);
   await db.delete(mediaAssetsTable);
+  await db.delete(messages);
+  await db.delete(conversations);
   await db.delete(engramsTable);
 });
 
@@ -95,11 +102,13 @@ async function insertAsset(overrides: {
   createdAt?: Date;
   startedAt?: Date | null;
   engramId?: number | null;
+  conversationId?: number | null;
 }): Promise<number> {
   const [row] = await db
     .insert(mediaAssetsTable)
     .values({
       engramId: overrides.engramId ?? null,
+      conversationId: overrides.conversationId ?? null,
       filename: "asset.txt",
       mimeType: "text/plain",
       modality: overrides.modality ?? "text",
@@ -110,6 +119,32 @@ async function insertAsset(overrides: {
     })
     .returning({ id: mediaAssetsTable.id });
   return row.id;
+}
+
+/** Insert a minimal conversation row so an inline upload can bind to a thread. */
+async function insertConversation(): Promise<number> {
+  const [row] = await db
+    .insert(conversations)
+    .values({ title: "Inline chat thread" })
+    .returning({ id: conversations.id });
+  return row.id;
+}
+
+/** All messages in a conversation, oldest first. */
+async function messagesOf(
+  conversationId: number,
+): Promise<Array<{ id: number; role: string; content: string }>> {
+  return db
+    .select({ id: messages.id, role: messages.role, content: messages.content })
+    .from(messages)
+    .where(eq(messages.conversationId, conversationId));
+}
+
+/** Reload an asset as the full MediaAsset row the worker passes around. */
+async function reloadAsset(id: number): Promise<MediaAsset> {
+  const asset = await loadMediaAssetById(id);
+  if (!asset) throw new Error(`asset ${id} not found`);
+  return asset;
 }
 
 async function statusOf(id: number): Promise<MediaJobStatus | undefined> {
@@ -561,5 +596,101 @@ describe("requeueMediaAsset — atomic failed→pending against a real DB", () =
     expect(winners[0]!.id).toBe(id);
     expect(winners[0]!.status).toBe("pending");
     expect(await statusOf(id)).toBe("pending");
+  });
+});
+
+// --- upsertMediaContextMessage: one inline-upload context message, retry-safe ---
+describe("upsertMediaContextMessage — idempotent inline-chat context message", () => {
+  it("first completion inserts exactly one 'context' message and stamps contextMessageId", async () => {
+    const conversationId = await insertConversation();
+    const assetId = await insertAsset({ status: "completed", conversationId });
+    const asset = await reloadAsset(assetId);
+    // Pre-condition: a fresh inline upload has no context message yet.
+    expect(asset.contextMessageId).toBeNull();
+
+    await upsertMediaContextMessage(asset, "Perceived: a lighthouse on a cliff.");
+
+    // Exactly one context message landed in the thread, read back from the DB.
+    const msgs = await messagesOf(conversationId);
+    expect(msgs).toHaveLength(1);
+    expect(msgs[0].role).toBe("context");
+    expect(msgs[0].content).toBe("Perceived: a lighthouse on a cliff.");
+
+    // ...and the asset now points at that exact message (the idempotency anchor).
+    const stamped = await reloadAsset(assetId);
+    expect(stamped.contextMessageId).toBe(msgs[0].id);
+  });
+
+  it("a second call (retry/re-perception) updates the SAME message — never a duplicate", async () => {
+    const conversationId = await insertConversation();
+    const assetId = await insertAsset({ status: "completed", conversationId });
+
+    // First completion inserts the message and stamps the asset.
+    await upsertMediaContextMessage(await reloadAsset(assetId), "First perception.");
+    const afterFirst = await messagesOf(conversationId);
+    expect(afterFirst).toHaveLength(1);
+    const messageId = afterFirst[0].id;
+    const stampedId = (await reloadAsset(assetId)).contextMessageId;
+    expect(stampedId).toBe(messageId);
+
+    // Retry: the worker re-runs with the now-stamped asset (contextMessageId set).
+    await upsertMediaContextMessage(await reloadAsset(assetId), "Revised perception after retry.");
+
+    // Still exactly one message — the same row, content updated in place.
+    const afterRetry = await messagesOf(conversationId);
+    expect(afterRetry).toHaveLength(1);
+    expect(afterRetry[0].id).toBe(messageId);
+    expect(afterRetry[0].content).toBe("Revised perception after retry.");
+    // The anchor never moved.
+    expect((await reloadAsset(assetId)).contextMessageId).toBe(messageId);
+  });
+
+  it("repeated retries never accumulate messages, even across many re-perceptions", async () => {
+    const conversationId = await insertConversation();
+    const assetId = await insertAsset({ status: "completed", conversationId });
+
+    for (let i = 0; i < 5; i += 1) {
+      await upsertMediaContextMessage(await reloadAsset(assetId), `Perception pass ${i}.`);
+    }
+
+    // Five completions/retries → still one message, holding the last content.
+    const msgs = await messagesOf(conversationId);
+    expect(msgs).toHaveLength(1);
+    expect(msgs[0].content).toBe("Perception pass 4.");
+  });
+
+  it("is a no-op when the asset is not bound to a conversation (no conversationId)", async () => {
+    // A Media-page upload (or engram-linked, non-chat upload) has no thread.
+    const assetId = await insertAsset({ status: "completed", conversationId: null });
+    const asset = await reloadAsset(assetId);
+    expect(asset.conversationId).toBeNull();
+
+    await upsertMediaContextMessage(asset, "Should never be posted anywhere.");
+
+    // No message anywhere, and the asset stays unstamped.
+    expect(await db.select().from(messages)).toHaveLength(0);
+    expect((await reloadAsset(assetId)).contextMessageId).toBeNull();
+  });
+
+  it("keeps each inline upload's context message scoped to its own thread", async () => {
+    const convA = await insertConversation();
+    const convB = await insertConversation();
+    const assetA = await insertAsset({ status: "completed", conversationId: convA });
+    const assetB = await insertAsset({ status: "completed", conversationId: convB });
+
+    await upsertMediaContextMessage(await reloadAsset(assetA), "Context for thread A.");
+    await upsertMediaContextMessage(await reloadAsset(assetB), "Context for thread B.");
+
+    // Each thread got exactly its own one message; no cross-posting.
+    const msgsA = await messagesOf(convA);
+    const msgsB = await messagesOf(convB);
+    expect(msgsA).toHaveLength(1);
+    expect(msgsB).toHaveLength(1);
+    expect(msgsA[0].content).toBe("Context for thread A.");
+    expect(msgsB[0].content).toBe("Context for thread B.");
+    // Retrying A leaves B completely untouched.
+    await upsertMediaContextMessage(await reloadAsset(assetA), "A revised.");
+    expect(await messagesOf(convA)).toHaveLength(1);
+    expect((await messagesOf(convB))[0].content).toBe("Context for thread B.");
   });
 });
