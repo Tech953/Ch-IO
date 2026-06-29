@@ -1,35 +1,56 @@
 # Bundled downloads
 
-Drop a built Android **`.apk`** in this folder to have the deployed app serve it
-directly (same-origin) from the **Download** page (`/download`) and the API:
+Drop a built installer in this folder to have the deployed app serve it directly
+(same-origin) from the **Download** page (`/download`) and the API — the browser
+never calls GitHub. Two kinds of files are recognized:
 
+- **Desktop installers** — `.dmg` (macOS), `.exe` (Windows), `.AppImage` / `.deb` (Linux)
+- **Android** — a single `.apk`
+
+Endpoints (`artifacts/api-server/src/routes/download.ts`, logic in
+`lib/downloads.ts`):
+
+- `GET /api/download/desktop` — JSON metadata (`available`, `source`, `version`, `installers[]`)
+- `GET /api/download/desktop/file/:name` — a specific installer binary
 - `GET /api/download/android` — JSON metadata (`available`, `source`, `version`, `filename`, `sizeBytes`)
-- `GET /api/download/android.apk` — the file itself
+- `GET /api/download/android.apk` — the APK itself
 
 ## How serving works ("do both")
 
-The API server (`artifacts/api-server/src/routes/download.ts`) resolves the APK
-in this order:
+Both desktop and Android resolve in the same two-step order:
 
-1. **Bundled** — `ANDROID_APK_PATH` (a single file) if set, otherwise the
-   newest `*.apk` in this directory (overridable with `ANDROID_APK_DIR`).
-2. **GitHub fallback** — if no bundled file exists, it fetches the latest
-   release of `ANDROID_APK_GITHUB_REPO` (default `pyri-ai/engram`) and
-   proxy-streams its `.apk` asset, so the download still stays on this app's
-   origin.
+1. **Bundled** — the newest matching file committed in this directory. For
+   desktop, the newest file **per `(os, extension)`** is chosen, so Linux serves
+   BOTH the `.AppImage` and the `.deb`. (The APK also honors a single
+   `ANDROID_APK_PATH`; the directory is overridable with `ANDROID_APK_DIR`.)
+2. **GitHub fallback** — if nothing is bundled, the API fetches the latest
+   release and proxy-streams the matching asset(s), so the download still stays
+   on this app's origin. Desktop uses `DOWNLOADS_GITHUB_REPO` (default
+   `pyri-ai/engram`); the APK uses `ANDROID_APK_GITHUB_REPO` (which falls back to
+   `DOWNLOADS_GITHUB_REPO`).
 
-If neither is available, the Download page hides the Android card.
+Desktop bundling is **all-or-nothing for version coherence**: if ANY bundled
+desktop installer is present, the bundled set wins entirely and the GitHub
+fallback is not consulted for desktop. The APK is resolved independently.
 
-## Shipping a bundled APK to your deploy
+If neither a bundled file nor a release asset is available, the Download page
+shows an honest empty state instead of a dead button.
 
-The Replit deployment builds from the **committed git state**, so to bundle an
-APK you must **commit the `.apk` file here** (it is not gitignored). Note an APK
-is typically 30–100 MB, which permanently increases repo size — if you prefer
-not to commit a large binary, just rely on the GitHub release fallback above
-(no commit needed).
+## Shipping a bundled file to your deploy
 
-## Building the .apk
+The Replit deployment builds from the **committed git state**, so to bundle a
+file you must **commit it here** (these files are not gitignored). Installers are
+large (an APK is ~30–100 MB; desktop installers are bigger), which permanently
+increases repo size — if you'd rather not commit a large binary, rely on the
+GitHub release fallback above (no commit needed).
 
-You cannot build an Android APK inside Replit (no Android SDK). See
-[`docs/building-the-android-apk.md`](../docs/building-the-android-apk.md) for the
-two supported paths (let CI build it, or build locally).
+## Building the installers
+
+You cannot build desktop installers or an Android APK inside Replit/Deploy
+(electron-builder needs each target OS; there's no Android SDK). Build them on
+the matching OS / in CI:
+
+- Android `.apk` — see [`docs/building-the-android-apk.md`](../docs/building-the-android-apk.md).
+- Desktop installers — see the desktop build commands in the root `replit.md`
+  ("Run & Operate"), or let `.github/workflows/desktop-build.yml` publish a
+  release that the GitHub fallback will serve automatically.

@@ -5,9 +5,13 @@ description: How the ENGRAM Android .apk is built in CI without an Expo account 
 
 # Android APK build + release (ENGRAM)
 
-The Download page is fed entirely by the GitHub `/releases/latest` feed and matches
-assets to an OS by file extension. The Android `.apk` rides the SAME release as the
-desktop installers, built by an `android` job added to the desktop CI workflow.
+The Download page no longer calls GitHub from the browser — both desktop installers
+and the `.apk` are served **same-origin** by the app's API (`/api/download/*`, pure
+logic in `lib/downloads.ts`), which resolves a committed `downloads/` file first and
+otherwise proxy-streams the latest GitHub release asset (matched to an OS by file
+extension). The Android `.apk` still rides the SAME release as the desktop installers,
+built by an `android` job in the desktop CI workflow. The CI mechanics below are
+unchanged regardless of how the page fetches.
 
 ## Attaching a non-electron-builder asset to electron-builder's draft release
 - electron-builder publishes desktop installers to a **draft** release whose
