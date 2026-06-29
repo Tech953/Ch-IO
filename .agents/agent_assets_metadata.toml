@@ -1,5 +1,11 @@
 uploads = []
 
+[[generated]]
+id = "rHpQ06x1368oyYumR-JHr"
+uri = "file://artifacts/engram-mobile/assets/images/icon.png"
+type = "image"
+title = "generated_image"
+
 [[outputs]]
 id = "f-hUiEFYn8IrciUuluv73"
 uri = "file://docs/01_ENGRAM_Proposal.pdf"
@@ -24,8 +30,8 @@ uri = "file://docs/04_ENGRAM_User_Manual.pdf"
 type = "pdf"
 title = "User Manual"
 
-[[generated]]
-id = "rHpQ06x1368oyYumR-JHr"
-uri = "file://artifacts/engram-mobile/assets/images/icon.png"
-type = "image"
-title = "generated_image"
+[[outputs]]
+id = "88WrrF4AZ8iTC99g9_hvH"
+uri = "file://docs/building-the-android-apk.md"
+type = "text"
+title = "How to build the ENGRAM Android .apk"

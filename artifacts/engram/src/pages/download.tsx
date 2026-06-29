@@ -14,17 +14,24 @@ import {
   ExternalLink,
 } from "lucide-react";
 
-// GitHub repository (owner/repo) that hosts the desktop releases produced by
+// GitHub repository (owner/repo) that hosts the DESKTOP releases produced by
 // .github/workflows/desktop-build.yml. Configurable so a fork can point the
 // page at its own release feed without code changes; falls back to the project
-// default. The CI publisher (electron-builder + the android job) uploads
-// installers, the Android .apk, and update manifests to this repo's Releases.
+// default.
 const GITHUB_REPO =
   (import.meta.env.VITE_GITHUB_REPO as string | undefined)?.trim() ||
   "pyri-ai/engram";
 
 const RELEASES_PAGE = `https://github.com/${GITHUB_REPO}/releases`;
 const LATEST_RELEASE_API = `https://api.github.com/repos/${GITHUB_REPO}/releases/latest`;
+
+// Same-origin Android endpoints served by this app's API (artifacts/api-server
+// routes/download.ts). The meta endpoint reports availability + source (a
+// bundled .apk committed into the deploy, else the latest GitHub release); the
+// .apk endpoint streams the file itself. Both go through /api so the Android
+// download never leaves the deploy's own origin.
+const ANDROID_META_URL = "/api/download/android";
+const ANDROID_APK_URL = "/api/download/android.apk";
 
 type Os = "mac" | "win" | "linux" | "android";
 
@@ -41,11 +48,22 @@ type GithubRelease = {
   assets: GithubAsset[];
 };
 
-type Installer = {
-  os: Os;
+type AndroidMeta = {
+  available: boolean;
+  source: "bundled" | "github" | null;
+  version: string | null;
+  filename: string | null;
+  sizeBytes: number | null;
+  downloadPath: string | null;
+};
+
+type DownloadLink = {
+  key: string;
+  href: string;
   label: string;
-  ext: string;
-  asset: GithubAsset;
+  size?: number;
+  /** Same-origin links use the download attribute to force a save dialog. */
+  forceDownload?: boolean;
 };
 
 const OS_META: Record<
@@ -65,6 +83,8 @@ const OS_META: Record<
     note: "Android 8+ — sideload the .apk (enable unknown sources)",
   },
 };
+
+const OS_ORDER: Os[] = ["mac", "win", "linux", "android"];
 
 function detectOs(): Os | null {
   if (typeof navigator === "undefined") return null;
@@ -87,7 +107,7 @@ function osForAsset(name: string): Os | null {
   return null;
 }
 
-function formatSize(bytes: number): string {
+function formatSize(bytes?: number | null): string {
   if (!bytes) return "";
   const mb = bytes / (1024 * 1024);
   return `${mb.toFixed(mb >= 100 ? 0 : 1)} MB`;
@@ -96,7 +116,8 @@ function formatSize(bytes: number): string {
 export default function DownloadPage() {
   const detectedOs = useMemo(detectOs, []);
 
-  const { data, isLoading, isError } = useQuery<GithubRelease>({
+  // Desktop installers (mac/win/linux) come from the GitHub release feed.
+  const releaseQuery = useQuery<GithubRelease>({
     queryKey: ["github-latest-release", GITHUB_REPO],
     queryFn: async () => {
       const res = await fetch(LATEST_RELEASE_API, {
@@ -111,30 +132,82 @@ export default function DownloadPage() {
     retry: 1,
   });
 
-  const installers: Installer[] = useMemo(() => {
-    if (!data?.assets) return [];
-    const out: Installer[] = [];
-    for (const asset of data.assets) {
+  // Android comes from this app's own API: a bundled .apk if the deploy has one,
+  // otherwise the latest GitHub release proxied same-origin.
+  const androidQuery = useQuery<AndroidMeta>({
+    queryKey: ["android-download-meta"],
+    queryFn: async () => {
+      const res = await fetch(ANDROID_META_URL, {
+        headers: { Accept: "application/json" },
+      });
+      if (!res.ok) {
+        throw new Error(`Android meta responded ${res.status}`);
+      }
+      return res.json();
+    },
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+  });
+
+  const desktopByOs = useMemo(() => {
+    const map: Record<Os, DownloadLink[]> = {
+      mac: [],
+      win: [],
+      linux: [],
+      android: [],
+    };
+    for (const asset of releaseQuery.data?.assets ?? []) {
       const os = osForAsset(asset.name);
-      if (!os) continue;
+      // Android is served same-origin via the meta endpoint, never from the
+      // GitHub feed here — otherwise it would double up with the local card.
+      if (!os || os === "android") continue;
       const ext = asset.name.slice(asset.name.lastIndexOf(".")).toLowerCase();
-      out.push({
-        os,
-        ext,
-        label: OS_META[os].name,
-        asset,
+      map[os].push({
+        key: asset.name,
+        href: asset.browser_download_url,
+        label: `Download ${ext}`,
+        size: asset.size,
       });
     }
-    // Group order: detected OS first, then mac/win/linux/android.
-    const order: Os[] = ["mac", "win", "linux", "android"];
-    return out.sort((a, b) => {
-      if (a.os === detectedOs && b.os !== detectedOs) return -1;
-      if (b.os === detectedOs && a.os !== detectedOs) return 1;
-      return order.indexOf(a.os) - order.indexOf(b.os);
-    });
-  }, [data, detectedOs]);
+    return map;
+  }, [releaseQuery.data]);
 
-  const version = data?.tag_name?.replace(/^v/, "") ?? null;
+  const android = androidQuery.data;
+  const androidLinks: DownloadLink[] = useMemo(() => {
+    if (!android?.available) return [];
+    return [
+      {
+        key: android.filename ?? "engram.apk",
+        href: android.downloadPath ?? ANDROID_APK_URL,
+        label: "Install APK",
+        size: android.sizeBytes ?? undefined,
+        forceDownload: true,
+      },
+    ];
+  }, [android]);
+
+  const linksByOs: Record<Os, DownloadLink[]> = {
+    mac: desktopByOs.mac,
+    win: desktopByOs.win,
+    linux: desktopByOs.linux,
+    android: androidLinks,
+  };
+
+  const hasAnyCard = OS_ORDER.some((os) => linksByOs[os].length > 0);
+  const isLoading = releaseQuery.isLoading || androidQuery.isLoading;
+
+  const version =
+    releaseQuery.data?.tag_name?.replace(/^v/, "") ?? android?.version ?? null;
+
+  const orderedOs = useMemo(
+    () =>
+      [...OS_ORDER].sort((a, b) => {
+        if (a === detectedOs && b !== detectedOs) return -1;
+        if (b === detectedOs && a !== detectedOs) return 1;
+        return OS_ORDER.indexOf(a) - OS_ORDER.indexOf(b);
+      }),
+    [detectedOs],
+  );
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -142,7 +215,7 @@ export default function DownloadPage() {
         <div>
           <h2 className="text-3xl font-bold tracking-widest text-primary">DOWNLOAD PYRI</h2>
           <p className="text-sm font-mono text-muted-foreground mt-1">
-            Native desktop app (runs fully offline) — plus an Android APK for your phone
+            Native desktop app (runs fully offline) — plus an Android APK served straight from this app
           </p>
         </div>
         <div className="flex items-center gap-3 font-mono text-xs">
@@ -177,116 +250,100 @@ export default function DownloadPage() {
         </div>
       )}
 
-      {!isLoading && isError && (
-        <Card className="bg-card/40 border-destructive/40 backdrop-blur-sm">
-          <CardContent className="p-6 flex flex-col items-center text-center gap-3">
-            <AlertTriangle className="w-8 h-8 text-destructive/80" />
-            <p className="text-sm text-muted-foreground max-w-md">
-              Couldn't reach the release feed right now. You can browse all
-              installers directly on the GitHub Releases page.
-            </p>
-            <a
-              href={RELEASES_PAGE}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-2 px-4 py-2 border border-primary/40 text-primary font-mono text-xs uppercase tracking-widest hover:bg-primary/10 transition-colors"
-            >
-              <ExternalLink className="w-4 h-4" /> Open Releases
-            </a>
-          </CardContent>
-        </Card>
-      )}
-
-      {!isLoading && !isError && installers.length === 0 && (
-        <Card className="bg-card/40 border-border/50 backdrop-blur-sm">
-          <CardContent className="p-6 flex flex-col items-center text-center gap-3">
-            <AlertTriangle className="w-8 h-8 text-muted-foreground/60" />
-            <p className="text-sm text-muted-foreground max-w-md">
-              No installers found in the latest release yet. Check the GitHub
-              Releases page for available builds.
-            </p>
-            <a
-              href={RELEASES_PAGE}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-2 px-4 py-2 border border-primary/40 text-primary font-mono text-xs uppercase tracking-widest hover:bg-primary/10 transition-colors"
-            >
-              <ExternalLink className="w-4 h-4" /> Open Releases
-            </a>
-          </CardContent>
-        </Card>
-      )}
-
-      {!isLoading && !isError && installers.length > 0 && (
+      {!isLoading && hasAnyCard && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {(["mac", "win", "linux", "android"] as Os[])
-            .sort((a, b) => {
-              if (a === detectedOs && b !== detectedOs) return -1;
-              if (b === detectedOs && a !== detectedOs) return 1;
-              return 0;
-            })
-            .map((os) => {
-              const osInstallers = installers.filter((i) => i.os === os);
-              if (osInstallers.length === 0) return null;
-              const meta = OS_META[os];
-              const Icon = meta.icon;
-              const isRecommended = os === detectedOs;
-              return (
-                <Card
-                  key={os}
-                  className={`bg-card/40 backdrop-blur-sm flex flex-col ${
-                    isRecommended
-                      ? "border-primary glow-box ring-1 ring-primary/30"
-                      : "border-border/50"
-                  }`}
-                >
-                  <CardHeader className="pb-3">
-                    <CardTitle className="font-display tracking-widest text-sm text-primary/90 flex items-center gap-2">
-                      <Icon className="w-5 h-5" />
-                      {meta.name}
-                      {isRecommended && (
-                        <span className="ml-auto inline-flex items-center gap-1 text-[10px] text-primary font-mono uppercase tracking-widest">
-                          <CheckCircle2 className="w-3 h-3" />{" "}
-                          {os === "android" ? "Your device" : "Your OS"}
+          {orderedOs.map((os) => {
+            const links = linksByOs[os];
+            if (links.length === 0) return null;
+            const meta = OS_META[os];
+            const Icon = meta.icon;
+            const isRecommended = os === detectedOs;
+            return (
+              <Card
+                key={os}
+                className={`bg-card/40 backdrop-blur-sm flex flex-col ${
+                  isRecommended
+                    ? "border-primary glow-box ring-1 ring-primary/30"
+                    : "border-border/50"
+                }`}
+              >
+                <CardHeader className="pb-3">
+                  <CardTitle className="font-display tracking-widest text-sm text-primary/90 flex items-center gap-2">
+                    <Icon className="w-5 h-5" />
+                    {meta.name}
+                    {isRecommended && (
+                      <span className="ml-auto inline-flex items-center gap-1 text-[10px] text-primary font-mono uppercase tracking-widest">
+                        <CheckCircle2 className="w-3 h-3" />{" "}
+                        {os === "android" ? "Your device" : "Your OS"}
+                      </span>
+                    )}
+                  </CardTitle>
+                  <p className="text-xs font-mono text-muted-foreground">{meta.note}</p>
+                </CardHeader>
+                <CardContent className="flex flex-col gap-2 mt-auto">
+                  {links.map((link) => (
+                    <a
+                      key={link.key}
+                      href={link.href}
+                      {...(link.forceDownload
+                        ? { download: link.key }
+                        : {})}
+                      className={`flex items-center gap-2 px-3 py-2.5 font-mono text-xs uppercase tracking-wider transition-colors border ${
+                        isRecommended
+                          ? "border-primary/50 text-primary bg-primary/10 hover:bg-primary/20"
+                          : "border-border/60 text-foreground hover:bg-white/5 hover:border-primary/40"
+                      }`}
+                    >
+                      <Download className="w-4 h-4 shrink-0" />
+                      <span className="truncate">{link.label}</span>
+                      {link.size ? (
+                        <span className="ml-auto text-muted-foreground normal-case">
+                          {formatSize(link.size)}
                         </span>
-                      )}
-                    </CardTitle>
-                    <p className="text-xs font-mono text-muted-foreground">{meta.note}</p>
-                  </CardHeader>
-                  <CardContent className="flex flex-col gap-2 mt-auto">
-                    {osInstallers.map((inst) => (
-                      <a
-                        key={inst.asset.name}
-                        href={inst.asset.browser_download_url}
-                        className={`flex items-center gap-2 px-3 py-2.5 font-mono text-xs uppercase tracking-wider transition-colors border ${
-                          isRecommended
-                            ? "border-primary/50 text-primary bg-primary/10 hover:bg-primary/20"
-                            : "border-border/60 text-foreground hover:bg-white/5 hover:border-primary/40"
-                        }`}
-                      >
-                        <Download className="w-4 h-4 shrink-0" />
-                        <span className="truncate">
-                          {inst.os === "android"
-                            ? "Install APK"
-                            : `Download ${inst.ext}`}
-                        </span>
-                        {inst.asset.size ? (
-                          <span className="ml-auto text-muted-foreground normal-case">
-                            {formatSize(inst.asset.size)}
-                          </span>
-                        ) : null}
-                      </a>
-                    ))}
-                  </CardContent>
-                </Card>
-              );
-            })}
+                      ) : null}
+                    </a>
+                  ))}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
+      )}
+
+      {!isLoading && !hasAnyCard && (
+        <Card
+          className={`bg-card/40 backdrop-blur-sm ${
+            releaseQuery.isError ? "border-destructive/40" : "border-border/50"
+          }`}
+        >
+          <CardContent className="p-6 flex flex-col items-center text-center gap-3">
+            <AlertTriangle
+              className={`w-8 h-8 ${
+                releaseQuery.isError
+                  ? "text-destructive/80"
+                  : "text-muted-foreground/60"
+              }`}
+            />
+            <p className="text-sm text-muted-foreground max-w-md">
+              {releaseQuery.isError
+                ? "Couldn't reach the release feed right now. You can browse all installers directly on the GitHub Releases page."
+                : "No installers are available yet. Check the GitHub Releases page for desktop builds, or add an Android .apk to this deploy."}
+            </p>
+            <a
+              href={RELEASES_PAGE}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-2 px-4 py-2 border border-primary/40 text-primary font-mono text-xs uppercase tracking-widest hover:bg-primary/10 transition-colors"
+            >
+              <ExternalLink className="w-4 h-4" /> Open Releases
+            </a>
+          </CardContent>
+        </Card>
       )}
 
       <div className="flex items-center justify-between flex-wrap gap-3 pt-2 border-t border-border/40">
         <p className="text-xs font-mono text-muted-foreground/70">
-          All builds are published from CI to GitHub Releases.
+          Android installs straight from this app; desktop builds come from GitHub Releases.
         </p>
         <a
           href={RELEASES_PAGE}
