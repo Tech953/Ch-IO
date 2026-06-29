@@ -14,38 +14,41 @@ import {
   ExternalLink,
 } from "lucide-react";
 
-// GitHub repository (owner/repo) that hosts the DESKTOP releases produced by
-// .github/workflows/desktop-build.yml. Configurable so a fork can point the
-// page at its own release feed without code changes; falls back to the project
-// default.
+// GitHub repository (owner/repo) that hosts the releases produced by
+// .github/workflows/desktop-build.yml. Used here ONLY for the external
+// "release notes" link; the actual downloads are served same-origin by this
+// app's API (see below), so the browser never calls the GitHub API directly.
 const GITHUB_REPO =
   (import.meta.env.VITE_GITHUB_REPO as string | undefined)?.trim() ||
   "pyri-ai/engram";
 
 const RELEASES_PAGE = `https://github.com/${GITHUB_REPO}/releases`;
-const LATEST_RELEASE_API = `https://api.github.com/repos/${GITHUB_REPO}/releases/latest`;
 
-// Same-origin Android endpoints served by this app's API (artifacts/api-server
-// routes/download.ts). The meta endpoint reports availability + source (a
-// bundled .apk committed into the deploy, else the latest GitHub release); the
-// .apk endpoint streams the file itself. Both go through /api so the Android
-// download never leaves the deploy's own origin.
+// Same-origin download endpoints served by this app's API
+// (artifacts/api-server routes/download.ts). Each meta endpoint reports
+// availability + source (a bundled file committed into the deploy, else the
+// latest GitHub release proxied through this origin); the binary endpoints
+// stream the file itself. Everything stays on the deploy's own origin.
+const DESKTOP_META_URL = "/api/download/desktop";
 const ANDROID_META_URL = "/api/download/android";
 const ANDROID_APK_URL = "/api/download/android.apk";
 
 type Os = "mac" | "win" | "linux" | "android";
+type DesktopOs = "mac" | "win" | "linux";
 
-type GithubAsset = {
-  name: string;
-  browser_download_url: string;
-  size: number;
+type DesktopInstaller = {
+  os: DesktopOs;
+  ext: string;
+  filename: string;
+  sizeBytes: number;
+  downloadPath: string;
 };
 
-type GithubRelease = {
-  tag_name: string;
-  name: string | null;
-  html_url: string;
-  assets: GithubAsset[];
+type DesktopMeta = {
+  available: boolean;
+  source: "bundled" | "github" | null;
+  version: string | null;
+  installers: DesktopInstaller[];
 };
 
 type AndroidMeta = {
@@ -62,16 +65,15 @@ type DownloadLink = {
   href: string;
   label: string;
   size?: number;
-  /** Same-origin links use the download attribute to force a save dialog. */
-  forceDownload?: boolean;
 };
 
-const OS_META: Record<
-  Os,
-  { name: string; icon: typeof Apple; note: string }
-> = {
+const OS_META: Record<Os, { name: string; icon: typeof Apple; note: string }> = {
   mac: { name: "macOS", icon: Apple, note: "Apple Silicon & Intel (.dmg)" },
-  win: { name: "Windows", icon: MonitorDown, note: "Windows 10/11 installer (.exe)" },
+  win: {
+    name: "Windows",
+    icon: MonitorDown,
+    note: "Windows 10/11 installer (.exe)",
+  },
   linux: {
     name: "Linux",
     icon: TerminalIcon,
@@ -98,79 +100,54 @@ function detectOs(): Os | null {
   return null;
 }
 
-function osForAsset(name: string): Os | null {
-  const lower = name.toLowerCase();
-  if (lower.endsWith(".dmg")) return "mac";
-  if (lower.endsWith(".exe")) return "win";
-  if (lower.endsWith(".appimage") || lower.endsWith(".deb")) return "linux";
-  if (lower.endsWith(".apk")) return "android";
-  return null;
-}
-
 function formatSize(bytes?: number | null): string {
   if (!bytes) return "";
   const mb = bytes / (1024 * 1024);
   return `${mb.toFixed(mb >= 100 ? 0 : 1)} MB`;
 }
 
+async function fetchJson<T>(url: string): Promise<T> {
+  const res = await fetch(url, { headers: { Accept: "application/json" } });
+  if (!res.ok) throw new Error(`${url} responded ${res.status}`);
+  return res.json() as Promise<T>;
+}
+
 export default function DownloadPage() {
   const detectedOs = useMemo(detectOs, []);
 
-  // Desktop installers (mac/win/linux) come from the GitHub release feed.
-  const releaseQuery = useQuery<GithubRelease>({
-    queryKey: ["github-latest-release", GITHUB_REPO],
-    queryFn: async () => {
-      const res = await fetch(LATEST_RELEASE_API, {
-        headers: { Accept: "application/vnd.github+json" },
-      });
-      if (!res.ok) {
-        throw new Error(`GitHub API responded ${res.status}`);
-      }
-      return res.json();
-    },
+  // Desktop installers (mac/win/linux) — same-origin meta from this app's API.
+  const desktopQuery = useQuery<DesktopMeta>({
+    queryKey: ["desktop-download-meta"],
+    queryFn: () => fetchJson<DesktopMeta>(DESKTOP_META_URL),
     staleTime: 5 * 60 * 1000,
     retry: 1,
   });
 
-  // Android comes from this app's own API: a bundled .apk if the deploy has one,
-  // otherwise the latest GitHub release proxied same-origin.
+  // Android — same-origin meta from this app's API.
   const androidQuery = useQuery<AndroidMeta>({
     queryKey: ["android-download-meta"],
-    queryFn: async () => {
-      const res = await fetch(ANDROID_META_URL, {
-        headers: { Accept: "application/json" },
-      });
-      if (!res.ok) {
-        throw new Error(`Android meta responded ${res.status}`);
-      }
-      return res.json();
-    },
+    queryFn: () => fetchJson<AndroidMeta>(ANDROID_META_URL),
     staleTime: 5 * 60 * 1000,
     retry: 1,
   });
 
   const desktopByOs = useMemo(() => {
-    const map: Record<Os, DownloadLink[]> = {
-      mac: [],
-      win: [],
-      linux: [],
-      android: [],
-    };
-    for (const asset of releaseQuery.data?.assets ?? []) {
-      const os = osForAsset(asset.name);
-      // Android is served same-origin via the meta endpoint, never from the
-      // GitHub feed here — otherwise it would double up with the local card.
-      if (!os || os === "android") continue;
-      const ext = asset.name.slice(asset.name.lastIndexOf(".")).toLowerCase();
-      map[os].push({
-        key: asset.name,
-        href: asset.browser_download_url,
-        label: `Download ${ext}`,
-        size: asset.size,
+    const map: Record<DesktopOs, DownloadLink[]> = { mac: [], win: [], linux: [] };
+    for (const inst of desktopQuery.data?.installers ?? []) {
+      if (!map[inst.os]) continue;
+      map[inst.os].push({
+        key: inst.filename,
+        href: inst.downloadPath,
+        label: `Download ${inst.ext}`,
+        size: inst.sizeBytes,
       });
     }
+    // Stable order within an OS (e.g. Linux .AppImage before .deb).
+    for (const os of ["mac", "win", "linux"] as DesktopOs[]) {
+      map[os].sort((a, b) => a.label.localeCompare(b.label));
+    }
     return map;
-  }, [releaseQuery.data]);
+  }, [desktopQuery.data]);
 
   const android = androidQuery.data;
   const androidLinks: DownloadLink[] = useMemo(() => {
@@ -181,7 +158,6 @@ export default function DownloadPage() {
         href: android.downloadPath ?? ANDROID_APK_URL,
         label: "Install APK",
         size: android.sizeBytes ?? undefined,
-        forceDownload: true,
       },
     ];
   }, [android]);
@@ -194,10 +170,10 @@ export default function DownloadPage() {
   };
 
   const hasAnyCard = OS_ORDER.some((os) => linksByOs[os].length > 0);
-  const isLoading = releaseQuery.isLoading || androidQuery.isLoading;
+  const isLoading = desktopQuery.isLoading || androidQuery.isLoading;
+  const isError = desktopQuery.isError && androidQuery.isError;
 
-  const version =
-    releaseQuery.data?.tag_name?.replace(/^v/, "") ?? android?.version ?? null;
+  const version = desktopQuery.data?.version ?? android?.version ?? null;
 
   const orderedOs = useMemo(
     () =>
@@ -213,9 +189,12 @@ export default function DownloadPage() {
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
       <div className="flex items-start justify-between flex-wrap gap-4">
         <div>
-          <h2 className="text-3xl font-bold tracking-widest text-primary">DOWNLOAD PYRI</h2>
+          <h2 className="text-3xl font-bold tracking-widest text-primary">
+            DOWNLOAD PYRI
+          </h2>
           <p className="text-sm font-mono text-muted-foreground mt-1">
-            Native desktop app (runs fully offline) — plus an Android APK served straight from this app
+            Native desktop app (runs fully offline) — every installer served
+            straight from this app
           </p>
         </div>
         <div className="flex items-center gap-3 font-mono text-xs">
@@ -234,10 +213,12 @@ export default function DownloadPage() {
         <CardContent className="p-4 flex items-start gap-3">
           <RefreshCw className="w-4 h-4 text-primary mt-0.5 shrink-0" />
           <p className="text-sm text-muted-foreground">
-            <span className="text-foreground font-medium">Desktop auto-updates after install.</span>{" "}
-            Once installed, the desktop app checks for new releases on launch and
-            updates itself silently in the background. The Android APK is
-            sideloaded — grab the newest build here whenever you want to update.
+            <span className="text-foreground font-medium">
+              Install once — the desktop app keeps itself current.
+            </span>{" "}
+            On every launch it checks for a newer release and updates silently in
+            the background when online. The Android APK is sideloaded — grab the
+            newest build here whenever you want to update.
           </p>
         </CardContent>
       </Card>
@@ -278,16 +259,16 @@ export default function DownloadPage() {
                       </span>
                     )}
                   </CardTitle>
-                  <p className="text-xs font-mono text-muted-foreground">{meta.note}</p>
+                  <p className="text-xs font-mono text-muted-foreground">
+                    {meta.note}
+                  </p>
                 </CardHeader>
                 <CardContent className="flex flex-col gap-2 mt-auto">
                   {links.map((link) => (
                     <a
                       key={link.key}
                       href={link.href}
-                      {...(link.forceDownload
-                        ? { download: link.key }
-                        : {})}
+                      download={link.key}
                       className={`flex items-center gap-2 px-3 py-2.5 font-mono text-xs uppercase tracking-wider transition-colors border ${
                         isRecommended
                           ? "border-primary/50 text-primary bg-primary/10 hover:bg-primary/20"
@@ -313,22 +294,30 @@ export default function DownloadPage() {
       {!isLoading && !hasAnyCard && (
         <Card
           className={`bg-card/40 backdrop-blur-sm ${
-            releaseQuery.isError ? "border-destructive/40" : "border-border/50"
+            isError ? "border-destructive/40" : "border-border/50"
           }`}
         >
           <CardContent className="p-6 flex flex-col items-center text-center gap-3">
             <AlertTriangle
               className={`w-8 h-8 ${
-                releaseQuery.isError
-                  ? "text-destructive/80"
-                  : "text-muted-foreground/60"
+                isError ? "text-destructive/80" : "text-muted-foreground/60"
               }`}
             />
-            <p className="text-sm text-muted-foreground max-w-md">
-              {releaseQuery.isError
-                ? "Couldn't reach the release feed right now. You can browse all installers directly on the GitHub Releases page."
-                : "No installers are available yet. Check the GitHub Releases page for desktop builds, or add an Android .apk to this deploy."}
-            </p>
+            {isError ? (
+              <p className="text-sm text-muted-foreground max-w-md">
+                Couldn't reach the download service right now. You can browse all
+                installers directly on the GitHub Releases page.
+              </p>
+            ) : (
+              <p className="text-sm text-muted-foreground max-w-lg">
+                No installers are published yet. Installers
+                (.dmg/.exe/.AppImage/.deb/.apk) have to be built on their target
+                OS — this app can't build them itself. Once a build is committed
+                to the deploy's <code className="text-primary/80">downloads/</code>{" "}
+                folder or attached to a GitHub Release, it appears here
+                automatically and stays up to date.
+              </p>
+            )}
             <a
               href={RELEASES_PAGE}
               target="_blank"
@@ -343,7 +332,8 @@ export default function DownloadPage() {
 
       <div className="flex items-center justify-between flex-wrap gap-3 pt-2 border-t border-border/40">
         <p className="text-xs font-mono text-muted-foreground/70">
-          Android installs straight from this app; desktop builds come from GitHub Releases.
+          Every installer is served directly by this app — bundled if present,
+          otherwise proxied from the latest release.
         </p>
         <a
           href={RELEASES_PAGE}
