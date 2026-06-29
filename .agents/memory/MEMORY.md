@@ -1,1 +1,26 @@
-- [Android APK CI release](android-apk-release.md) — building the Expo APK without an Expo account and attaching it to electron-builder's DRAFT GitHub release; signing + OS-detection gotchas.
+- [Android APK CI release](android-apk-release.md) — building the Expo APK without an Expo account, attaching it to electron-builder's DRAFT release, plus signing + OS-detection gotchas.
+- [Desktop auto-update](desktop-auto-update.md) — how the Electron app self-updates and the non-obvious constraints that make it actually fire.
+- [Desktop embedded DB seam (pglite)](desktop-embedded-db.md) — running with an embedded DB for desktop, and the non-obvious bundling constraints.
+- [Desktop online key storage](desktop-online-key-storage.md) — security rule for how the desktop build persists the cloud LLM API key (no plaintext).
+- [Offline LLM seam](offline-llm-seam.md) — why model calls go through an app-level OpenAI-compatible client, not the Replit integration package.
+- [Media perception provenance & idempotency](media-perception.md) — invariants for uploads→OBSERVED world-model entries: provenance hardcoding, retry idempotency, deletion, worker test mock.
+- [Simulation quarantine](simulation-quarantine.md) — how simulated engram state is structurally prevented from becoming observed reality.
+- [Artifact generation subsystem](artifact-generation.md) — how engram artifact generation mirrors media perception; why there is no world-model "generated" write path.
+- [Engram initiative & human-contact policy](engram-initiative-policy.md) — safety semantics of the autonomy/human-contact layer (quiet mode, fail-closed modes, anti-coercion).
+- [Engram engine restart safety](engram-engine-restart-safety.md) — why every autonomy guard in the engine must be DB-backed, not in-memory.
+- [Engram authoring (seed data)](engram-authoring.md) — non-obvious couplings when adding a new engram to the seed.
+- [Expression layer safety boundary](expression-layer-safety.md) — how PYRI's QUERTY micro-expression vocabulary is kept safe when fed to the chat model.
+- [ENGRAM chat SSE pattern](engram-chat-sse.md) — streaming chat uses raw fetch, not generated hooks.
+- [ENGRAM DB table names](engram-db-table-names.md) — actual Drizzle table export names to use in route imports.
+- [Database seeding](seeding.md) — how reference/lookup data gets into the DB (no auto-seed exists).
+- [Schema apply dual path](schema-apply-dual-path.md) — a schema change must be both pushed AND generated; drizzle-kit generate out-path bug.
+- [OpenAPI codegen param collisions](openapi-codegen-collisions.md) — an op with BOTH a path param and query params breaks Orval codegen here; how to avoid it.
+- [Orval codegen gotchas](orval-codegen-gotchas.md) — non-obvious constraints when using the OpenAPI→Orval hooks/Zod codegen.
+- [ENGRAM AI lib template fixes](engram-ai-lib-fixes.md) — two fixes to make the Replit OpenAI integration template libs typecheck cleanly.
+- [engram web typecheck — duplicate @types/react](engram-typecheck-types-react-dup.md) — pre-existing shadcn TS errors from two @types/react versions; not feature-caused.
+- [API server testing](api-server-testing.md) — conventions and constraints for unit-testing the api-server artifact.
+- [api-routes test db/schema mock](api-routes-test-mock.md) — why engine-touching route tests break, and how to keep the hand-rolled db/schema mock in sync.
+- [Engram engine test mock](engram-engine-test-mock.md) — how the engine unit test fakes the DB, and the trap when the engine reads a new table.
+- [PDF generation & install quirks](pdf-and-install-quirks.md) — generating/verifying PDFs without Chromium, plus a package-install fallback.
+- [pdfkit footer / pagination](pdfkit-footer-pagination.md) — why pdfkit text below the bottom margin with `width` set appends blank pages.
+- [Responsive portaled dialogs](responsive-portaled-dialog.md) — mobile/desktop variants sharing a Radix Dialog/Sheet must branch via a JS breakpoint hook, not CSS hidden.

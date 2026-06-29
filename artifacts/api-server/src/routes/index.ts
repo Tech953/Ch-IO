@@ -19,6 +19,7 @@ import simulationsRouter from "./simulations";
 import mediaRouter from "./media";
 import artifactsRouter from "./artifacts";
 import eventsRouter from "./events";
+import downloadRouter from "./download";
 
 const router: IRouter = Router();
 
@@ -42,5 +43,6 @@ router.use(simulationsRouter);
 router.use(mediaRouter);
 router.use(artifactsRouter);
 router.use(eventsRouter);
+router.use(downloadRouter);
 
 export default router;
