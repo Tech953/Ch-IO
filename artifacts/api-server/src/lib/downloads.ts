@@ -52,6 +52,11 @@ export type DesktopOs = "mac" | "win" | "linux";
 const DESKTOP_EXTS: Record<string, DesktopOs> = {
   ".dmg": "mac",
   ".exe": "win",
+  // Windows portable build (electron-builder `zip` target). This pipeline only
+  // produces a .zip for Windows, so .zip => win is unambiguous today. CAVEAT:
+  // electron-updater for macOS also uses a .zip; if a mac zip target is ever
+  // added, this mapping must disambiguate by filename/arch instead of extension.
+  ".zip": "win",
   ".appimage": "linux",
   ".deb": "linux",
 };

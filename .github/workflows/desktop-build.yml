@@ -155,6 +155,7 @@ jobs:
             artifacts/desktop/release/*.deb
             artifacts/desktop/release/*.dmg
             artifacts/desktop/release/*.exe
+            artifacts/desktop/release/*.zip
 
   # Build the Expo mobile app into an installable Android .apk and attach it to
   # the SAME release as the desktop installers. Runs after `build` so the draft

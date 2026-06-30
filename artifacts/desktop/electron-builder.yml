@@ -116,6 +116,15 @@ mac:
 win:
   target:
     - nsis
+    # Portable .zip alongside the NSIS installer: an unpacked, no-install build
+    # the user extracts and runs (engram.exe) without admin rights, for users who
+    # can't or don't want to run the installer. NOTE: the Windows update feed
+    # (latest.yml) targets the NSIS .exe, and setupAutoUpdates() in main.ts gates
+    # only on app.isPackaged — so a portable copy that checks for updates would
+    # fetch and run that .exe installer. The installer is the primary
+    # auto-updating distribution; the .zip is for no-install use. Adds no per-OS
+    # cost and ships in the same release.
+    - zip
   # Authenticode signing is opt-in via WIN_CSC_LINK / WIN_CSC_KEY_PASSWORD
   # (electron-builder maps these to the certificate file + password). With no
   # certificate the executable is left unsigned. A timestamp countersignature

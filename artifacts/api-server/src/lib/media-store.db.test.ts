@@ -447,6 +447,103 @@ describe("deleteMediaAsset — drops asset/blob/mapping, keeps world-model entry
     expect(await loadMediaAssetById(assetId)).toBeDefined();
     expect(await allWorldModelRows()).toHaveLength(1);
   });
+
+  it("deletes ONLY the targeted asset — a sibling asset's observation and a non-media belief on the SAME engram survive", async () => {
+    // One engram owns two distinct uploads, each producing its own OBSERVED entry,
+    // plus a manually-remembered belief that isn't tied to any media file. This is
+    // the blast-radius guard: a delete must scope to the asset id, never the engram,
+    // so an accidental over-broad delete (e.g. matching by engramId) would fail here.
+    const engramId = await insertEngram();
+
+    const assetA = await createMediaAsset({
+      engramId,
+      filename: "a.txt",
+      mimeType: "text/plain",
+      modality: "text",
+      data: Buffer.from("scene A"),
+    });
+    const assetB = await createMediaAsset({
+      engramId,
+      filename: "b.txt",
+      mimeType: "text/plain",
+      modality: "text",
+      data: Buffer.from("scene B"),
+    });
+
+    const entryA = await appendMediaObservation({
+      assetId: assetA.id,
+      engramId,
+      content: "Observation from asset A.",
+      confidence: 0.8,
+    });
+    const entryB = await appendMediaObservation({
+      assetId: assetB.id,
+      engramId,
+      content: "Observation from asset B.",
+      confidence: 0.7,
+    });
+
+    // A non-media belief on the same engram (manually remembered, source != media:*).
+    const [belief] = await db
+      .insert(engramWorldModelTable)
+      .values({
+        engramId,
+        provenance: "remembered",
+        content: "A belief the engram already held.",
+        confidence: 0.9,
+        scope: "private",
+        source: "manual",
+      })
+      .returning({ id: engramWorldModelTable.id });
+
+    // Pre-conditions: two assets, two blobs, two mapping rows, three world-model rows.
+    expect(await loadMediaAssetById(assetA.id)).toBeDefined();
+    expect(await loadMediaAssetById(assetB.id)).toBeDefined();
+    expect(await loadMediaBlob(assetA.id)).toBeDefined();
+    expect(await loadMediaBlob(assetB.id)).toBeDefined();
+    expect(await observationLinkCount(assetA.id)).toBe(1);
+    expect(await observationLinkCount(assetB.id)).toBe(1);
+    expect(await allWorldModelRows()).toHaveLength(3);
+
+    const deleted = await deleteMediaAsset(assetA.id);
+    expect(deleted).toBe(true);
+
+    // Asset A and everything pointing back at it is gone...
+    expect(await loadMediaAssetById(assetA.id)).toBeUndefined();
+    expect(await loadMediaBlob(assetA.id)).toBeUndefined();
+    expect(await observationLinkCount(assetA.id)).toBe(0);
+
+    // ...but asset B is completely untouched: row, blob, and mapping all intact.
+    expect(await loadMediaAssetById(assetB.id)).toBeDefined();
+    expect(await loadMediaBlob(assetB.id)).toBeDefined();
+    expect(await observationLinkCount(assetB.id)).toBe(1);
+
+    // The world model still holds exactly the entries that must survive: asset A's
+    // OBSERVED entry (outlives its source file), asset B's OBSERVED entry, and the
+    // non-media belief. Only the count dropped from collateral deletion would change
+    // it — it doesn't. Count proves no over-broad delete by engramId occurred.
+    const rows = await allWorldModelRows();
+    expect(rows).toHaveLength(3);
+    const byId = new Map(rows.map((r) => [r.id, r]));
+    expect(byId.get(entryA.id)).toMatchObject({
+      engramId,
+      provenance: "observed",
+      source: `media:${assetA.id}`,
+      content: "Observation from asset A.",
+    });
+    expect(byId.get(entryB.id)).toMatchObject({
+      engramId,
+      provenance: "observed",
+      source: `media:${assetB.id}`,
+      content: "Observation from asset B.",
+    });
+    expect(byId.get(belief.id)).toMatchObject({
+      engramId,
+      provenance: "remembered",
+      source: "manual",
+      content: "A belief the engram already held.",
+    });
+  });
 });
 
 // --- clearMediaObservations: removes only this asset's footprint ---------------
