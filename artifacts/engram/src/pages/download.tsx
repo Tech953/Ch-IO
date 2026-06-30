@@ -72,7 +72,7 @@ const OS_META: Record<Os, { name: string; icon: typeof Apple; note: string }> = 
   win: {
     name: "Windows",
     icon: MonitorDown,
-    note: "Windows 10/11 installer (.exe)",
+    note: "Windows 10/11 — installer (.exe, auto-updates) or portable (.zip)",
   },
   linux: {
     name: "Linux",

@@ -4,7 +4,7 @@ Drop a built installer in this folder to have the deployed app serve it directly
 (same-origin) from the **Download** page (`/download`) and the API — the browser
 never calls GitHub. Two kinds of files are recognized:
 
-- **Desktop installers** — `.dmg` (macOS), `.exe` (Windows), `.AppImage` / `.deb` (Linux)
+- **Desktop installers** — `.dmg` (macOS), `.exe` installer or portable `.zip` (Windows), `.AppImage` / `.deb` (Linux)
 - **Android** — a single `.apk`
 
 Endpoints (`artifacts/api-server/src/routes/download.ts`, logic in
