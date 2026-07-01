@@ -22,7 +22,7 @@ const REPO_RE = /^[\w.-]+\/[\w.-]+$/;
 /** Repo used for BOTH the apk and desktop GitHub fallback. */
 function downloadsRepo(): string {
   const v = process.env["DOWNLOADS_GITHUB_REPO"]?.trim();
-  return v && REPO_RE.test(v) ? v : "pyri-ai/engram";
+  return v && REPO_RE.test(v) ? v : "Tech953/Ch-IO";
 }
 
 /** The apk may target a different repo than desktop via the older env name. */
