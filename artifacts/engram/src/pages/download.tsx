@@ -20,7 +20,7 @@ import {
 // app's API (see below), so the browser never calls the GitHub API directly.
 const GITHUB_REPO =
   (import.meta.env.VITE_GITHUB_REPO as string | undefined)?.trim() ||
-  "pyri-ai/engram";
+  "Tech953/Ch-IO";
 
 const RELEASES_PAGE = `https://github.com/${GITHUB_REPO}/releases`;
 

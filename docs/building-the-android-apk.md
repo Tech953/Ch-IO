@@ -125,7 +125,7 @@ both":
 1. **Bundled** — if you committed a `.apk` into the [`downloads/`](../downloads)
    directory (or pointed `ANDROID_APK_PATH` at one), that file is served.
 2. **GitHub fallback** — otherwise the latest release of
-   `ANDROID_APK_GITHUB_REPO` (default `pyri-ai/engram`) is fetched and
+   `ANDROID_APK_GITHUB_REPO` (default `Tech953/Ch-IO`) is fetched and
    proxy-streamed.
 
 Endpoints (API server, `artifacts/api-server/src/routes/download.ts`):
@@ -155,5 +155,5 @@ Endpoints (API server, `artifacts/api-server/src/routes/download.ts`):
 | --- | --- | --- |
 | `ANDROID_APK_PATH` | _(unset)_ | Absolute path to a single bundled `.apk` |
 | `ANDROID_APK_DIR` | `<repo>/downloads` | Directory scanned for the newest `*.apk` |
-| `ANDROID_APK_GITHUB_REPO` | `pyri-ai/engram` | `owner/repo` for the GitHub fallback |
-| `VITE_GITHUB_REPO` | `pyri-ai/engram` | Web build-time repo for the **desktop** release feed |
+| `ANDROID_APK_GITHUB_REPO` | `Tech953/Ch-IO` | `owner/repo` for the GitHub fallback |
+| `VITE_GITHUB_REPO` | `Tech953/Ch-IO` | Web build-time repo for the **desktop** release feed |

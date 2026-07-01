@@ -26,7 +26,7 @@ Both desktop and Android resolve in the same two-step order:
 2. **GitHub fallback** — if nothing is bundled, the API fetches the latest
    release and proxy-streams the matching asset(s), so the download still stays
    on this app's origin. Desktop uses `DOWNLOADS_GITHUB_REPO` (default
-   `pyri-ai/engram`); the APK uses `ANDROID_APK_GITHUB_REPO` (which falls back to
+   `Tech953/Ch-IO`); the APK uses `ANDROID_APK_GITHUB_REPO` (which falls back to
    `DOWNLOADS_GITHUB_REPO`).
 
 Desktop bundling is **all-or-nothing for version coherence**: if ANY bundled
