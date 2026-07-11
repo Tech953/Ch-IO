@@ -5,7 +5,7 @@ cognitive architecture: layered memory, a belief registry, personas, a symbolic
 Hiero-Code language, an emotive micro-expression layer, autonomous engrams, bounded
 simulations, media perception, and a multi-mode streaming chat.
 
-It runs three ways:
+It runs four ways:
 
 - **Desktop app (clickable installer)** — a native, self-contained build
   (`.AppImage`/`.deb` on Linux, `.dmg` on macOS, `.exe` on Windows) that bundles
@@ -17,6 +17,8 @@ It runs three ways:
   a local language model. After the one-time install, it needs no internet.
 - **On Replit** — the API and the dashboard run as separate workflows/artifacts
   (unchanged by the packaging below; the desktop build is additive).
+- **Mobile app (Android APK)** — an installable APK built from `artifacts/engram-mobile`
+  with localized UI, persisted local state for offline continuity, and live online API mode.
 
 ---
 
@@ -95,6 +97,37 @@ and the installer will still warn; if neither is set the app is left unsigned.
 reputation, so the blue "Windows protected your PC" screen can appear until enough
 installs accrue; an **EV** certificate earns reputation immediately. Signatures are
 SHA-256 and RFC-3161 timestamped so they stay valid after the certificate expires.
+
+---
+
+## Mobile app (Android APK)
+
+The mobile app is in `artifacts/engram-mobile` (Expo/React Native). It ships:
+
+- **Localized UI** via `@workspace/localization` + persisted locale selection.
+- **Offline continuity** for local app state (selected persona + conversation mapping).
+- **Online mode** against the deployed API via `EXPO_PUBLIC_DOMAIN`.
+
+### Build a release APK
+
+```bash
+pnpm install
+pnpm --filter @workspace/api-spec run codegen
+pnpm run typecheck:libs
+pnpm --filter @workspace/engram-mobile exec expo prebuild --platform android --no-install --clean
+cd artifacts/engram-mobile/android
+./gradlew :app:assembleRelease --no-daemon --stacktrace
+```
+
+APK output:
+
+`artifacts/engram-mobile/android/app/build/outputs/apk/release/app-release.apk`
+
+### Build in CI and publish with desktop installers
+
+`.github/workflows/desktop-build.yml` includes an `android` job that builds
+`ENGRAM-Mobile-<version>.apk`, uploads it as a workflow artifact, and on `v*`
+tag builds also attaches it to the same GitHub Release as the desktop installers.
 
 ---
 
@@ -234,6 +267,7 @@ docs                    # generated PDFs (proposal, developer guide, readme, use
 | --- | --- |
 | Run fully local | `./scripts/local/start.sh` (Windows: `.\scripts\local\start.ps1`) |
 | Build the desktop app (current OS) | `pnpm --filter @workspace/desktop run build` then `pnpm --filter @workspace/desktop exec electron-builder --linux` (or `--mac` / `--win`) |
+| Build Android APK | `pnpm --filter @workspace/engram-mobile exec expo prebuild --platform android --no-install --clean` then `cd artifacts/engram-mobile/android && ./gradlew :app:assembleRelease` |
 | Typecheck | `pnpm run typecheck` |
 | Build everything | `pnpm run build` |
 | Regenerate API artifacts | `pnpm --filter @workspace/api-spec run codegen` |
