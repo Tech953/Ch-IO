@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useI18n } from "@/i18n";
+import { type SupportedLocale } from "@workspace/localization";
 import {
   Download,
   Apple,
@@ -14,6 +15,14 @@ import {
   AlertTriangle,
   ExternalLink,
 } from "lucide-react";
+
+// Maps our 2-letter SupportedLocale codes to full BCP 47 tags for APIs that
+// require them (Intl.NumberFormat, String.prototype.localeCompare).
+const LOCALE_BCP47: Record<SupportedLocale, string> = {
+  en: "en-US",
+  es: "es-ES",
+  fr: "fr-FR",
+};
 
 // GitHub repository (owner/repo) that hosts the releases produced by
 // .github/workflows/desktop-build.yml. Used here ONLY for the external
@@ -101,10 +110,10 @@ function detectOs(): Os | null {
   return null;
 }
 
-function formatSize(locale: string, bytes?: number | null): string {
+function formatSize(locale: SupportedLocale, bytes?: number | null): string {
   if (!bytes) return "";
   const mb = bytes / (1024 * 1024);
-  return `${new Intl.NumberFormat(locale, {
+  return `${new Intl.NumberFormat(LOCALE_BCP47[locale], {
     minimumFractionDigits: mb >= 100 ? 0 : 1,
     maximumFractionDigits: mb >= 100 ? 0 : 1,
   }).format(mb)} MB`;
@@ -149,7 +158,7 @@ export default function DownloadPage() {
     }
     // Stable order within an OS (e.g. Linux .AppImage before .deb).
     for (const os of ["mac", "win", "linux"] as DesktopOs[]) {
-      map[os].sort((a, b) => a.label.localeCompare(b.label, locale));
+      map[os].sort((a, b) => a.label.localeCompare(b.label, LOCALE_BCP47[locale]));
     }
     return map;
   }, [desktopQuery.data, locale, t]);

@@ -4,7 +4,7 @@ name: Desktop & Android builds
 # installers match their platform:
 #   - ubuntu-latest  -> .AppImage + .deb
 #   - macos-latest   -> .dmg
-#   - windows-latest -> .exe (NSIS)
+#   - windows-latest -> .exe (NSIS installer, auto-updating) + .zip (portable, no-install)
 # and builds the ENGRAM mobile app (Expo) into an installable Android .apk on
 # ubuntu (the `android` job below). All artifacts publish to the SAME GitHub
 # Release for a tag, so the Download page (driven by /releases/latest) lists the
