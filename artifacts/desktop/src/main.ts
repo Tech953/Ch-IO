@@ -12,6 +12,14 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { createServer } from "node:net";
 import { stopProcess, installDownloadedUpdate } from "./lifecycle";
 import {
+  DEFAULT_LOCALE,
+  DESKTOP_CATALOG,
+  LOCALE_LABELS,
+  normalizeLocale,
+  tFromCatalog,
+  type SupportedLocale,
+} from "@workspace/localization";
+import {
   readFileSync,
   writeFileSync,
   existsSync,
@@ -71,6 +79,16 @@ type UpdateStatus =
 
 let updateStatus: UpdateStatus = { state: "idle" };
 
+let currentLocale: SupportedLocale = DEFAULT_LOCALE;
+
+function tDesktop(
+  key: string,
+  values?: Record<string, string | number>,
+  locale: SupportedLocale = currentLocale,
+): string {
+  return tFromCatalog(locale, DESKTOP_CATALOG, key, values);
+}
+
 function setUpdateStatus(status: UpdateStatus): void {
   updateStatus = status;
   if (settingsWindow && !settingsWindow.isDestroyed()) {
@@ -78,12 +96,10 @@ function setUpdateStatus(status: UpdateStatus): void {
   }
 }
 
-const WINDOW_TITLE = "ENGRAM — PYRI";
-
 // Restore the main window title after an update-download progress indicator.
 function resetWindowTitle(): void {
   if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.setTitle(WINDOW_TITLE);
+    mainWindow.setTitle(tDesktop("app.windowTitle"));
   }
 }
 
@@ -101,6 +117,7 @@ function userDataPath(...segments: string[]): string {
 // ---------------------------------------------------------------------------
 interface Settings {
   mode: "offline" | "online";
+  locale: SupportedLocale;
   offline: { baseUrl: string; model: string };
   online: {
     baseUrl: string;
@@ -114,8 +131,13 @@ interface Settings {
 // launch. When the keychain IS available the key lives in settings.apiKeyEnc.
 let sessionApiKey: string | null = null;
 
+function defaultLocale(): SupportedLocale {
+  return normalizeLocale(app.getLocale());
+}
+
 const DEFAULT_SETTINGS: Settings = {
   mode: "offline",
+  locale: defaultLocale(),
   offline: { baseUrl: "http://localhost:11434/v1", model: "llama3.1" },
   online: { baseUrl: "https://api.openai.com/v1", model: "gpt-4o-mini" },
 };
@@ -130,6 +152,7 @@ function loadSettings(): Settings {
     const parsed = JSON.parse(raw) as Partial<Settings>;
     return {
       mode: parsed.mode === "online" ? "online" : "offline",
+      locale: normalizeLocale(parsed.locale),
       offline: { ...DEFAULT_SETTINGS.offline, ...(parsed.offline ?? {}) },
       online: { ...DEFAULT_SETTINGS.online, ...(parsed.online ?? {}) },
     };
@@ -241,6 +264,7 @@ async function startServer(): Promise<void> {
     );
   }
   const settings = loadSettings();
+  currentLocale = settings.locale;
   mkdirSync(userDataPath("db"), { recursive: true });
   currentPort = await findFreePort();
   const env = buildServerEnv(settings, currentPort);
@@ -296,7 +320,7 @@ function createMainWindow(): void {
     minWidth: 1024,
     minHeight: 700,
     backgroundColor: "#070b12",
-    title: WINDOW_TITLE,
+    title: tDesktop("app.windowTitle"),
     autoHideMenuBar: false,
     webPreferences: {
       contextIsolation: true,
@@ -328,7 +352,7 @@ function openSettingsWindow(): void {
     parent: mainWindow ?? undefined,
     modal: true,
     backgroundColor: "#070b12",
-    title: "ENGRAM — Settings",
+    title: tDesktop("app.settingsTitle"),
     webPreferences: {
       preload: path.join(__dirname, "preload.cjs"),
       contextIsolation: true,
@@ -353,12 +377,12 @@ function buildMenu(): void {
               { role: "about" as const },
               { type: "separator" as const },
               {
-                label: "Settings…",
+                label: tDesktop("menu.settings"),
                 accelerator: "Cmd+,",
                 click: openSettingsWindow,
               },
               {
-                label: "Check for Updates…",
+                label: tDesktop("menu.checkUpdates"),
                 click: checkForUpdatesManually,
               },
               { type: "separator" as const },
@@ -368,15 +392,15 @@ function buildMenu(): void {
         ]
       : []),
     {
-      label: "File",
+      label: tDesktop("menu.file"),
       submenu: [
         {
-          label: "Settings…",
+          label: tDesktop("menu.settings"),
           accelerator: "CmdOrCtrl+,",
           click: openSettingsWindow,
         },
         {
-          label: "Check for Updates…",
+          label: tDesktop("menu.checkUpdates"),
           click: checkForUpdatesManually,
         },
         { type: "separator" as const },
@@ -384,7 +408,7 @@ function buildMenu(): void {
       ],
     },
     {
-      label: "View",
+      label: tDesktop("menu.view"),
       submenu: [
         { role: "reload" as const },
         { role: "forceReload" as const },
@@ -408,6 +432,7 @@ ipcMain.handle("settings:get", () => {
   const settings = loadSettings();
   return {
     mode: settings.mode,
+    locale: settings.locale,
     offline: settings.offline,
     online: {
       baseUrl: settings.online.baseUrl,
@@ -415,13 +440,20 @@ ipcMain.handle("settings:get", () => {
     },
     hasApiKey: Boolean(settings.online.apiKeyEnc) || Boolean(sessionApiKey),
     encryptionAvailable: safeStorage.isEncryptionAvailable(),
+    localeLabels: LOCALE_LABELS,
+    messages: DESKTOP_CATALOG[settings.locale],
   };
+});
+
+ipcMain.handle("i18n:messages", (_event, locale: string) => {
+  return DESKTOP_CATALOG[normalizeLocale(locale)];
 });
 
 ipcMain.handle(
   "settings:save",
   async (_event, payload: {
     mode: "offline" | "online";
+    locale: SupportedLocale;
     offline: { baseUrl: string; model: string };
     online: { baseUrl: string; model: string; apiKey: string };
   }) => {
@@ -429,6 +461,7 @@ ipcMain.handle(
       const previous = loadSettings();
       const next: Settings = {
         mode: payload.mode === "online" ? "online" : "offline",
+        locale: normalizeLocale(payload.locale),
         offline: {
           baseUrl: payload.offline.baseUrl.trim() || DEFAULT_SETTINGS.offline.baseUrl,
           model: payload.offline.model.trim() || DEFAULT_SETTINGS.offline.model,
@@ -456,6 +489,9 @@ ipcMain.handle(
       }
 
       saveSettings(next);
+      currentLocale = next.locale;
+      buildMenu();
+      resetWindowTitle();
       await restartServer();
       if (settingsWindow && !settingsWindow.isDestroyed()) {
         settingsWindow.close();
@@ -514,9 +550,9 @@ function setupAutoUpdates(): void {
     if (manualUpdateCheck && mainWindow && !mainWindow.isDestroyed()) {
       void dialog.showMessageBox(mainWindow, {
         type: "info",
-        title: "Update available",
-        message: "A new version of ENGRAM is available.",
-        detail: "It is downloading now and you'll be prompted to restart when it's ready.",
+        title: tDesktop("dialog.updateAvailable.title"),
+        message: tDesktop("dialog.updateAvailable.message"),
+        detail: tDesktop("dialog.updateAvailable.detail"),
         buttons: ["OK"],
       });
     }
@@ -527,8 +563,8 @@ function setupAutoUpdates(): void {
     if (manualUpdateCheck && mainWindow && !mainWindow.isDestroyed()) {
       void dialog.showMessageBox(mainWindow, {
         type: "info",
-        title: "You're up to date",
-        message: "ENGRAM is already running the latest version.",
+        title: tDesktop("dialog.upToDate.title"),
+        message: tDesktop("dialog.upToDate.message"),
         buttons: ["OK"],
       });
     }
@@ -543,7 +579,11 @@ function setupAutoUpdates(): void {
     const percent = Math.max(0, Math.min(100, Math.round(progress?.percent ?? 0)));
     setUpdateStatus({ state: "downloading", percent });
     if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.setTitle(`${WINDOW_TITLE} — Downloading update… ${percent}%`);
+      mainWindow.setTitle(
+        `${tDesktop("app.windowTitle")} — ${tDesktop("settings.status.downloading", {
+          percent,
+        })}`,
+      );
       mainWindow.setProgressBar(percent / 100);
     }
   });
@@ -560,8 +600,8 @@ function setupAutoUpdates(): void {
     if (manualUpdateCheck && mainWindow && !mainWindow.isDestroyed()) {
       void dialog.showMessageBox(mainWindow, {
         type: "error",
-        title: "Update check failed",
-        message: "Could not check for updates.",
+        title: tDesktop("dialog.updateFailed.title"),
+        message: tDesktop("dialog.updateFailed.message"),
         detail: String(error),
         buttons: ["OK"],
       });
@@ -580,10 +620,12 @@ function setupAutoUpdates(): void {
     void dialog
       .showMessageBox(mainWindow, {
         type: "info",
-        title: "Update ready",
-        message: `ENGRAM ${info.version} has been downloaded.`,
-        detail: "Restart now to apply the update, or keep working and it'll install the next time you quit.",
-        buttons: ["Restart now", "Later"],
+        title: tDesktop("dialog.updateReady.title"),
+        message: tDesktop("dialog.updateReady.message", {
+          version: info.version ?? "",
+        }),
+        detail: tDesktop("dialog.updateReady.detail"),
+        buttons: [tDesktop("dialog.restartNow"), tDesktop("dialog.later")],
         defaultId: 0,
         cancelId: 1,
       })
@@ -623,8 +665,8 @@ function checkForUpdatesManually(): void {
     if (mainWindow && !mainWindow.isDestroyed()) {
       void dialog.showMessageBox(mainWindow, {
         type: "info",
-        title: "Updates unavailable",
-        message: "Automatic updates only run in the packaged app.",
+        title: tDesktop("dialog.updatesUnavailable.title"),
+        message: tDesktop("dialog.updatesUnavailable.message"),
         buttons: ["OK"],
       });
     }
@@ -655,6 +697,7 @@ if (!gotLock) {
   });
 
   app.whenReady().then(async () => {
+    currentLocale = loadSettings().locale;
     buildMenu();
     try {
       await startServer();
@@ -662,8 +705,8 @@ if (!gotLock) {
       setupAutoUpdates();
     } catch (error) {
       dialog.showErrorBox(
-        "ENGRAM failed to start",
-        `The embedded server could not start.\n\n${String(error)}`,
+        tDesktop("dialog.startFailed.title"),
+        `${tDesktop("dialog.startFailed.message")}\n\n${String(error)}`,
       );
       app.quit();
     }

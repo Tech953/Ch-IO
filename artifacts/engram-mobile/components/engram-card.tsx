@@ -5,6 +5,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Glyph } from "@/components/glyph";
 import { Chip } from "@/components/ui";
 import { useColors } from "@/hooks/useColors";
+import { useMobileI18n } from "@/i18n";
 import type { Engram } from "@workspace/api-client-react";
 
 export function EngramCard({
@@ -16,6 +17,7 @@ export function EngramCard({
   selected: boolean;
   onPress: () => void;
 }) {
+  const { t } = useMobileI18n();
   const colors = useColors();
   const mood = engram.currentMood || engram.emotionalBaseline.mood;
   return (
@@ -55,9 +57,9 @@ export function EngramCard({
           <View style={styles.chips}>
             <Chip label={mood} tone="primary" />
             {engram.autonomyEnabled ? (
-              <Chip label="autonomous" tone="success" />
+              <Chip label={t("card.autonomous")} tone="success" />
             ) : (
-              <Chip label="dormant" tone="muted" />
+              <Chip label={t("card.dormant")} tone="muted" />
             )}
           </View>
         </View>

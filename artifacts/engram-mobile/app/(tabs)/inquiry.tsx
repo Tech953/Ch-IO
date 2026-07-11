@@ -17,6 +17,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Chip, EmptyState, MonoLabel, PrimaryButton } from "@/components/ui";
 import { useEngram } from "@/context/engram-context";
 import { useColors } from "@/hooks/useColors";
+import { useMobileI18n } from "@/i18n";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   getGetEngramQueryKey,
@@ -30,6 +31,7 @@ import {
 type Mode = "probe" | "develop";
 
 export default function InquiryScreen() {
+  const { t } = useMobileI18n();
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
@@ -82,8 +84,8 @@ export default function InquiryScreen() {
           icon={
             <Feather name="help-circle" size={28} color={colors.mutedForeground} />
           }
-          title="No engram selected"
-          subtitle="Choose an engram to probe its mind or guide its development."
+          title={t("common.noEngram")}
+          subtitle={t("inquiry.noEngramSub")}
         />
       </View>
     );
@@ -93,10 +95,10 @@ export default function InquiryScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={[styles.header, { paddingTop: topPad + 12 }]}>
         <Text style={[styles.kicker, { color: colors.primary }]}>
-          INQUIRY // {engram?.symbol ?? "··"}
+          {t("inquiry.kicker", { symbol: engram?.symbol ?? "··" })}
         </Text>
         <Text style={[styles.h1, { color: colors.foreground }]}>
-          Interrogate
+          {t("inquiry.title")}
         </Text>
       </View>
 
@@ -134,7 +136,7 @@ export default function InquiryScreen() {
                     color: active ? colors.primary : colors.mutedForeground,
                   }}
                 >
-                  {m}
+                  {m === "probe" ? t("inquiry.probe") : t("inquiry.develop")}
                 </Text>
                 <Text
                   style={{
@@ -144,7 +146,9 @@ export default function InquiryScreen() {
                     marginTop: 2,
                   }}
                 >
-                  {m === "probe" ? "Ask, no change" : "Reshape config"}
+                  {m === "probe"
+                    ? t("inquiry.askNoChange")
+                    : t("inquiry.reshapeConfig")}
                 </Text>
               </Pressable>
             );
@@ -157,8 +161,8 @@ export default function InquiryScreen() {
           onChangeText={setQuestion}
           placeholder={
             mode === "probe"
-              ? "What do you remember about…?"
-              : "Become more curious about…"
+              ? t("inquiry.placeholderProbe")
+              : t("inquiry.placeholderDevelop")
           }
           placeholderTextColor={colors.mutedForeground}
           multiline
@@ -175,7 +179,7 @@ export default function InquiryScreen() {
 
         <PrimaryButton
           testID="inquiry-submit"
-          label={mode === "probe" ? "Probe" : "Develop"}
+          label={mode === "probe" ? t("inquiry.submitProbe") : t("inquiry.submitDevelop")}
           tone={mode === "develop" ? "accent" : "primary"}
           loading={create.isPending}
           disabled={question.trim().length === 0}
@@ -184,12 +188,12 @@ export default function InquiryScreen() {
         />
 
         <MonoLabel style={{ marginTop: 28, marginBottom: 12 }}>
-          History
+          {t("inquiry.history")}
         </MonoLabel>
 
         {(inquiries ?? []).length === 0 ? (
           <Text style={[styles.emptyHist, { color: colors.mutedForeground }]}>
-            No inquiries yet.
+            {t("inquiry.none")}
           </Text>
         ) : (
           (inquiries ?? []).map((item) => (
@@ -222,7 +226,7 @@ export default function InquiryScreen() {
                     { borderColor: colors.accent + "55" },
                   ]}
                 >
-                  <MonoLabel color={colors.accent}>config delta</MonoLabel>
+                  <MonoLabel color={colors.accent}>{t("inquiry.configDelta")}</MonoLabel>
                   <Text
                     style={[styles.deltaText, { color: colors.secondaryForeground }]}
                   >

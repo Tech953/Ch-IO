@@ -1,15 +1,20 @@
 import { contextBridge, ipcRenderer } from "electron";
+import type { SupportedLocale } from "@workspace/localization";
 
 export interface SettingsView {
   mode: "offline" | "online";
+  locale: SupportedLocale;
   offline: { baseUrl: string; model: string };
   online: { baseUrl: string; model: string };
   hasApiKey: boolean;
   encryptionAvailable: boolean;
+  localeLabels: Record<SupportedLocale, string>;
+  messages: Record<string, string>;
 }
 
 export interface SettingsPayload {
   mode: "offline" | "online";
+  locale: SupportedLocale;
   offline: { baseUrl: string; model: string };
   online: { baseUrl: string; model: string; apiKey: string };
 }
@@ -31,6 +36,10 @@ export interface AppInfo {
 
 contextBridge.exposeInMainWorld("engram", {
   getSettings: (): Promise<SettingsView> => ipcRenderer.invoke("settings:get"),
+  getMessages: (
+    locale: SupportedLocale,
+  ): Promise<Record<string, string>> =>
+    ipcRenderer.invoke("i18n:messages", locale),
   saveSettings: (
     payload: SettingsPayload,
   ): Promise<{ ok: boolean; error?: string }> =>
