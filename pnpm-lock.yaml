@@ -239,6 +239,9 @@ importers:
 
   artifacts/desktop:
     dependencies:
+      '@workspace/localization':
+        specifier: workspace:*
+        version: link:../../lib/localization
       electron-updater:
         specifier: ^6.8.9
         version: 6.8.9
@@ -402,6 +405,9 @@ importers:
       '@workspace/integrations-openai-ai-react':
         specifier: workspace:*
         version: link:../../lib/integrations-openai-ai-react
+      '@workspace/localization':
+        specifier: workspace:*
+        version: link:../../lib/localization
       class-variance-authority:
         specifier: 'catalog:'
         version: 0.7.1
@@ -519,6 +525,9 @@ importers:
       '@workspace/api-client-react':
         specifier: workspace:*
         version: link:../../lib/api-client-react
+      '@workspace/localization':
+        specifier: workspace:*
+        version: link:../../lib/localization
       babel-plugin-react-compiler:
         specifier: ^19.0.0-beta-e993439-20250117
         version: 19.0.0-beta-ebf51a3-20250411
@@ -866,6 +875,8 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 25.9.4
+
+  lib/localization: {}
 
   scripts:
     dependencies:

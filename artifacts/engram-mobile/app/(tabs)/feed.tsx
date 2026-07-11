@@ -15,6 +15,7 @@ import { TransmissionCard } from "@/components/transmission-card";
 import { EmptyState, IconButton } from "@/components/ui";
 import { useEngram } from "@/context/engram-context";
 import { useColors } from "@/hooks/useColors";
+import { useMobileI18n } from "@/i18n";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   getGetEngramQueryKey,
@@ -26,6 +27,7 @@ import {
 } from "@workspace/api-client-react";
 
 export default function FeedScreen() {
+  const { t } = useMobileI18n();
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
@@ -90,8 +92,8 @@ export default function FeedScreen() {
         <View style={{ paddingTop: topPad }} />
         <EmptyState
           icon={<Feather name="radio" size={28} color={colors.mutedForeground} />}
-          title="No engram selected"
-          subtitle="Choose an engram from the Personas tab to monitor its live transmissions."
+          title={t("common.noEngram")}
+          subtitle={t("feed.noEngramSub")}
         />
       </View>
     );
@@ -102,10 +104,10 @@ export default function FeedScreen() {
       <View style={[styles.header, { paddingTop: topPad + 12 }]}>
         <View style={{ flex: 1 }}>
           <Text style={[styles.kicker, { color: colors.primary }]}>
-            LIVE FEED // {engram?.symbol ?? "··"}
+            {t("feed.kicker", { symbol: engram?.symbol ?? "··" })}
           </Text>
           <Text style={[styles.h1, { color: colors.foreground }]}>
-            {engram?.name ?? "Transmissions"}
+            {engram?.name ?? t("feed.titleDefault")}
           </Text>
         </View>
         <IconButton
@@ -143,8 +145,8 @@ export default function FeedScreen() {
                     color={colors.mutedForeground}
                   />
                 }
-                title="Awaiting signal"
-                subtitle="This engram has not transmitted yet. Tap the bolt to provoke one now."
+                title={t("feed.awaitingSignal")}
+                subtitle={t("feed.awaitingSignalSub")}
               />
             </View>
           }

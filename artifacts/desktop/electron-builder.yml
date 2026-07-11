@@ -139,5 +139,19 @@ nsis:
   oneClick: false
   perMachine: false
   allowToChangeInstallationDirectory: true
+  # Show the app under Start Menu > Programs > ENGRAM so users can clearly
+  # identify the install folder rather than having the shortcut land at the
+  # Programs root.
+  menuCategory: true
+  # Explicit shortcut label matches the product name exactly.
+  shortcutName: "ENGRAM"
+  # Default installation directory shown on the Destination Folder page.
+  # Uses the branded product name so the path reads clearly
+  # (e.g. C:\Users\<user>\AppData\Local\Programs\ENGRAM).
+  installDir: "$LOCALAPPDATA\\Programs\\ENGRAM"
   createDesktopShortcut: true
   createStartMenuShortcut: true
+  installerLanguages:
+    - en_US
+    - es_ES
+    - fr_FR

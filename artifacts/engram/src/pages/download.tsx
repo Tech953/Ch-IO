@@ -2,6 +2,8 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useI18n } from "@/i18n";
+import { type SupportedLocale } from "@workspace/localization";
 import {
   Download,
   Apple,
@@ -13,6 +15,14 @@ import {
   AlertTriangle,
   ExternalLink,
 } from "lucide-react";
+
+// Maps our 2-letter SupportedLocale codes to full BCP 47 tags for APIs that
+// require them (Intl.NumberFormat, String.prototype.localeCompare).
+const LOCALE_BCP47: Record<SupportedLocale, string> = {
+  en: "en-US",
+  es: "es-ES",
+  fr: "fr-FR",
+};
 
 // GitHub repository (owner/repo) that hosts the releases produced by
 // .github/workflows/desktop-build.yml. Used here ONLY for the external
@@ -67,22 +77,22 @@ type DownloadLink = {
   size?: number;
 };
 
-const OS_META: Record<Os, { name: string; icon: typeof Apple; note: string }> = {
-  mac: { name: "macOS", icon: Apple, note: "Apple Silicon & Intel (.dmg)" },
+const OS_META: Record<Os, { name: string; icon: typeof Apple; noteKey: string }> = {
+  mac: { name: "macOS", icon: Apple, noteKey: "download.noteMac" },
   win: {
     name: "Windows",
     icon: MonitorDown,
-    note: "Windows 10/11 — installer (.exe, auto-updates) or portable (.zip)",
+    noteKey: "download.noteWin",
   },
   linux: {
     name: "Linux",
     icon: TerminalIcon,
-    note: "AppImage (portable) or .deb (Debian/Ubuntu)",
+    noteKey: "download.noteLinux",
   },
   android: {
     name: "Android",
     icon: Smartphone,
-    note: "Android 8+ — sideload the .apk (enable unknown sources)",
+    noteKey: "download.noteAndroid",
   },
 };
 
@@ -100,10 +110,13 @@ function detectOs(): Os | null {
   return null;
 }
 
-function formatSize(bytes?: number | null): string {
+function formatSize(locale: SupportedLocale, bytes?: number | null): string {
   if (!bytes) return "";
   const mb = bytes / (1024 * 1024);
-  return `${mb.toFixed(mb >= 100 ? 0 : 1)} MB`;
+  return `${new Intl.NumberFormat(LOCALE_BCP47[locale], {
+    minimumFractionDigits: mb >= 100 ? 0 : 1,
+    maximumFractionDigits: mb >= 100 ? 0 : 1,
+  }).format(mb)} MB`;
 }
 
 async function fetchJson<T>(url: string): Promise<T> {
@@ -113,6 +126,7 @@ async function fetchJson<T>(url: string): Promise<T> {
 }
 
 export default function DownloadPage() {
+  const { locale, t } = useI18n();
   const detectedOs = useMemo(detectOs, []);
 
   // Desktop installers (mac/win/linux) — same-origin meta from this app's API.
@@ -138,16 +152,16 @@ export default function DownloadPage() {
       map[inst.os].push({
         key: inst.filename,
         href: inst.downloadPath,
-        label: `Download ${inst.ext}`,
+        label: t("download.downloadExt", { ext: inst.ext }),
         size: inst.sizeBytes,
       });
     }
     // Stable order within an OS (e.g. Linux .AppImage before .deb).
     for (const os of ["mac", "win", "linux"] as DesktopOs[]) {
-      map[os].sort((a, b) => a.label.localeCompare(b.label));
+      map[os].sort((a, b) => a.label.localeCompare(b.label, LOCALE_BCP47[locale]));
     }
     return map;
-  }, [desktopQuery.data]);
+  }, [desktopQuery.data, locale, t]);
 
   const android = androidQuery.data;
   const androidLinks: DownloadLink[] = useMemo(() => {
@@ -156,11 +170,11 @@ export default function DownloadPage() {
       {
         key: android.filename ?? "engram.apk",
         href: android.downloadPath ?? ANDROID_APK_URL,
-        label: "Install APK",
+        label: t("download.installApk"),
         size: android.sizeBytes ?? undefined,
       },
     ];
-  }, [android]);
+  }, [android, t]);
 
   const linksByOs: Record<Os, DownloadLink[]> = {
     mac: desktopByOs.mac,
@@ -190,11 +204,10 @@ export default function DownloadPage() {
       <div className="flex items-start justify-between flex-wrap gap-4">
         <div>
           <h2 className="text-3xl font-bold tracking-widest text-primary">
-            DOWNLOAD PYRI
+            {t("download.title")}
           </h2>
           <p className="text-sm font-mono text-muted-foreground mt-1">
-            Native desktop app (runs fully offline) — every installer served
-            straight from this app
+            {t("download.subtitle")}
           </p>
         </div>
         <div className="flex items-center gap-3 font-mono text-xs">
@@ -202,7 +215,7 @@ export default function DownloadPage() {
             <Skeleton className="h-6 w-28 bg-primary/10" />
           ) : version ? (
             <span className="px-3 py-1.5 border border-primary/30 text-primary uppercase tracking-widest bg-primary/5">
-              Latest&nbsp;v{version}
+              {t("download.latest", { version })}
             </span>
           ) : null}
         </div>
@@ -214,11 +227,9 @@ export default function DownloadPage() {
           <RefreshCw className="w-4 h-4 text-primary mt-0.5 shrink-0" />
           <p className="text-sm text-muted-foreground">
             <span className="text-foreground font-medium">
-              Install once — the desktop app keeps itself current.
+              {t("download.autoUpdateStrong")}
             </span>{" "}
-            On every launch it checks for a newer release and updates silently in
-            the background when online. The Android APK is sideloaded — grab the
-            newest build here whenever you want to update.
+            {t("download.autoUpdateBody")}
           </p>
         </CardContent>
       </Card>
@@ -255,12 +266,14 @@ export default function DownloadPage() {
                     {isRecommended && (
                       <span className="ml-auto inline-flex items-center gap-1 text-[10px] text-primary font-mono uppercase tracking-widest">
                         <CheckCircle2 className="w-3 h-3" />{" "}
-                        {os === "android" ? "Your device" : "Your OS"}
+                        {os === "android"
+                          ? t("download.yourDevice")
+                          : t("download.yourOs")}
                       </span>
                     )}
                   </CardTitle>
                   <p className="text-xs font-mono text-muted-foreground">
-                    {meta.note}
+                  {t(meta.noteKey)}
                   </p>
                 </CardHeader>
                 <CardContent className="flex flex-col gap-2 mt-auto">
@@ -279,7 +292,7 @@ export default function DownloadPage() {
                       <span className="truncate">{link.label}</span>
                       {link.size ? (
                         <span className="ml-auto text-muted-foreground normal-case">
-                          {formatSize(link.size)}
+                          {formatSize(locale, link.size)}
                         </span>
                       ) : null}
                     </a>
@@ -305,17 +318,11 @@ export default function DownloadPage() {
             />
             {isError ? (
               <p className="text-sm text-muted-foreground max-w-md">
-                Couldn't reach the download service right now. You can browse all
-                installers directly on the GitHub Releases page.
+                {t("download.couldNotReach")}
               </p>
             ) : (
               <p className="text-sm text-muted-foreground max-w-lg">
-                No installers are published yet. Installers
-                (.dmg/.exe/.AppImage/.deb/.apk) have to be built on their target
-                OS — this app can't build them itself. Once a build is committed
-                to the deploy's <code className="text-primary/80">downloads/</code>{" "}
-                folder or attached to a GitHub Release, it appears here
-                automatically and stays up to date.
+                {t("download.nonePublished")}
               </p>
             )}
             <a
@@ -324,7 +331,7 @@ export default function DownloadPage() {
               rel="noreferrer"
               className="inline-flex items-center gap-2 px-4 py-2 border border-primary/40 text-primary font-mono text-xs uppercase tracking-widest hover:bg-primary/10 transition-colors"
             >
-              <ExternalLink className="w-4 h-4" /> Open Releases
+              <ExternalLink className="w-4 h-4" /> {t("download.openReleases")}
             </a>
           </CardContent>
         </Card>
@@ -332,8 +339,7 @@ export default function DownloadPage() {
 
       <div className="flex items-center justify-between flex-wrap gap-3 pt-2 border-t border-border/40">
         <p className="text-xs font-mono text-muted-foreground/70">
-          Every installer is served directly by this app — bundled if present,
-          otherwise proxied from the latest release.
+          {t("download.everyInstaller")}
         </p>
         <a
           href={RELEASES_PAGE}
@@ -341,7 +347,7 @@ export default function DownloadPage() {
           rel="noreferrer"
           className="inline-flex items-center gap-2 text-xs font-mono text-primary/80 hover:text-primary uppercase tracking-widest transition-colors"
         >
-          All versions & release notes <ExternalLink className="w-3.5 h-3.5" />
+          {t("download.allVersions")} <ExternalLink className="w-3.5 h-3.5" />
         </a>
       </div>
     </div>

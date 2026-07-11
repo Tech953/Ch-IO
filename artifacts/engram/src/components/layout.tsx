@@ -2,38 +2,40 @@ import { ReactNode, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { Brain, Activity, Database, BookOpen, Users, Hash, FileCheck2, TrendingUp, BarChart3, MessageSquare, Radio, MessageCircleQuestion, Menu, Globe, Network, MessagesSquare, Terminal, FlaskConical, ScanEye, Download, Hammer } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
+import { useI18n, WEB_LOCALE_LABELS, WEB_SUPPORTED_LOCALES } from "@/i18n";
 
 const navItems = [
-  { href: "/", label: "Overview", icon: Activity },
-  { href: "/hub", label: "Hub", icon: Network },
-  { href: "/commons", label: "Commons", icon: MessagesSquare },
-  { href: "/simulations", label: "Simulations", icon: FlaskConical },
-  { href: "/terminal", label: "Terminal", icon: Terminal },
-  { href: "/chat", label: "Chat", icon: MessageSquare },
-  { href: "/environment", label: "Environment", icon: Radio },
-  { href: "/inquiry", label: "Inquiry", icon: MessageCircleQuestion },
-  { href: "/media", label: "Media", icon: ScanEye },
-  { href: "/studio", label: "Studio", icon: Hammer },
-  { href: "/personality", label: "Personality", icon: Brain },
-  { href: "/memory", label: "Memory", icon: Database },
-  { href: "/world-model", label: "World Model", icon: Globe },
-  { href: "/journal", label: "Journal", icon: BookOpen },
-  { href: "/personas", label: "Personas", icon: Users },
-  { href: "/hiero-code", label: "Hiero-Code", icon: Hash },
-  { href: "/beliefs", label: "Beliefs", icon: FileCheck2 },
-  { href: "/evolution", label: "Evolution", icon: TrendingUp },
-  { href: "/analytics", label: "Analytics", icon: BarChart3 },
-  { href: "/download", label: "Download App", icon: Download },
+  { href: "/", labelKey: "nav.overview", icon: Activity },
+  { href: "/hub", labelKey: "nav.hub", icon: Network },
+  { href: "/commons", labelKey: "nav.commons", icon: MessagesSquare },
+  { href: "/simulations", labelKey: "nav.simulations", icon: FlaskConical },
+  { href: "/terminal", labelKey: "nav.terminal", icon: Terminal },
+  { href: "/chat", labelKey: "nav.chat", icon: MessageSquare },
+  { href: "/environment", labelKey: "nav.environment", icon: Radio },
+  { href: "/inquiry", labelKey: "nav.inquiry", icon: MessageCircleQuestion },
+  { href: "/media", labelKey: "nav.media", icon: ScanEye },
+  { href: "/studio", labelKey: "nav.studio", icon: Hammer },
+  { href: "/personality", labelKey: "nav.personality", icon: Brain },
+  { href: "/memory", labelKey: "nav.memory", icon: Database },
+  { href: "/world-model", labelKey: "nav.worldModel", icon: Globe },
+  { href: "/journal", labelKey: "nav.journal", icon: BookOpen },
+  { href: "/personas", labelKey: "nav.personas", icon: Users },
+  { href: "/hiero-code", labelKey: "nav.hieroCode", icon: Hash },
+  { href: "/beliefs", labelKey: "nav.beliefs", icon: FileCheck2 },
+  { href: "/evolution", labelKey: "nav.evolution", icon: TrendingUp },
+  { href: "/analytics", labelKey: "nav.analytics", icon: BarChart3 },
+  { href: "/download", labelKey: "layout.downloadApp", icon: Download },
 ];
 
 function SidebarContent({ location, onNavigate }: { location: string; onNavigate?: () => void }) {
+  const { locale, setLocale, t } = useI18n();
   return (
     <>
       <div className="p-6 flex flex-col gap-2 border-b border-border/50">
         <h1 className="text-2xl font-bold tracking-widest text-primary glow-text flex items-center gap-3">
           <span className="text-3xl">◈</span> PYRI
         </h1>
-        <p className="text-xs font-mono text-muted-foreground uppercase tracking-widest">Cognitive Architecture</p>
+        <p className="text-xs font-mono text-muted-foreground uppercase tracking-widest">{t("layout.brandTagline")}</p>
       </div>
 
       <nav className="flex-1 overflow-y-auto py-4 px-3 flex flex-col gap-1">
@@ -42,11 +44,28 @@ function SidebarContent({ location, onNavigate }: { location: string; onNavigate
           return (
             <Link key={item.href} href={item.href} onClick={onNavigate} className={`flex items-center gap-3 px-3 py-2.5 rounded-none border-l-2 transition-all duration-200 ${isActive ? "bg-primary/10 border-primary text-primary" : "border-transparent text-muted-foreground hover:bg-white/5 hover:text-foreground hover:border-white/20"}`}>
               <item.icon className="w-4 h-4 shrink-0" />
-              <span className="font-display font-medium uppercase tracking-wider text-sm">{item.label}</span>
+              <span className="font-display font-medium uppercase tracking-wider text-sm">{t(item.labelKey)}</span>
             </Link>
           );
         })}
       </nav>
+
+      <div className="px-4 py-3 border-t border-border/50">
+        <label className="block text-[10px] uppercase tracking-widest font-mono text-muted-foreground mb-2">
+          {t("layout.locale")}
+        </label>
+        <select
+          className="w-full bg-background border border-border/60 text-xs font-mono px-2 py-1.5"
+          value={locale}
+          onChange={(event) => setLocale(event.target.value as typeof locale)}
+        >
+          {WEB_SUPPORTED_LOCALES.map((code) => (
+            <option key={code} value={code}>
+              {WEB_LOCALE_LABELS[code]}
+            </option>
+          ))}
+        </select>
+      </div>
 
       <div className="px-3 py-3 border-t border-border/50">
         <Link
@@ -55,24 +74,25 @@ function SidebarContent({ location, onNavigate }: { location: string; onNavigate
           className={`flex items-center gap-3 px-3 py-2.5 rounded-none border transition-all duration-200 ${location === "/download" ? "bg-primary/15 border-primary text-primary" : "border-primary/30 text-primary/80 hover:bg-primary/10 hover:border-primary hover:text-primary"}`}
         >
           <Download className="w-4 h-4 shrink-0" />
-          <span className="font-display font-medium uppercase tracking-wider text-sm">Download App</span>
+          <span className="font-display font-medium uppercase tracking-wider text-sm">{t("layout.downloadApp")}</span>
         </Link>
       </div>
 
       <div className="p-4 border-t border-border/50 font-mono text-[10px] text-muted-foreground/50 uppercase flex justify-between">
-        <span>SYS.ONLINE</span>
-        <span className="text-primary/50">OP.NOMINAL</span>
+        <span>{t("layout.statusOnline")}</span>
+        <span className="text-primary/50">{t("layout.statusNominal")}</span>
       </div>
     </>
   );
 }
 
 export default function Layout({ children }: { children: ReactNode }) {
+  const { t } = useI18n();
   const [location] = useLocation();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   const isChat = location === "/chat";
-  const pageLabel = location === "/" ? "OVERVIEW" : location.replace("/", "").toUpperCase();
+  const pageLabel = location === "/" ? t("layout.overview") : location.replace("/", "").toUpperCase();
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background text-foreground">
@@ -88,7 +108,7 @@ export default function Layout({ children }: { children: ReactNode }) {
           <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
             <SheetTrigger asChild>
               <button
-                aria-label="Open navigation"
+                aria-label={t("layout.openNavigation")}
                 className="flex items-center justify-center w-9 h-9 -ml-1 text-foreground/80 hover:text-primary transition-colors"
               >
                 <Menu className="w-5 h-5" />
@@ -99,7 +119,7 @@ export default function Layout({ children }: { children: ReactNode }) {
               aria-describedby={undefined}
               className="w-72 max-w-[82vw] p-0 bg-sidebar border-border/50 flex flex-col"
             >
-              <SheetTitle className="sr-only">Navigation</SheetTitle>
+              <SheetTitle className="sr-only">{t("layout.navigation")}</SheetTitle>
               <SidebarContent location={location} onNavigate={() => setMobileNavOpen(false)} />
             </SheetContent>
           </Sheet>

@@ -44,6 +44,24 @@ large (an APK is ~30–100 MB; desktop installers are bigger), which permanently
 increases repo size — if you'd rather not commit a large binary, rely on the
 GitHub release fallback above (no commit needed).
 
+## Signing
+
+Installers in this directory may be signed or unsigned:
+
+- **macOS** — an unsigned `.dmg` triggers a Gatekeeper "unidentified developer"
+  warning. Notarized builds require a Developer ID certificate **and** Apple
+  notarization together (`CSC_*` + `APPLE_*` secrets in CI). See the root
+  `README.md` → **Building for all platforms (CI)** for the required secrets
+  and how to obtain them.
+- **Windows** — an unsigned `.exe`/`.zip` triggers Windows SmartScreen.
+  An Authenticode certificate (`WIN_CSC_*`) removes the "unknown publisher"
+  prompt; an EV cert earns SmartScreen reputation immediately, an OV cert
+  accrues it over time. Signatures are SHA-256 + RFC-3161 timestamped.
+- **Linux** — no OS-level signing requirement; `.AppImage` and `.deb` install
+  without warnings.
+- **Android** — without a release keystore the APK is debug-signed
+  (sideloadable via adb, but NOT update-safe across builds).
+
 ## Building the installers
 
 You cannot build desktop installers or an Android APK inside Replit/Deploy

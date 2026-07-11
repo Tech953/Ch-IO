@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { EmptyState } from "@/components/ui";
 import { useEngram } from "@/context/engram-context";
 import { useColors } from "@/hooks/useColors";
+import { useMobileI18n } from "@/i18n";
 import {
   getGetEngramQueryKey,
   getGetOpenaiConversationQueryKey,
@@ -43,6 +44,7 @@ function uid(): string {
 const BASE_URL = `https://${process.env.EXPO_PUBLIC_DOMAIN}`;
 
 export default function ChatScreen() {
+  const { t } = useMobileI18n();
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { selectedEngramId, getConversationId, setConversationId } = useEngram();
@@ -78,7 +80,7 @@ export default function ChatScreen() {
     createConversation
       .mutateAsync({
         data: {
-          title: `${engram?.name ?? "Engram"} session`,
+          title: `${engram?.name ?? "Engram"} ${t("tabs.chat")}`,
           mode: "companion",
           engramId,
         },
@@ -197,7 +199,7 @@ export default function ChatScreen() {
           {
             id: uid(),
             role: "assistant",
-            content: "[ signal interrupted — try again ]",
+            content: t("chat.interrupted"),
           },
         ]);
       }
@@ -219,8 +221,8 @@ export default function ChatScreen() {
               color={colors.mutedForeground}
             />
           }
-          title="No engram selected"
-          subtitle="Pick an engram from the Personas tab to speak with it in its own voice."
+          title={t("common.noEngram")}
+          subtitle={t("chat.noEngramSub")}
         />
       </View>
     );
@@ -242,10 +244,10 @@ export default function ChatScreen() {
         ]}
       >
         <Text style={[styles.kicker, { color: colors.primary }]}>
-          DIRECT LINK // {engram?.symbol ?? "··"}
+          {t("chat.kicker", { symbol: engram?.symbol ?? "··" })}
         </Text>
         <Text style={[styles.h1, { color: colors.foreground }]}>
-          {engram?.name ?? "Chat"}
+          {engram?.name ?? t("chat.titleDefault")}
         </Text>
       </View>
 
@@ -325,8 +327,10 @@ export default function ChatScreen() {
                       color={colors.mutedForeground}
                     />
                   }
-                  title={`Speak with ${engram?.name ?? "the engram"}`}
-                  subtitle="Replies stream in this engram's own voice and formatting."
+                  title={t("chat.emptyTitle", {
+                    name: engram?.name ?? t("common.noEngram"),
+                  })}
+                  subtitle={t("chat.emptySub")}
                 />
               </View>
             ) : null
@@ -347,7 +351,7 @@ export default function ChatScreen() {
             ref={inputRef}
             value={input}
             onChangeText={setInput}
-            placeholder="Transmit a message…"
+            placeholder={t("chat.inputPlaceholder")}
             placeholderTextColor={colors.mutedForeground}
             multiline
             blurOnSubmit={false}

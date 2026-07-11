@@ -6,6 +6,7 @@ import {
   ActivityIndicator,
   FlatList,
   Platform,
+  Pressable,
   RefreshControl,
   StyleSheet,
   Text,
@@ -18,6 +19,11 @@ import { EmptyState } from "@/components/ui";
 import { useEngram } from "@/context/engram-context";
 import { useColors } from "@/hooks/useColors";
 import {
+  MOBILE_LOCALE_LABELS,
+  MOBILE_SUPPORTED_LOCALES,
+  useMobileI18n,
+} from "@/i18n";
+import {
   getListEngramsQueryKey,
   useActivateEngram,
   useListEngrams,
@@ -25,6 +31,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 
 export default function EngramsScreen() {
+  const { locale, setLocale, t } = useMobileI18n();
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -57,12 +64,31 @@ export default function EngramsScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={[styles.header, { paddingTop: topPad + 12 }]}>
         <Text style={[styles.kicker, { color: colors.primary }]}>
-          ENGRAM // REGISTRY
+          {t("index.kicker")}
         </Text>
-        <Text style={[styles.h1, { color: colors.foreground }]}>Personas</Text>
+        <Text style={[styles.h1, { color: colors.foreground }]}>{t("index.title")}</Text>
         <Text style={[styles.sub, { color: colors.mutedForeground }]}>
-          Select an engram to make it active across feed, chat, and inquiry.
+          {t("index.subtitle")}
         </Text>
+        <View style={styles.localeRow}>
+          {MOBILE_SUPPORTED_LOCALES.map((code) => (
+            <Pressable
+              key={code}
+              onPress={() => setLocale(code)}
+              style={[
+                styles.localeChip,
+                {
+                  borderColor: code === locale ? colors.primary : colors.border,
+                  backgroundColor: code === locale ? `${colors.primary}20` : colors.card,
+                },
+              ]}
+            >
+              <Text style={[styles.localeText, { color: colors.foreground }]}>
+                {MOBILE_LOCALE_LABELS[code]}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
       </View>
 
       {isLoading ? (
@@ -75,8 +101,8 @@ export default function EngramsScreen() {
             icon={
               <Feather name="wifi-off" size={28} color={colors.mutedForeground} />
             }
-            title="Connection lost"
-            subtitle="Could not reach the ENGRAM core. Pull to retry."
+            title={t("index.connectionLost")}
+            subtitle={t("index.connectionLostSub")}
           />
         </View>
       ) : (
@@ -106,8 +132,8 @@ export default function EngramsScreen() {
                 icon={
                   <Feather name="cpu" size={28} color={colors.mutedForeground} />
                 }
-                title="No engrams yet"
-                subtitle="The registry is empty. Seed engrams from the dashboard to begin."
+                title={t("index.noEngrams")}
+                subtitle={t("index.noEngramsSub")}
               />
             </View>
           }
@@ -139,6 +165,22 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 19,
     marginTop: 2,
+  },
+  localeRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 8,
+    flexWrap: "wrap",
+  },
+  localeChip: {
+    borderWidth: 1,
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  localeText: {
+    fontFamily: "JetBrainsMono_500Medium",
+    fontSize: 10,
   },
   list: {
     paddingHorizontal: 20,

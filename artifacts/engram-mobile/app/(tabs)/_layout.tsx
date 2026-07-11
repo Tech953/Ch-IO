@@ -8,25 +8,27 @@ import React from "react";
 import { Platform, StyleSheet, View, useColorScheme } from "react-native";
 
 import { useColors } from "@/hooks/useColors";
+import { useMobileI18n } from "@/i18n";
 
 function NativeTabLayout() {
+  const { t } = useMobileI18n();
   return (
     <NativeTabs>
       <NativeTabs.Trigger name="index">
         <Icon sf={{ default: "cpu", selected: "cpu.fill" }} />
-        <Label>Personas</Label>
+        <Label>{t("tabs.personas")}</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="feed">
         <Icon sf={{ default: "dot.radiowaves.left.and.right", selected: "dot.radiowaves.left.and.right" }} />
-        <Label>Feed</Label>
+        <Label>{t("tabs.feed")}</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="chat">
         <Icon sf={{ default: "bubble.left", selected: "bubble.left.fill" }} />
-        <Label>Chat</Label>
+        <Label>{t("tabs.chat")}</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="inquiry">
         <Icon sf={{ default: "questionmark.circle", selected: "questionmark.circle.fill" }} />
-        <Label>Inquiry</Label>
+        <Label>{t("tabs.inquiry")}</Label>
       </NativeTabs.Trigger>
     </NativeTabs>
   );
@@ -34,24 +36,39 @@ function NativeTabLayout() {
 
 type FeatherName = React.ComponentProps<typeof Feather>["name"];
 
-const TABS: {
-  name: string;
-  label: string;
-  feather: FeatherName;
-  sf: string;
-}[] = [
-  { name: "index", label: "Personas", feather: "cpu", sf: "cpu" },
-  { name: "feed", label: "Feed", feather: "radio", sf: "dot.radiowaves.left.and.right" },
-  { name: "chat", label: "Chat", feather: "message-circle", sf: "bubble.left" },
-  { name: "inquiry", label: "Inquiry", feather: "help-circle", sf: "questionmark.circle" },
-];
-
 function ClassicTabLayout() {
+  const { t } = useMobileI18n();
   const colors = useColors();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
   const isIOS = Platform.OS === "ios";
   const isWeb = Platform.OS === "web";
+  const tabs: {
+    name: string;
+    label: string;
+    feather: FeatherName;
+    sf: string;
+  }[] = [
+    { name: "index", label: t("tabs.personas"), feather: "cpu", sf: "cpu" },
+    {
+      name: "feed",
+      label: t("tabs.feed"),
+      feather: "radio",
+      sf: "dot.radiowaves.left.and.right",
+    },
+    {
+      name: "chat",
+      label: t("tabs.chat"),
+      feather: "message-circle",
+      sf: "bubble.left",
+    },
+    {
+      name: "inquiry",
+      label: t("tabs.inquiry"),
+      feather: "help-circle",
+      sf: "questionmark.circle",
+    },
+  ];
 
   return (
     <Tabs
@@ -89,7 +106,7 @@ function ClassicTabLayout() {
           ),
       }}
     >
-      {TABS.map((tab) => (
+      {tabs.map((tab) => (
         <Tabs.Screen
           key={tab.name}
           name={tab.name}
