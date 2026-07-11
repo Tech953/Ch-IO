@@ -145,7 +145,6 @@ export default function FeedScreen() {
                     color={colors.mutedForeground}
                   />
                 }
-                title="Awaiting signal"
                 title={t("feed.awaitingSignal")}
                 subtitle={t("feed.awaitingSignalSub")}
               />
