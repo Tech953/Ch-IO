@@ -97,6 +97,25 @@ export const WEB_CATALOG: Record<SupportedLocale, Record<string, string>> = {
     "download.noteLinux": "AppImage (portable) or .deb (Debian/Ubuntu)",
     "download.noteAndroid":
       "Android 8+ — sideload the .apk (enable unknown sources)",
+    "chat.error.auth_invalid":
+      "Authentication failed. Check your API key.",
+    "chat.error.endpoint_unreachable":
+      "Could not reach the model endpoint.",
+    "chat.error.timeout":
+      "The request timed out. Try again.",
+    "chat.error.model_not_found":
+      "The configured model was not found.",
+    "chat.error.rate_limited":
+      "Provider rate limit reached. Retry shortly.",
+    "chat.error.malformed_response":
+      "The provider returned an invalid response.",
+    "chat.error.provider_error":
+      "Generation failed on the provider.",
+    "chat.error.title": "Generation error",
+    "chat.error.networkTitle": "Network error",
+    "chat.error.networkDescription": "Could not reach the API",
+    "chat.status.fallback":
+      "Cloud provider unavailable — switched to local offline model.",
   },
   es: {
     "layout.brandTagline": "Arquitectura cognitiva",
@@ -152,6 +171,25 @@ export const WEB_CATALOG: Record<SupportedLocale, Record<string, string>> = {
     "download.noteLinux": "AppImage (portable) o .deb (Debian/Ubuntu)",
     "download.noteAndroid":
       "Android 8+ — instala el .apk por sideload (fuentes desconocidas)",
+    "chat.error.auth_invalid":
+      "Autenticación fallida. Revisa tu clave API.",
+    "chat.error.endpoint_unreachable":
+      "No se pudo conectar al endpoint del modelo.",
+    "chat.error.timeout":
+      "La solicitud agotó el tiempo de espera. Inténtalo de nuevo.",
+    "chat.error.model_not_found":
+      "No se encontró el modelo configurado.",
+    "chat.error.rate_limited":
+      "Límite de tasa del proveedor alcanzado. Reintenta en breve.",
+    "chat.error.malformed_response":
+      "El proveedor devolvió una respuesta no válida.",
+    "chat.error.provider_error":
+      "La generación falló en el proveedor.",
+    "chat.error.title": "Error de generación",
+    "chat.error.networkTitle": "Error de red",
+    "chat.error.networkDescription": "No se pudo alcanzar la API",
+    "chat.status.fallback":
+      "Proveedor en la nube no disponible: se cambió al modelo local sin conexión.",
   },
   fr: {
     "layout.brandTagline": "Architecture cognitive",
@@ -207,6 +245,25 @@ export const WEB_CATALOG: Record<SupportedLocale, Record<string, string>> = {
     "download.noteLinux": "AppImage (portable) ou .deb (Debian/Ubuntu)",
     "download.noteAndroid":
       "Android 8+ — sideload du .apk (activer sources inconnues)",
+    "chat.error.auth_invalid":
+      "Échec d'authentification. Vérifiez votre clé API.",
+    "chat.error.endpoint_unreachable":
+      "Impossible de joindre l'endpoint du modèle.",
+    "chat.error.timeout":
+      "La requête a expiré. Réessayez.",
+    "chat.error.model_not_found":
+      "Le modèle configuré est introuvable.",
+    "chat.error.rate_limited":
+      "Limite de débit du fournisseur atteinte. Réessayez bientôt.",
+    "chat.error.malformed_response":
+      "Le fournisseur a renvoyé une réponse invalide.",
+    "chat.error.provider_error":
+      "La génération a échoué côté fournisseur.",
+    "chat.error.title": "Erreur de génération",
+    "chat.error.networkTitle": "Erreur réseau",
+    "chat.error.networkDescription": "Impossible de joindre l'API",
+    "chat.status.fallback":
+      "Fournisseur cloud indisponible — bascule vers le modèle local hors ligne.",
   },
 };
 
@@ -265,6 +322,18 @@ export const DESKTOP_CATALOG: Record<SupportedLocale, Record<string, string>> = 
     "settings.checkUpdates": "Check for Updates",
     "settings.cancel": "Cancel",
     "settings.saveRestart": "Save & Restart",
+    "settings.validation.offlineBaseUrl":
+      "Offline Base URL must be a valid http(s) URL.",
+    "settings.validation.onlineBaseUrl":
+      "Online Base URL must be a valid http(s) URL.",
+    "settings.validation.offlineModel":
+      "Offline model is required.",
+    "settings.validation.onlineModel":
+      "Online model is required.",
+    "settings.validation.onlineApiKey":
+      "An API key is required for online mode.",
+    "settings.validation.connectionFailed":
+      "Online provider test connection failed",
     "settings.status.restarting": "Restarting engine…",
     "settings.status.errorPrefix": "Error: ",
     "settings.status.unavailable": "Not available in this build",
@@ -331,6 +400,18 @@ export const DESKTOP_CATALOG: Record<SupportedLocale, Record<string, string>> = 
     "settings.checkUpdates": "Buscar actualizaciones",
     "settings.cancel": "Cancelar",
     "settings.saveRestart": "Guardar y reiniciar",
+    "settings.validation.offlineBaseUrl":
+      "La URL base sin conexión debe ser una URL http(s) válida.",
+    "settings.validation.onlineBaseUrl":
+      "La URL base en línea debe ser una URL http(s) válida.",
+    "settings.validation.offlineModel":
+      "El modelo sin conexión es obligatorio.",
+    "settings.validation.onlineModel":
+      "El modelo en línea es obligatorio.",
+    "settings.validation.onlineApiKey":
+      "Se requiere una clave API para el modo en línea.",
+    "settings.validation.connectionFailed":
+      "Falló la prueba de conexión del proveedor en línea",
     "settings.status.restarting": "Reiniciando motor…",
     "settings.status.errorPrefix": "Error: ",
     "settings.status.unavailable": "No disponible en esta compilación",
@@ -401,6 +482,18 @@ export const DESKTOP_CATALOG: Record<SupportedLocale, Record<string, string>> = 
     "settings.checkUpdates": "Rechercher des mises à jour",
     "settings.cancel": "Annuler",
     "settings.saveRestart": "Enregistrer et redémarrer",
+    "settings.validation.offlineBaseUrl":
+      "L'URL de base hors ligne doit être une URL http(s) valide.",
+    "settings.validation.onlineBaseUrl":
+      "L'URL de base en ligne doit être une URL http(s) valide.",
+    "settings.validation.offlineModel":
+      "Le modèle hors ligne est requis.",
+    "settings.validation.onlineModel":
+      "Le modèle en ligne est requis.",
+    "settings.validation.onlineApiKey":
+      "Une clé API est requise pour le mode en ligne.",
+    "settings.validation.connectionFailed":
+      "Le test de connexion du fournisseur en ligne a échoué",
     "settings.status.restarting": "Redémarrage du moteur…",
     "settings.status.errorPrefix": "Erreur : ",
     "settings.status.unavailable": "Indisponible dans cette build",
@@ -451,6 +544,22 @@ export const MOBILE_CATALOG: Record<SupportedLocale, Record<string, string>> = {
       "Replies stream in this engram's own voice and formatting.",
     "chat.inputPlaceholder": "Transmit a message…",
     "chat.interrupted": "[ signal interrupted — try again ]",
+    "chat.error.auth_invalid":
+      "Authentication failed. Check your API key.",
+    "chat.error.endpoint_unreachable":
+      "Could not reach the model endpoint.",
+    "chat.error.timeout":
+      "The request timed out. Try again.",
+    "chat.error.model_not_found":
+      "The configured model was not found.",
+    "chat.error.rate_limited":
+      "Provider rate limit reached. Retry shortly.",
+    "chat.error.malformed_response":
+      "The provider returned an invalid response.",
+    "chat.error.provider_error":
+      "Generation failed on the provider.",
+    "chat.status.fallback":
+      "Cloud provider unavailable — switched to local offline model.",
     "inquiry.kicker": "INQUIRY // {symbol}",
     "inquiry.title": "Interrogate",
     "inquiry.probe": "probe",
@@ -508,6 +617,22 @@ export const MOBILE_CATALOG: Record<SupportedLocale, Record<string, string>> = {
       "Las respuestas llegan en la voz y formato propios de este engrama.",
     "chat.inputPlaceholder": "Transmitir un mensaje…",
     "chat.interrupted": "[ señal interrumpida — inténtalo de nuevo ]",
+    "chat.error.auth_invalid":
+      "Autenticación fallida. Revisa tu clave API.",
+    "chat.error.endpoint_unreachable":
+      "No se pudo conectar al endpoint del modelo.",
+    "chat.error.timeout":
+      "La solicitud agotó el tiempo de espera. Inténtalo de nuevo.",
+    "chat.error.model_not_found":
+      "No se encontró el modelo configurado.",
+    "chat.error.rate_limited":
+      "Límite de tasa del proveedor alcanzado. Reintenta en breve.",
+    "chat.error.malformed_response":
+      "El proveedor devolvió una respuesta no válida.",
+    "chat.error.provider_error":
+      "La generación falló en el proveedor.",
+    "chat.status.fallback":
+      "Proveedor en la nube no disponible: se cambió al modelo local sin conexión.",
     "inquiry.kicker": "CONSULTA // {symbol}",
     "inquiry.title": "Interrogar",
     "inquiry.probe": "sondear",
@@ -565,6 +690,22 @@ export const MOBILE_CATALOG: Record<SupportedLocale, Record<string, string>> = {
       "Les réponses arrivent avec la voix et le style de cet engramme.",
     "chat.inputPlaceholder": "Transmettre un message…",
     "chat.interrupted": "[ signal interrompu — réessayez ]",
+    "chat.error.auth_invalid":
+      "Échec d'authentification. Vérifiez votre clé API.",
+    "chat.error.endpoint_unreachable":
+      "Impossible de joindre l'endpoint du modèle.",
+    "chat.error.timeout":
+      "La requête a expiré. Réessayez.",
+    "chat.error.model_not_found":
+      "Le modèle configuré est introuvable.",
+    "chat.error.rate_limited":
+      "Limite de débit du fournisseur atteinte. Réessayez bientôt.",
+    "chat.error.malformed_response":
+      "Le fournisseur a renvoyé une réponse invalide.",
+    "chat.error.provider_error":
+      "La génération a échoué côté fournisseur.",
+    "chat.status.fallback":
+      "Fournisseur cloud indisponible — bascule vers le modèle local hors ligne.",
     "inquiry.kicker": "ENQUÊTE // {symbol}",
     "inquiry.title": "Interroger",
     "inquiry.probe": "sonder",

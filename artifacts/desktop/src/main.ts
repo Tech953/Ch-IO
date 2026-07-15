@@ -27,6 +27,11 @@ import {
 } from "node:fs";
 import path from "node:path";
 import http from "node:http";
+import {
+  normalizeBaseUrl,
+  testOnlineConnection,
+  validateConnectionSettings,
+} from "./settings-config";
 
 // ---------------------------------------------------------------------------
 // Paths. In a packaged app, bundled resources live under process.resourcesPath
@@ -183,8 +188,8 @@ function buildServerEnv(
   settings: Settings,
   port: number,
 ): NodeJS.ProcessEnv {
-  const active =
-    settings.mode === "offline" ? settings.offline : settings.online;
+  const active = settings.mode === "offline" ? settings.offline : settings.online;
+  const fallback = settings.mode === "online" ? settings.offline : null;
   const apiKey = resolveApiKey(settings) || "local-placeholder";
   const env: NodeJS.ProcessEnv = {
     ...process.env,
@@ -196,10 +201,16 @@ function buildServerEnv(
     WEB_DIST: webDist,
     HOST: "127.0.0.1",
     PORT: String(port),
+    LLM_MODE: settings.mode,
     LLM_BASE_URL: active.baseUrl,
     LLM_MODEL: active.model,
     LLM_API_KEY: apiKey,
   };
+  if (fallback) {
+    env.LLM_FALLBACK_BASE_URL = fallback.baseUrl;
+    env.LLM_FALLBACK_MODEL = fallback.model;
+    env.LLM_FALLBACK_API_KEY = "local-placeholder";
+  }
   // Point the server child at the bundled ffmpeg/ffprobe when present so video
   // perception runs offline. If a binary is missing (e.g. a partial build), leave
   // the var unset so the extractor falls back to a system install on PATH.
@@ -459,21 +470,39 @@ ipcMain.handle(
   }) => {
     try {
       const previous = loadSettings();
+      const newKey = payload.online.apiKey;
+      const hasPersistedKey =
+        Boolean(previous.online.apiKeyEnc) ||
+        Boolean(sessionApiKey) ||
+        (typeof newKey === "string" && newKey.trim().length > 0);
       const next: Settings = {
         mode: payload.mode === "online" ? "online" : "offline",
         locale: normalizeLocale(payload.locale),
         offline: {
-          baseUrl: payload.offline.baseUrl.trim() || DEFAULT_SETTINGS.offline.baseUrl,
+          baseUrl:
+            normalizeBaseUrl(payload.offline.baseUrl) ||
+            DEFAULT_SETTINGS.offline.baseUrl,
           model: payload.offline.model.trim() || DEFAULT_SETTINGS.offline.model,
         },
         online: {
-          baseUrl: payload.online.baseUrl.trim() || DEFAULT_SETTINGS.online.baseUrl,
+          baseUrl:
+            normalizeBaseUrl(payload.online.baseUrl) ||
+            DEFAULT_SETTINGS.online.baseUrl,
           model: payload.online.model.trim() || DEFAULT_SETTINGS.online.model,
           apiKeyEnc: previous.online.apiKeyEnc,
         },
       };
 
-      const newKey = payload.online.apiKey;
+      const validationKey = validateConnectionSettings({
+        mode: next.mode,
+        offline: next.offline,
+        online: { baseUrl: next.online.baseUrl, model: next.online.model },
+        hasOnlineApiKey: hasPersistedKey,
+      });
+      if (validationKey) {
+        return { ok: false, error: tDesktop(validationKey, undefined, next.locale) };
+      }
+
       if (typeof newKey === "string" && newKey.length > 0) {
         if (safeStorage.isEncryptionAvailable()) {
           next.online.apiKeyEnc = safeStorage
@@ -485,6 +514,18 @@ ipcMain.handle(
           // It is intentionally never written to settings.json in plaintext.
           sessionApiKey = newKey;
           delete next.online.apiKeyEnc;
+        }
+      }
+
+      if (next.mode === "online") {
+        const keyForCheck = newKey.trim() || resolveApiKey(next);
+        try {
+          await testOnlineConnection(next.online.baseUrl, keyForCheck);
+        } catch (error) {
+          return {
+            ok: false,
+            error: `${tDesktop("settings.validation.connectionFailed", undefined, next.locale)} (${String(error)})`,
+          };
         }
       }
 

@@ -1,5 +1,6 @@
 import { Router } from "express";
 import multer from "multer";
+import OpenAI from "openai";
 import { db, type MediaAsset } from "@workspace/db";
 import {
   conversations,
@@ -27,8 +28,23 @@ import { buildPerceptualContext } from "../lib/perceptual-context";
 import { createMediaAsset } from "../lib/media-store";
 import { detectModality } from "../lib/media-extraction";
 import { publishEvent } from "../lib/events";
+import { mapChatError } from "../lib/chat-errors";
 
 const router = Router();
+const REQUEST_TIMEOUT_MS = Number(process.env["LLM_TIMEOUT_MS"] ?? "45000");
+const FALLBACK_BASE_URL = process.env["LLM_FALLBACK_BASE_URL"]?.trim();
+const FALLBACK_MODEL =
+  process.env["LLM_FALLBACK_MODEL"] ?? process.env["LLM_MODEL"] ?? "gpt-4o-mini";
+const FALLBACK_API_KEY =
+  process.env["LLM_FALLBACK_API_KEY"] ?? "local-placeholder";
+const FALLBACK_ENABLED = Boolean(FALLBACK_BASE_URL);
+const fallbackClient = FALLBACK_BASE_URL
+  ? new OpenAI({
+      baseURL: FALLBACK_BASE_URL.replace(/\/+$/, ""),
+      apiKey: FALLBACK_API_KEY,
+      timeout: REQUEST_TIMEOUT_MS,
+    })
+  : null;
 
 /** Hard cap on a single inline upload's size. Defaults to 25 MiB; overridable via env. */
 const MEDIA_MAX_BYTES = Number(process.env["MEDIA_MAX_BYTES"]) || 25 * 1024 * 1024;
@@ -269,13 +285,54 @@ router.post("/openai/conversations/:id/messages", async (req, res) => {
   res.setHeader("X-Accel-Buffering", "no");
 
   let fullResponse = "";
+  const requestId = String(req.id ?? `${Date.now()}-${Math.random()}`);
   try {
-    const stream = await llm.chat.completions.create({
-      model: LLM_MODEL,
-      max_completion_tokens: 8192,
-      messages: chatMessages,
-      stream: true,
-    });
+    let stream: AsyncIterable<{
+      choices: Array<{ delta?: { content?: string | null } }>;
+    }>;
+    // Optional failover: if the active (online) provider fails, retry once against
+    // the configured local provider so chat still works when cloud auth/connectivity
+    // breaks. This never runs when we're already in offline mode.
+    if (FALLBACK_ENABLED && fallbackClient && process.env["LLM_MODE"] === "online") {
+      try {
+        stream = await llm.chat.completions.create({
+          model: LLM_MODEL,
+          max_tokens: 8192,
+          messages: chatMessages,
+          stream: true,
+        });
+      } catch (primaryError) {
+        const mappedPrimary = mapChatError(primaryError);
+        req.log.warn(
+          {
+            requestId,
+            code: mappedPrimary.code,
+            debug: mappedPrimary.debug,
+          },
+          "Primary online provider failed; retrying on fallback offline provider",
+        );
+        stream = await fallbackClient.chat.completions.create({
+          model: FALLBACK_MODEL,
+          max_tokens: 8192,
+          messages: chatMessages,
+          stream: true,
+        });
+        res.write(
+          `data: ${JSON.stringify({
+            status: "fallback",
+            mode: "offline",
+            requestId,
+          })}\n\n`,
+        );
+      }
+    } else {
+      stream = await llm.chat.completions.create({
+        model: LLM_MODEL,
+        max_tokens: 8192,
+        messages: chatMessages,
+        stream: true,
+      });
+    }
 
     for await (const chunk of stream) {
       const delta = chunk.choices[0]?.delta?.content;
@@ -297,8 +354,18 @@ router.post("/openai/conversations/:id/messages", async (req, res) => {
     });
     res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
   } catch (err) {
-    req.log.error(err);
-    res.write(`data: ${JSON.stringify({ error: "Generation failed" })}\n\n`);
+    const mapped = mapChatError(err);
+    req.log.error(
+      { requestId, code: mapped.code, debug: mapped.debug, err },
+      "Chat generation failed",
+    );
+    res.write(
+      `data: ${JSON.stringify({
+        error: mapped.message,
+        errorCode: mapped.code,
+        requestId,
+      })}\n\n`,
+    );
   }
   res.end();
 });

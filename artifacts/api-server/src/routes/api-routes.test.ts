@@ -629,7 +629,13 @@ describe("chat message streaming", () => {
     });
     expect(res.status).toBe(200);
     const events = parseSse(await res.text());
-    expect(events).toContainEqual({ error: "Generation failed" });
+    expect(
+      events.some(
+        (event) =>
+          event.error === "Provider request failed." &&
+          event.errorCode === "provider_error",
+      ),
+    ).toBe(true);
     // assistant message is NOT persisted on failure
     expect(h.store.messages.map((m) => m.role)).toEqual(["user"]);
   });
