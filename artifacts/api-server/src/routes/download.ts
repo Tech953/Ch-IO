@@ -1,4 +1,4 @@
-import { Router, type Request, type Response } from "express";
+import { Router, type Request, type Response, type NextFunction } from "express";
 import fs from "node:fs";
 import { Readable } from "node:stream";
 import {
@@ -40,6 +40,19 @@ function withinDownloadRateLimit(req: Request, routeKey: string): boolean {
   history.push(now);
   downloadRequests.set(key, history);
   return true;
+}
+
+/** Express middleware that enforces the per-IP download rate limit for a named route. */
+function downloadRateLimit(routeKey: string) {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    if (!withinDownloadRateLimit(req, routeKey)) {
+      res
+        .status(429)
+        .json({ error: "Too many download requests. Please try again shortly." });
+      return;
+    }
+    next();
+  };
 }
 
 type DesktopOs = "mac" | "win" | "linux";
@@ -181,7 +194,7 @@ router.get("/download/android", async (_req, res) => {
   });
 });
 
-router.get("/download/android.apk", async (req, res) => {
+router.get("/download/android.apk", downloadRateLimit("android-apk"), async (req, res) => {
   const apk = await resolveApk();
   if (!apk) {
     res.status(404).json({ error: "No Android APK is available for download." });
@@ -194,11 +207,7 @@ router.get("/download/android.apk", async (req, res) => {
   }
 });
 
-router.get("/download/android/latest", async (req, res) => {
-  if (!withinDownloadRateLimit(req, "android-latest")) {
-    res.status(429).json({ error: "Too many download requests. Please try again shortly." });
-    return;
-  }
+router.get("/download/android/latest", downloadRateLimit("android-latest"), async (req, res) => {
   const apk = await resolveApk();
   if (!apk) {
     res.status(404).json({ error: "No Android APK is available for download." });
@@ -229,8 +238,8 @@ router.get("/download/desktop", async (_req, res) => {
   });
 });
 
-router.get("/download/desktop/file/:name", async (req, res) => {
-  const installer = await findDesktopInstaller(req.params.name);
+router.get("/download/desktop/file/:name", downloadRateLimit("desktop-file"), async (req, res) => {
+  const installer = await findDesktopInstaller(req.params["name"] as string);
   if (!installer) {
     res
       .status(404)
@@ -258,12 +267,8 @@ router.get("/download/desktop/file/:name", async (req, res) => {
   }
 });
 
-router.get("/download/desktop/latest/:os", async (req, res) => {
-  if (!withinDownloadRateLimit(req, "desktop-latest")) {
-    res.status(429).json({ error: "Too many download requests. Please try again shortly." });
-    return;
-  }
-  const osParam = req.params.os?.toLowerCase() ?? "";
+router.get("/download/desktop/latest/:os", downloadRateLimit("desktop-latest"), async (req, res) => {
+  const osParam = (req.params["os"] as string | undefined)?.toLowerCase() ?? "";
   if (!isDesktopOs(osParam)) {
     res.status(400).json({ error: "Desktop OS must be one of: mac, win, linux." });
     return;

@@ -470,6 +470,8 @@ ipcMain.handle(
   }) => {
     try {
       const previous = loadSettings();
+      // Extract newKey here so it can inform both hasPersistedKey (needed for
+      // validation) and the later conditional encryption/storage steps.
       const newKey = payload.online.apiKey;
       const hasPersistedKey =
         Boolean(previous.online.apiKeyEnc) ||
