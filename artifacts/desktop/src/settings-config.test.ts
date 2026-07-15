@@ -36,4 +36,3 @@ describe("settings-config", () => {
     ).resolves.toBeUndefined();
   });
 });
-

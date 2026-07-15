@@ -518,7 +518,9 @@ ipcMain.handle(
       }
 
       if (next.mode === "online") {
-        const keyForCheck = newKey.trim() || resolveApiKey(next);
+        const keyForCheck =
+          (typeof newKey === "string" && newKey.trim()) ||
+          resolveApiKey(next);
         try {
           await testOnlineConnection(next.online.baseUrl, keyForCheck);
         } catch (error) {
