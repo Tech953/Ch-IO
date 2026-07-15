@@ -122,6 +122,22 @@ function getUrlStr(url: string | URL | Request): string {
   return (url as Request).url;
 }
 
+function isGithubApiUrl(urlStr: string): boolean {
+  try {
+    return new URL(urlStr).hostname === "api.github.com";
+  } catch {
+    return false;
+  }
+}
+
+function isGithubCdnUrl(urlStr: string): boolean {
+  try {
+    return new URL(urlStr).hostname === "objects.githubusercontent.com";
+  } catch {
+    return false;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Test constants
 // ---------------------------------------------------------------------------
@@ -217,7 +233,7 @@ function setupGithubRelease(): void {
     ): Promise<Response> => {
       const urlStr = getUrlStr(url);
 
-      if (urlStr.includes("api.github.com")) {
+      if (isGithubApiUrl(urlStr)) {
         return new Response(
           JSON.stringify({
             tag_name: "v1.0.0",
@@ -231,7 +247,7 @@ function setupGithubRelease(): void {
         );
       }
 
-      if (urlStr.includes("objects.githubusercontent.com")) {
+      if (isGithubCdnUrl(urlStr)) {
         let binaryContent: Buffer;
         if (urlStr === GH_APK_URL) binaryContent = GH_APK_CONTENT;
         else if (urlStr === GH_DMG_URL) binaryContent = GH_DMG_CONTENT;
@@ -264,7 +280,7 @@ function setupGithubNoRelease(): void {
       init?: RequestInit,
     ): Promise<Response> => {
       const urlStr = getUrlStr(url);
-      if (urlStr.includes("api.github.com")) {
+      if (isGithubApiUrl(urlStr)) {
         return new Response(null, { status: 404 });
       }
       return realFetch(url, init);
@@ -284,7 +300,7 @@ function setupGithubBinaryFails(): void {
       init?: RequestInit,
     ): Promise<Response> => {
       const urlStr = getUrlStr(url);
-      if (urlStr.includes("api.github.com")) {
+      if (isGithubApiUrl(urlStr)) {
         return new Response(
           JSON.stringify({
             tag_name: "v1.0.0",
@@ -295,7 +311,7 @@ function setupGithubBinaryFails(): void {
           { status: 200 },
         );
       }
-      if (urlStr.includes("objects.githubusercontent.com")) {
+      if (isGithubCdnUrl(urlStr)) {
         return new Response(null, { status: 502 });
       }
       return realFetch(url, init);
@@ -472,7 +488,7 @@ describe("Android APK — GitHub fallback (online)", () => {
       "fetch",
       async (url: string | URL | Request, init?: RequestInit): Promise<Response> => {
         const urlStr = getUrlStr(url);
-        if (urlStr.includes("api.github.com")) {
+        if (isGithubApiUrl(urlStr)) {
           return new Response(
             JSON.stringify({ tag_name: "v1.0.0", assets: [] }),
             { status: 200 },
@@ -656,7 +672,7 @@ describe("Desktop installers — GitHub fallback (online)", () => {
       "fetch",
       async (url: string | URL | Request, init?: RequestInit): Promise<Response> => {
         const urlStr = getUrlStr(url);
-        if (urlStr.includes("api.github.com")) {
+        if (isGithubApiUrl(urlStr)) {
           return new Response(
             JSON.stringify({ tag_name: "v1.0.0", assets: [] }),
             { status: 200 },
