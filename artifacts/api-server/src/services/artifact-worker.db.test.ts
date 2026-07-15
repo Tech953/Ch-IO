@@ -166,7 +166,7 @@ describe("artifact worker — local PDF generation end-to-end", () => {
 
     const done = await loadArtifactById(job.id);
     expect(done?.status).toBe("failed");
-    expect(done?.error).toMatch(/is configured/i);
+    expect(done?.error).toMatch(/No online generation provider is configured/i);
     expect(await loadArtifactBlob(job.id)).toBeUndefined();
   });
 
