@@ -7,6 +7,12 @@ import { describe, it, expect, beforeEach, afterAll, vi } from "vitest";
 const h = vi.hoisted(() => {
   process.env.ENGRAM_DB_DRIVER = "pglite";
   delete process.env.PGLITE_DATA_DIR;
+  delete process.env.GENERATION_BASE_URL;
+  delete process.env.GENERATION_API_KEY;
+  delete process.env.LLM_BASE_URL;
+  delete process.env.LLM_API_KEY;
+  delete process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
+  delete process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
   const create = vi.fn(async () => ({
     choices: [
       {
@@ -160,7 +166,7 @@ describe("artifact worker — local PDF generation end-to-end", () => {
 
     const done = await loadArtifactById(job.id);
     expect(done?.status).toBe("failed");
-    expect(done?.error).toMatch(/configured/i);
+    expect(done?.error).toMatch(/not configured/i);
     expect(await loadArtifactBlob(job.id)).toBeUndefined();
   });
 
