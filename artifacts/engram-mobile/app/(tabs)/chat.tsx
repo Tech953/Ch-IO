@@ -52,7 +52,9 @@ function uid(): string {
     .slice(2, 9)}`;
 }
 
-const BASE_URL = `https://${process.env.EXPO_PUBLIC_DOMAIN}`;
+const BASE_URL = process.env.EXPO_PUBLIC_DOMAIN
+  ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
+  : "";
 
 export default function ChatScreen() {
   const { t } = useMobileI18n();
