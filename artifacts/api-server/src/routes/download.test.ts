@@ -145,14 +145,14 @@ const TEST_DL_DIR = "/test-dl";
 
 // Bundled file content — sizes MUST match content length so the streaming
 // path sets a correct Content-Length header and the HTTP client doesn't hang.
-const APK_CONTENT = Buffer.from("fake-apk-binary-data");   // 20 bytes
+const APK_CONTENT = Buffer.from("fake-apk-binary-data");
 const APK_SIZE = APK_CONTENT.byteLength;
 const APK_MTIME = 1_700_000_000_000;
 const APK_FILE = "ENGRAM-Mobile-1.0.0.apk";
 const APK_ROOT_PATH = `${TEST_DL_DIR}/${APK_FILE}`;
 const APK_SUB_PATH = `${TEST_DL_DIR}/android/${APK_FILE}`;
 
-const DMG_CONTENT = Buffer.from("fake-dmg-binary-data");   // 20 bytes
+const DMG_CONTENT = Buffer.from("fake-dmg-binary-data");
 const DMG_SIZE = DMG_CONTENT.byteLength;
 const DMG_MTIME = 1_700_000_001_000;
 const DMG_FILE = "ENGRAM-Desktop-1.0.0.dmg";
