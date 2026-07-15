@@ -300,3 +300,8 @@ router.get("/download/desktop/latest/:os", async (req, res) => {
 });
 
 export default router;
+
+/** Clear the in-memory rate-limit counters. Exposed for use in tests. */
+export function clearDownloadRateLimiter(): void {
+  downloadRequests.clear();
+}

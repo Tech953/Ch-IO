@@ -7,8 +7,36 @@ never calls GitHub. Two kinds of files are recognized:
 - **Desktop installers** — `.dmg` (macOS), `.exe` installer or portable `.zip` (Windows), `.AppImage` / `.deb` (Linux)
 - **Android** — a single `.apk`
 
+## Folder layout
+
+Files can be placed either directly in this root folder or in the dedicated
+subdirectory for each platform:
+
+```
+downloads/
+  *.apk              ← Android APK (root)
+  android/           ← dedicated Android subfolder
+    *.apk
+  *.dmg *.exe *.zip  ← Desktop installers (root)
+  *.AppImage *.deb
+  desktop/           ← dedicated Desktop subfolder
+    *.dmg *.exe *.zip
+    *.AppImage *.deb
+```
+
+When both locations contain a file of the same kind the **newest file by
+modification time** is chosen, so you can promote an update simply by dropping
+it in the subdirectory without removing the old root-level copy first.
+
 Endpoints (`artifacts/api-server/src/routes/download.ts`, logic in
 `lib/downloads.ts`):
+
+- `GET /api/download/desktop` — JSON metadata (`available`, `source`, `version`, `installers[]`)
+- `GET /api/download/desktop/file/:name` — a specific installer binary
+- `GET /api/download/desktop/latest/:os` — stable direct binary for `mac`, `win`, or `linux`
+- `GET /api/download/android` — JSON metadata (`available`, `source`, `version`, `filename`, `sizeBytes`)
+- `GET /api/download/android.apk` — the APK itself
+- `GET /api/download/android/latest` — stable direct APK binary
 
 - `GET /api/download/desktop` — JSON metadata (`available`, `source`, `version`, `installers[]`)
 - `GET /api/download/desktop/file/:name` — a specific installer binary
