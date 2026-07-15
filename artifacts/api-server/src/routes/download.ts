@@ -19,9 +19,27 @@ import {
 // Each binary resolves a bundled file first, else proxy-streams the matching
 // asset from the latest GitHub release — see lib/downloads.ts.
 const router = Router();
+const DOWNLOAD_RATE_WINDOW_MS = 10_000;
+const DOWNLOAD_RATE_LIMIT = 30;
+const downloadRequests = new Map<string, number[]>();
 
 function desktopDownloadPath(filename: string): string {
   return `/api/download/desktop/file/${encodeURIComponent(filename)}`;
+}
+
+function withinDownloadRateLimit(req: Request, routeKey: string): boolean {
+  const ip = req.ip || req.socket.remoteAddress || "unknown";
+  const key = `${routeKey}:${ip}`;
+  const now = Date.now();
+  const since = now - DOWNLOAD_RATE_WINDOW_MS;
+  const history = (downloadRequests.get(key) ?? []).filter((ts) => ts >= since);
+  if (history.length >= DOWNLOAD_RATE_LIMIT) {
+    downloadRequests.set(key, history);
+    return false;
+  }
+  history.push(now);
+  downloadRequests.set(key, history);
+  return true;
 }
 
 type DesktopOs = "mac" | "win" | "linux";
@@ -177,6 +195,10 @@ router.get("/download/android.apk", async (req, res) => {
 });
 
 router.get("/download/android/latest", async (req, res) => {
+  if (!withinDownloadRateLimit(req, "android-latest")) {
+    res.status(429).json({ error: "Too many download requests. Please try again shortly." });
+    return;
+  }
   const apk = await resolveApk();
   if (!apk) {
     res.status(404).json({ error: "No Android APK is available for download." });
@@ -237,6 +259,10 @@ router.get("/download/desktop/file/:name", async (req, res) => {
 });
 
 router.get("/download/desktop/latest/:os", async (req, res) => {
+  if (!withinDownloadRateLimit(req, "desktop-latest")) {
+    res.status(429).json({ error: "Too many download requests. Please try again shortly." });
+    return;
+  }
   const osParam = req.params.os?.toLowerCase() ?? "";
   if (!isDesktopOs(osParam)) {
     res.status(400).json({ error: "Desktop OS must be one of: mac, win, linux." });

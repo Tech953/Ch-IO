@@ -148,18 +148,10 @@ export default function DownloadPage() {
   const copyLink = async (href: string): Promise<void> => {
     const full = absoluteHref(href);
     try {
-      if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(full);
-      } else {
-        const ta = document.createElement("textarea");
-        ta.value = full;
-        ta.style.position = "fixed";
-        ta.style.left = "-9999px";
-        document.body.appendChild(ta);
-        ta.select();
-        document.execCommand("copy");
-        document.body.removeChild(ta);
+      if (!navigator.clipboard?.writeText) {
+        throw new Error("Clipboard API unavailable");
       }
+      await navigator.clipboard.writeText(full);
       toast({ title: t("download.copyLinkSuccess") });
     } catch {
       toast({ title: t("download.copyLinkError"), variant: "destructive" });
