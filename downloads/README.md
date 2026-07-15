@@ -12,8 +12,10 @@ Endpoints (`artifacts/api-server/src/routes/download.ts`, logic in
 
 - `GET /api/download/desktop` — JSON metadata (`available`, `source`, `version`, `installers[]`)
 - `GET /api/download/desktop/file/:name` — a specific installer binary
+- `GET /api/download/desktop/latest/:os` — stable direct binary for `mac`, `win`, or `linux`
 - `GET /api/download/android` — JSON metadata (`available`, `source`, `version`, `filename`, `sizeBytes`)
 - `GET /api/download/android.apk` — the APK itself
+- `GET /api/download/android/latest` — stable direct APK binary
 
 ## How serving works ("do both")
 

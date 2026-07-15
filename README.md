@@ -20,6 +20,20 @@ It runs four ways:
 - **Mobile app (Android APK)** — an installable APK built from `artifacts/engram-mobile`
   with localized UI, persisted local state for offline continuity, and live online API mode.
 
+## Quick install links
+
+On any deployed ENGRAM instance, open:
+
+- **Download page:** `/download`
+- **Latest Android APK (direct):** `/api/download/android/latest`
+- **Latest desktop installer (direct):**
+  - macOS: `/api/download/desktop/latest/mac`
+  - Windows: `/api/download/desktop/latest/win`
+  - Linux: `/api/download/desktop/latest/linux`
+
+If you are not on a deploy yet, browse published binaries on GitHub Releases:
+https://github.com/Tech953/Ch-IO/releases
+
 ---
 
 ## Desktop app (installable)

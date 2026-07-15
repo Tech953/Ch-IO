@@ -24,6 +24,36 @@ function desktopDownloadPath(filename: string): string {
   return `/api/download/desktop/file/${encodeURIComponent(filename)}`;
 }
 
+type DesktopOs = "mac" | "win" | "linux";
+
+function isDesktopOs(value: string): value is DesktopOs {
+  return value === "mac" || value === "win" || value === "linux";
+}
+
+function preferredDesktopExt(os: DesktopOs): string[] {
+  switch (os) {
+    case "mac":
+      return [".dmg"];
+    case "win":
+      return [".exe", ".zip"];
+    case "linux":
+      return [".AppImage", ".deb"];
+  }
+}
+
+function pickDesktopInstallerForOs(
+  installers: Awaited<ReturnType<typeof resolveDesktop>>["installers"],
+  os: DesktopOs,
+) {
+  const forOs = installers.filter((i) => i.os === os);
+  if (forOs.length === 0) return null;
+  const exts = preferredDesktopExt(os);
+  const preferred = forOs.find((i) =>
+    exts.some((ext) => i.ext.toLowerCase() === ext.toLowerCase()),
+  );
+  return preferred ?? forOs[0] ?? null;
+}
+
 /** Stream a local file as an attachment. */
 function streamLocalFile(
   req: Request,
@@ -146,6 +176,19 @@ router.get("/download/android.apk", async (req, res) => {
   }
 });
 
+router.get("/download/android/latest", async (req, res) => {
+  const apk = await resolveApk();
+  if (!apk) {
+    res.status(404).json({ error: "No Android APK is available for download." });
+    return;
+  }
+  if (apk.kind === "bundled") {
+    streamLocalFile(req, res, apk.localPath, apk.filename, APK_MIME, apk.sizeBytes);
+  } else {
+    await proxyDownload(req, res, apk.url, apk.filename, APK_MIME, apk.sizeBytes);
+  }
+});
+
 // ---- Desktop ----
 
 router.get("/download/desktop", async (_req, res) => {
@@ -172,6 +215,43 @@ router.get("/download/desktop/file/:name", async (req, res) => {
       .json({ error: "That installer is not available for download." });
     return;
   }
+  if (installer.source === "bundled") {
+    streamLocalFile(
+      req,
+      res,
+      installer.localPath,
+      installer.filename,
+      OCTET_MIME,
+      installer.sizeBytes,
+    );
+  } else {
+    await proxyDownload(
+      req,
+      res,
+      installer.url,
+      installer.filename,
+      OCTET_MIME,
+      installer.sizeBytes,
+    );
+  }
+});
+
+router.get("/download/desktop/latest/:os", async (req, res) => {
+  const osParam = req.params.os?.toLowerCase() ?? "";
+  if (!isDesktopOs(osParam)) {
+    res.status(400).json({ error: "Desktop OS must be one of: mac, win, linux." });
+    return;
+  }
+
+  const { installers } = await resolveDesktop();
+  const installer = pickDesktopInstallerForOs(installers, osParam);
+  if (!installer) {
+    res
+      .status(404)
+      .json({ error: "No desktop installer is available for that operating system." });
+    return;
+  }
+
   if (installer.source === "bundled") {
     streamLocalFile(
       req,

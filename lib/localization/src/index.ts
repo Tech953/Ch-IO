@@ -97,6 +97,19 @@ export const WEB_CATALOG: Record<SupportedLocale, Record<string, string>> = {
     "download.noteLinux": "AppImage (portable) or .deb (Debian/Ubuntu)",
     "download.noteAndroid":
       "Android 8+ — sideload the .apk (enable unknown sources)",
+    "download.quickInstall": "Recommended download for this device",
+    "download.quickInstallBody":
+      "Use this one-click button if you're installing right now.",
+    "download.copyLink": "Copy link",
+    "download.copyLinkSuccess": "Download link copied",
+    "download.copyLinkError": "Could not copy link",
+    "download.fileName": "File",
+    "download.source": "Source",
+    "download.sourceBundled": "Bundled with this deploy",
+    "download.sourceGithub": "GitHub release fallback",
+    "download.directLinks": "Direct latest links",
+    "download.directDesktop": "Desktop ({os})",
+    "download.directAndroid": "Android APK",
     "chat.error.auth_invalid":
       "Authentication failed. Check your API key.",
     "chat.error.endpoint_unreachable":
@@ -171,6 +184,19 @@ export const WEB_CATALOG: Record<SupportedLocale, Record<string, string>> = {
     "download.noteLinux": "AppImage (portable) o .deb (Debian/Ubuntu)",
     "download.noteAndroid":
       "Android 8+ — instala el .apk por sideload (fuentes desconocidas)",
+    "download.quickInstall": "Descarga recomendada para este dispositivo",
+    "download.quickInstallBody":
+      "Usa este botón de un clic si vas a instalar ahora.",
+    "download.copyLink": "Copiar enlace",
+    "download.copyLinkSuccess": "Enlace de descarga copiado",
+    "download.copyLinkError": "No se pudo copiar el enlace",
+    "download.fileName": "Archivo",
+    "download.source": "Origen",
+    "download.sourceBundled": "Incluido en este deploy",
+    "download.sourceGithub": "Fallback de GitHub Release",
+    "download.directLinks": "Enlaces directos (última versión)",
+    "download.directDesktop": "Desktop ({os})",
+    "download.directAndroid": "APK de Android",
     "chat.error.auth_invalid":
       "Autenticación fallida. Revisa tu clave API.",
     "chat.error.endpoint_unreachable":
@@ -245,6 +271,19 @@ export const WEB_CATALOG: Record<SupportedLocale, Record<string, string>> = {
     "download.noteLinux": "AppImage (portable) ou .deb (Debian/Ubuntu)",
     "download.noteAndroid":
       "Android 8+ — sideload du .apk (activer sources inconnues)",
+    "download.quickInstall": "Téléchargement recommandé pour cet appareil",
+    "download.quickInstallBody":
+      "Utilisez ce bouton en un clic pour installer maintenant.",
+    "download.copyLink": "Copier le lien",
+    "download.copyLinkSuccess": "Lien de téléchargement copié",
+    "download.copyLinkError": "Impossible de copier le lien",
+    "download.fileName": "Fichier",
+    "download.source": "Source",
+    "download.sourceBundled": "Intégré à ce déploiement",
+    "download.sourceGithub": "Fallback GitHub Release",
+    "download.directLinks": "Liens directs (dernière version)",
+    "download.directDesktop": "Desktop ({os})",
+    "download.directAndroid": "APK Android",
     "chat.error.auth_invalid":
       "Échec d'authentification. Vérifiez votre clé API.",
     "chat.error.endpoint_unreachable":

@@ -1,7 +1,8 @@
 import { useGetStats, useGetPersonality } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Activity, Brain, Database, CheckCircle2 } from "lucide-react";
+import { Activity, Brain, Database, CheckCircle2, Download, Smartphone } from "lucide-react";
+import { Link } from "wouter";
 
 export default function Home() {
   const { data: stats, isLoading: statsLoading } = useGetStats();
@@ -26,6 +27,29 @@ export default function Home() {
         <StatCard title="Belief Nodes" value={stats?.totalBeliefs?.toString() || "0"} icon={CheckCircle2} loading={statsLoading} />
         <StatCard title="Avg Confidence" value={stats?.avgBeliefConfidence ? `${Math.round(stats.avgBeliefConfidence * 100)}%` : "0%"} icon={Brain} loading={statsLoading} />
       </div>
+
+      <Card className="bg-card/40 border-primary/30 backdrop-blur-sm">
+        <CardHeader>
+          <CardTitle className="font-display tracking-widest text-sm text-primary/80">Install PYRI</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-wrap items-center gap-3">
+          <Link
+            href="/download"
+            className="inline-flex items-center gap-2 px-4 py-2 border border-primary/40 text-primary bg-primary/10 hover:bg-primary/20 transition-colors font-mono text-xs uppercase tracking-widest"
+          >
+            <Download className="w-4 h-4" />
+            Download App
+          </Link>
+          <a
+            href="/api/download/android/latest"
+            download
+            className="inline-flex items-center gap-2 px-4 py-2 border border-border/60 text-foreground hover:border-primary/40 hover:bg-white/5 transition-colors font-mono text-xs uppercase tracking-widest"
+          >
+            <Smartphone className="w-4 h-4" />
+            Direct Android APK
+          </a>
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="col-span-1 lg:col-span-2 bg-card/40 border-border/50 backdrop-blur-sm glow-box">
