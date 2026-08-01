@@ -101,9 +101,9 @@ jobs:
       - name: Fix lightningcss platform binary
         shell: bash
         run: |
-          # pnpm --frozen-lockfile skips optional platform packages.
-          # Force-install the correct native .node binary for this runner's OS.
-          pnpm --filter @workspace/engram add lightningcss --no-frozen-lockfile || true
+          # Reinstall optional native binaries for this runner's OS/arch.
+          # The lockfile was generated on Linux; win32/darwin need their own .node files.
+          pnpm install --no-frozen-lockfile
 
       - name: Build web dashboard
         env:
