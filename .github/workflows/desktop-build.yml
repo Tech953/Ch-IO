@@ -87,6 +87,17 @@ jobs:
       - name: Build API server bundle
         run: pnpm --filter @workspace/api-server run build
 
+
+      - name: Install platform lightningcss binary
+        shell: bash
+        run: |
+          # pnpm --frozen-lockfile skips optional platform packages on cross-OS runners.
+          # Re-install lightningcss without --frozen-lockfile so the correct .node
+          # binary for this runner's OS is fetched and placed in node_modules.
+          pnpm add -w lightningcss --no-frozen-lockfile || true
+          # Also ensure the engram workspace has it resolved
+          pnpm --filter @workspace/engram add lightningcss --no-frozen-lockfile || true
+
       - name: Build web dashboard
         env:
           PORT: "5000"
