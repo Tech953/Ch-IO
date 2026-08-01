@@ -145,10 +145,6 @@ nsis:
   menuCategory: true
   # Explicit shortcut label matches the product name exactly.
   shortcutName: "ENGRAM"
-  # Default installation directory shown on the Destination Folder page.
-  # Uses the branded product name so the path reads clearly
-  # (e.g. C:\Users\<user>\AppData\Local\Programs\ENGRAM).
-  installDir: "$LOCALAPPDATA\\Programs\\ENGRAM"
   createDesktopShortcut: true
   createStartMenuShortcut: true
   installerLanguages:
