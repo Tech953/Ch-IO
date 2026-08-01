@@ -33,6 +33,17 @@ interface ChatMessage {
   content: string;
 }
 
+function mapStreamError(
+  t: (key: string, values?: Record<string, string | number>) => string,
+  code?: string,
+  fallback?: string,
+): string {
+  if (!code) return fallback ?? t("chat.error.provider_error");
+  const key = `chat.error.${code}`;
+  const translated = t(key);
+  return translated === key ? fallback ?? t("chat.error.provider_error") : translated;
+}
+
 let messageCounter = 0;
 function uid(): string {
   messageCounter += 1;
@@ -41,7 +52,9 @@ function uid(): string {
     .slice(2, 9)}`;
 }
 
-const BASE_URL = `https://${process.env.EXPO_PUBLIC_DOMAIN}`;
+const BASE_URL = process.env.EXPO_PUBLIC_DOMAIN
+  ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
+  : "";
 
 export default function ChatScreen() {
   const { t } = useMobileI18n();
@@ -150,6 +163,7 @@ export default function ChatScreen() {
 
       const decoder = new TextDecoder();
       let buffer = "";
+      let streamError: string | null = null;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -164,8 +178,18 @@ export default function ChatScreen() {
           if (data === "[DONE]" || data.length === 0) continue;
           try {
             const parsed = JSON.parse(data);
+            if (parsed.status === "fallback") {
+              setMessages((prev) => [
+                ...prev,
+                { id: uid(), role: "assistant", content: t("chat.status.fallback") },
+              ]);
+              continue;
+            }
             if (parsed.done) continue;
-            if (parsed.error) throw new Error(parsed.error);
+            if (parsed.error) {
+              streamError = mapStreamError(t, parsed.errorCode, parsed.error);
+              break;
+            }
             if (parsed.content) {
               full += parsed.content;
               if (!assistantAdded) {
@@ -190,7 +214,9 @@ export default function ChatScreen() {
             // skip malformed line
           }
         }
+        if (streamError) break;
       }
+      if (streamError) throw new Error(streamError);
     } catch {
       setShowTyping(false);
       if (!assistantAdded) {
@@ -207,7 +233,7 @@ export default function ChatScreen() {
       setIsStreaming(false);
       setShowTyping(false);
     }
-  }, [input, isStreaming, conversationId]);
+  }, [input, isStreaming, conversationId, t]);
 
   if (!enabled) {
     return (

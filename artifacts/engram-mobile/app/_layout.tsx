@@ -29,7 +29,8 @@ import { EngramProvider } from "@/context/engram-context";
 import { MobileI18nProvider, useMobileI18n } from "@/i18n";
 import { setBaseUrl } from "@workspace/api-client-react";
 
-setBaseUrl(`https://${process.env.EXPO_PUBLIC_DOMAIN}`);
+const _mobileDomain = process.env.EXPO_PUBLIC_DOMAIN;
+if (_mobileDomain) setBaseUrl(`https://${_mobileDomain}`);
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();

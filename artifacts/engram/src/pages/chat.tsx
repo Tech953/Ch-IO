@@ -14,6 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useEventStream, type EngramEvent } from "@/hooks/use-event-stream";
+import { useI18n } from "@/i18n";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -111,6 +112,7 @@ export default function Chat() {
   const { data: engrams } = useListEngrams();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { t } = useI18n();
 
   const [activeId, setActiveId] = useState<number | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -275,8 +277,10 @@ export default function Chat() {
 
       const reader = resp.body.getReader();
       const decoder = new TextDecoder();
+
       let buffer = "";
       let accumulated = "";
+      let streamError: string | null = null;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -291,8 +295,14 @@ export default function Chat() {
           try {
             const payload = JSON.parse(raw);
             if (payload.done) break;
+            if (payload.status === "fallback") {
+              toast({ title: t("chat.error.title"), description: t("chat.status.fallback") });
+              continue;
+            }
             if (payload.error) {
-              toast({ title: "Generation error", description: payload.error, variant: "destructive" });
+              const key = `chat.error.${payload.errorCode ?? "provider_error"}`;
+              const msg = t(key);
+              streamError = msg === key ? payload.error : msg;
               break;
             }
             if (payload.content) {
@@ -306,6 +316,17 @@ export default function Chat() {
             }
           } catch {}
         }
+        if (streamError) break;
+      }
+
+      if (streamError) {
+        toast({
+          title: t("chat.error.title"),
+          description: streamError,
+          variant: "destructive",
+        });
+        setMessages((prev) => prev.filter((_, i) => i !== assistantIdx));
+        return;
       }
 
       setMessages((prev) => {
@@ -316,7 +337,11 @@ export default function Chat() {
       });
     } catch (err: unknown) {
       if (err instanceof Error && err.name !== "AbortError") {
-        toast({ title: "Network error", description: "Could not reach the API", variant: "destructive" });
+        toast({
+          title: t("chat.error.networkTitle"),
+          description: t("chat.error.networkDescription"),
+          variant: "destructive",
+        });
       }
       setMessages((prev) => prev.filter((_, i) => i !== assistantIdx));
     } finally {

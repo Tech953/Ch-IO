@@ -20,6 +20,20 @@ It runs four ways:
 - **Mobile app (Android APK)** — an installable APK built from `artifacts/engram-mobile`
   with localized UI, persisted local state for offline continuity, and live online API mode.
 
+## Quick install links
+
+On any deployed ENGRAM instance, open:
+
+- **Download page:** `/download`
+- **Latest Android APK (direct):** `/api/download/android/latest`
+- **Latest desktop installer (direct):**
+  - macOS: `/api/download/desktop/latest/mac`
+  - Windows: `/api/download/desktop/latest/win`
+  - Linux: `/api/download/desktop/latest/linux`
+
+If you are not on a deploy yet, browse published binaries on GitHub Releases:
+https://github.com/Tech953/Ch-IO/releases
+
 ---
 
 ## Desktop app (installable)
@@ -38,6 +52,17 @@ runs migrations, and seeds reference data automatically.
   OS keychain via Electron `safeStorage` and only ever decrypted in-process. If no
   keychain is available, the key is kept in memory for the current session only and
   **never written to disk in plaintext** (you re-enter it next launch).
+- **Automatic fallback (online → offline)** — when online mode is selected, the
+  desktop server now keeps your offline/local endpoint as a failover target. If the
+  cloud provider fails (auth/connectivity/provider error), chat retries on the local
+  provider and emits an explicit fallback status event.
+
+The desktop settings flow validates and normalizes model connection config before
+restart:
+
+- Base URLs must be valid `http(s)` URLs and are normalized without trailing `/`.
+- Model names are required for both offline and online entries.
+- Online mode requires an API key and runs a quick provider connection probe.
 
 ### Build the installer for your OS
 
@@ -107,6 +132,11 @@ The mobile app is in `artifacts/engram-mobile` (Expo/React Native). It ships:
 - **Localized UI** via `@workspace/localization` + persisted locale selection.
 - **Offline continuity** for local app state (selected persona + conversation mapping).
 - **Online mode** against the deployed API via `EXPO_PUBLIC_DOMAIN`.
+
+> Android localhost caveat: if your API is running on your dev machine, `localhost`
+> from an Android emulator/device does **not** point to that machine. Use the host
+> mapping your environment provides (for example `10.0.2.2` on the Android emulator)
+> or expose a reachable hostname/domain.
 
 ### Build a release APK
 
@@ -281,8 +311,9 @@ docs                    # generated PDFs (proposal, developer guide, readme, use
   `LLM_BASE_URL` in `.env` (e.g. the Ollama URL above).
 - **`db push` fails.** Make sure PostgreSQL is running and `DATABASE_URL` is
   correct, and that the database exists (`createdb engram`).
-- **Dashboard loads but chat errors.** Your local model server isn't running or
-  `LLM_MODEL` isn't a model it hosts.
+- **Dashboard/mobile chat shows specific generation errors (auth/model/timeout/rate-limit).**
+  The app now maps provider failures to typed diagnostics. Verify Base URL, API key,
+  model name, and provider availability for the selected mode.
 - **Video media jobs fail.** Install `ffmpeg` + `ffprobe`; other modalities are
   unaffected.
 - **Empty pages after a fresh DB.** Run the seed scripts (the start script does

@@ -1,4 +1,4 @@
-import { Router, type Request, type Response } from "express";
+import { Router, type Request, type Response, type NextFunction } from "express";
 import fs from "node:fs";
 import { Readable } from "node:stream";
 import {
@@ -19,9 +19,70 @@ import {
 // Each binary resolves a bundled file first, else proxy-streams the matching
 // asset from the latest GitHub release — see lib/downloads.ts.
 const router = Router();
+const DOWNLOAD_RATE_WINDOW_MS = 10_000;
+const DOWNLOAD_RATE_LIMIT = 30;
+const downloadRequests = new Map<string, number[]>();
 
 function desktopDownloadPath(filename: string): string {
   return `/api/download/desktop/file/${encodeURIComponent(filename)}`;
+}
+
+function withinDownloadRateLimit(req: Request, routeKey: string): boolean {
+  const ip = req.ip || req.socket.remoteAddress || "unknown";
+  const key = `${routeKey}:${ip}`;
+  const now = Date.now();
+  const since = now - DOWNLOAD_RATE_WINDOW_MS;
+  const history = (downloadRequests.get(key) ?? []).filter((ts) => ts >= since);
+  if (history.length >= DOWNLOAD_RATE_LIMIT) {
+    downloadRequests.set(key, history);
+    return false;
+  }
+  history.push(now);
+  downloadRequests.set(key, history);
+  return true;
+}
+
+/** Express middleware that enforces the per-IP download rate limit for a named route. */
+function downloadRateLimit(routeKey: string) {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    if (!withinDownloadRateLimit(req, routeKey)) {
+      res
+        .status(429)
+        .json({ error: "Too many download requests. Please try again shortly." });
+      return;
+    }
+    next();
+  };
+}
+
+type DesktopOs = "mac" | "win" | "linux";
+
+function isDesktopOs(value: string): value is DesktopOs {
+  return value === "mac" || value === "win" || value === "linux";
+}
+
+function preferredDesktopExt(os: DesktopOs): string[] {
+  switch (os) {
+    case "mac":
+      return [".dmg"];
+    case "win":
+      return [".exe", ".zip"];
+    case "linux":
+      return [".AppImage", ".deb"];
+  }
+}
+
+function pickDesktopInstallerForOs(
+  installers: Awaited<ReturnType<typeof resolveDesktop>>["installers"],
+  os: DesktopOs,
+) {
+  const forOs = installers.filter((i) => i.os === os);
+  if (forOs.length === 0) return null;
+  const exts = preferredDesktopExt(os);
+  const preferred = forOs.find((i) =>
+    exts.some((ext) => i.ext.toLowerCase() === ext.toLowerCase()),
+  );
+  return preferred ?? forOs[0] ?? null;
 }
 
 /** Stream a local file as an attachment. */
@@ -133,7 +194,20 @@ router.get("/download/android", async (_req, res) => {
   });
 });
 
-router.get("/download/android.apk", async (req, res) => {
+router.get("/download/android.apk", downloadRateLimit("android-apk"), async (req, res) => {
+  const apk = await resolveApk();
+  if (!apk) {
+    res.status(404).json({ error: "No Android APK is available for download." });
+    return;
+  }
+  if (apk.kind === "bundled") {
+    streamLocalFile(req, res, apk.localPath, apk.filename, APK_MIME, apk.sizeBytes);
+  } else {
+    await proxyDownload(req, res, apk.url, apk.filename, APK_MIME, apk.sizeBytes);
+  }
+});
+
+router.get("/download/android/latest", downloadRateLimit("android-latest"), async (req, res) => {
   const apk = await resolveApk();
   if (!apk) {
     res.status(404).json({ error: "No Android APK is available for download." });
@@ -164,8 +238,8 @@ router.get("/download/desktop", async (_req, res) => {
   });
 });
 
-router.get("/download/desktop/file/:name", async (req, res) => {
-  const installer = await findDesktopInstaller(req.params.name);
+router.get("/download/desktop/file/:name", downloadRateLimit("desktop-file"), async (req, res) => {
+  const installer = await findDesktopInstaller(req.params["name"] as string);
   if (!installer) {
     res
       .status(404)
@@ -193,4 +267,46 @@ router.get("/download/desktop/file/:name", async (req, res) => {
   }
 });
 
+router.get("/download/desktop/latest/:os", downloadRateLimit("desktop-latest"), async (req, res) => {
+  const osParam = (req.params["os"] as string | undefined)?.toLowerCase() ?? "";
+  if (!isDesktopOs(osParam)) {
+    res.status(400).json({ error: "Desktop OS must be one of: mac, win, linux." });
+    return;
+  }
+
+  const { installers } = await resolveDesktop();
+  const installer = pickDesktopInstallerForOs(installers, osParam);
+  if (!installer) {
+    res
+      .status(404)
+      .json({ error: "No desktop installer is available for that operating system." });
+    return;
+  }
+
+  if (installer.source === "bundled") {
+    streamLocalFile(
+      req,
+      res,
+      installer.localPath,
+      installer.filename,
+      OCTET_MIME,
+      installer.sizeBytes,
+    );
+  } else {
+    await proxyDownload(
+      req,
+      res,
+      installer.url,
+      installer.filename,
+      OCTET_MIME,
+      installer.sizeBytes,
+    );
+  }
+});
+
 export default router;
+
+/** Clear the in-memory rate-limit counters. Exposed for use in tests. */
+export function clearDownloadRateLimiter(): void {
+  downloadRequests.clear();
+}

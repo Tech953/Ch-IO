@@ -249,6 +249,8 @@ jobs:
 
       - name: Build release APK
         working-directory: artifacts/engram-mobile/android
+        env:
+          EXPO_PUBLIC_DOMAIN: ${{ vars.EXPO_PUBLIC_DOMAIN }}
         run: |
           chmod +x ./gradlew
           ./gradlew :app:assembleRelease --no-daemon --stacktrace

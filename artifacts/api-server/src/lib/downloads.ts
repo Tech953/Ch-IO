@@ -179,29 +179,36 @@ export function resolveBundledApk(): ResolvedApk | null {
     return null;
   }
 
-  const dir = downloadsDir();
-  let best: { file: string; mtime: number; size: number } | null = null;
-  try {
-    for (const f of fs.readdirSync(dir)) {
-      if (!f.toLowerCase().endsWith(".apk")) continue;
-      try {
-        const st = fs.statSync(path.join(dir, f));
-        if (st.isFile() && (!best || st.mtimeMs > best.mtime)) {
-          best = { file: f, mtime: st.mtimeMs, size: st.size };
+  const rootDir = downloadsDir();
+  // Scan both the root downloads folder and the dedicated android/ subfolder.
+  // The newest .apk found across all locations wins.
+  const dirsToScan = [rootDir, path.join(rootDir, "android")];
+  let best: { file: string; dir: string; mtime: number; size: number } | null = null;
+
+  for (const dir of dirsToScan) {
+    try {
+      for (const f of fs.readdirSync(dir)) {
+        if (!f.toLowerCase().endsWith(".apk")) continue;
+        try {
+          const st = fs.statSync(path.join(dir, f));
+          if (st.isFile() && (!best || st.mtimeMs > best.mtime)) {
+            best = { file: f, dir, mtime: st.mtimeMs, size: st.size };
+          }
+        } catch {
+          /* skip unreadable */
         }
-      } catch {
-        /* skip unreadable */
       }
+    } catch {
+      /* directory doesn't exist or isn't readable — skip */
     }
-  } catch {
-    return null;
   }
+
   if (!best) return null;
   return {
     kind: "bundled",
     filename: best.file,
     sizeBytes: best.size,
-    localPath: path.join(dir, best.file),
+    localPath: path.join(best.dir, best.file),
     version: deriveVersion(best.file),
   };
 }
@@ -242,45 +249,50 @@ export type DesktopResolution = {
 };
 
 function resolveBundledDesktop(): ResolvedDesktopFile[] {
-  const dir = downloadsDir();
-  let entries: string[];
-  try {
-    entries = fs.readdirSync(dir);
-  } catch {
-    return [];
-  }
+  const rootDir = downloadsDir();
+  // Scan both the root downloads folder and the dedicated desktop/ subfolder.
+  const dirsToScan = [rootDir, path.join(rootDir, "desktop")];
   // Keep the newest-by-mtime file per (os, ext) so e.g. an older + newer .dmg
   // don't both show; Linux still yields BOTH an .AppImage and a .deb.
   const bestByKey = new Map<
     string,
     { mtime: number; file: ResolvedDesktopFile }
   >();
-  for (const f of entries) {
-    const os = desktopOsForFile(f);
-    if (!os) continue;
-    const full = path.join(dir, f);
-    let st: fs.Stats;
+
+  for (const dir of dirsToScan) {
+    let entries: string[];
     try {
-      st = fs.statSync(full);
+      entries = fs.readdirSync(dir);
     } catch {
       continue;
     }
-    if (!st.isFile()) continue;
-    const ext = extOf(f);
-    const key = `${os}:${ext}`;
-    const prev = bestByKey.get(key);
-    if (!prev || st.mtimeMs > prev.mtime) {
-      bestByKey.set(key, {
-        mtime: st.mtimeMs,
-        file: {
-          os,
-          ext,
-          filename: f,
-          sizeBytes: st.size,
-          source: "bundled",
-          localPath: full,
-        },
-      });
+    for (const f of entries) {
+      const os = desktopOsForFile(f);
+      if (!os) continue;
+      const full = path.join(dir, f);
+      let st: fs.Stats;
+      try {
+        st = fs.statSync(full);
+      } catch {
+        continue;
+      }
+      if (!st.isFile()) continue;
+      const ext = extOf(f);
+      const key = `${os}:${ext}`;
+      const prev = bestByKey.get(key);
+      if (!prev || st.mtimeMs > prev.mtime) {
+        bestByKey.set(key, {
+          mtime: st.mtimeMs,
+          file: {
+            os,
+            ext,
+            filename: f,
+            sizeBytes: st.size,
+            source: "bundled",
+            localPath: full,
+          },
+        });
+      }
     }
   }
   return [...bestByKey.values()].map((v) => v.file);
@@ -338,4 +350,9 @@ export async function findDesktopInstaller(
   if (!name || path.basename(name) !== name) return null;
   const { installers } = await resolveDesktop();
   return installers.find((i) => i.filename === name) ?? null;
+}
+
+/** Clear the in-memory GitHub release cache. Exposed for use in tests. */
+export function clearReleaseCache(): void {
+  releaseCache.clear();
 }

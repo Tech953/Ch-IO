@@ -132,6 +132,7 @@ Endpoints (API server, `artifacts/api-server/src/routes/download.ts`):
 
 - `GET /api/download/android` — JSON: `{ available, source, version, filename, sizeBytes }`
 - `GET /api/download/android.apk` — the binary download
+- `GET /api/download/android/latest` — stable direct link to the latest APK
 
 ### To bundle your own APK
 
