@@ -111,7 +111,7 @@ mac:
   # notarize runs only after a successful sign, and only when Apple credentials
   # are present in the environment (APPLE_ID + APPLE_APP_SPECIFIC_PASSWORD +
   # APPLE_TEAM_ID, or the APPLE_API_KEY trio); otherwise it is skipped gracefully.
-  notarize: true
+  # notarize: handled via afterSign hook when APPLE_ID + APPLE_APP_SPECIFIC_PASSWORD + APPLE_TEAM_ID are set
 
 win:
   target:
