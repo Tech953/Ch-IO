@@ -98,6 +98,13 @@ jobs:
           # Also ensure the engram workspace has it resolved
           pnpm --filter @workspace/engram add lightningcss --no-frozen-lockfile || true
 
+      - name: Fix lightningcss platform binary
+        shell: bash
+        run: |
+          # pnpm --frozen-lockfile skips optional platform packages.
+          # Force-install the correct native .node binary for this runner's OS.
+          pnpm --filter @workspace/engram add lightningcss --no-frozen-lockfile || true
+
       - name: Build web dashboard
         env:
           PORT: "5000"
