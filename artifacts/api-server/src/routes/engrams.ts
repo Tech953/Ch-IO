@@ -109,6 +109,10 @@ router.patch("/engrams/:id", async (req, res) => {
     res.status(404).json({ error: "Engram not found" });
     return;
   }
+  if (engram.locked) {
+    res.status(403).json({ error: "This engram is locked and cannot be modified." });
+    return;
+  }
 
   const body = parsedBody.data;
   const patch: Partial<typeof engramsTable.$inferInsert> = { updatedAt: new Date() };
