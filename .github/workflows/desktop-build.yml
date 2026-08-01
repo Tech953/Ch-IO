@@ -1,4 +1,6 @@
 name: Desktop & Android builds
+# Windows: NSIS installer (.exe) + portable .zip — see electron-builder.yml
+# Android: debug-signed APK (sideload) — add KEYSTORE_* secrets for release signing
 
 # Builds the ENGRAM desktop app (Electron) on each native OS so the produced
 # installers match their platform:
