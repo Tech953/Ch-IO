@@ -120,6 +120,9 @@ export const engramsTable = pgTable("engrams", {
   /** When set in the future, the engine skips generation until then. Persisted so error backoff survives restarts. */
   backoffUntil: timestamp("backoff_until", { withTimezone: true }),
   isChatActive: boolean("is_chat_active").notNull().default(false),
+  /** When true this engram is immutable — no PATCH/PUT/DELETE permitted via API. */
+  locked: boolean("locked").notNull().default(false),
+
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
