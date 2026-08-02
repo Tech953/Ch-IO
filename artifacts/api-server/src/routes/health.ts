@@ -3,7 +3,7 @@ import { llmProviderInfo } from "../lib/llm";
 
 const router = Router();
 
-router.get("/health", (_req, res) => {
+const healthHandler = (_req: any, res: any): void => {
   res.json({
     status: "ok",
     llm: {
@@ -14,6 +14,11 @@ router.get("/health", (_req, res) => {
       offline: !llmProviderInfo.requiresKey,
     },
   });
-});
+};
+
+// /api/health  — human-readable health check
+router.get("/health", healthHandler);
+// /api/healthz — polled by the Electron main process (waitForHealth in main.ts)
+router.get("/healthz", healthHandler);
 
 export default router;
