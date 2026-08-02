@@ -39,6 +39,20 @@ async function main(): Promise<void> {
     startEngramEngine();
     startMediaWorker();
     startArtifactWorker();
+    // Seed Full Rezz messages in the background so they don't delay startup.
+    // ensureDatabaseReady() already seeded the engram + conversation; this
+    // completes the message inserts after the server is healthy.
+    if (process.env.ENGRAM_DB_DRIVER === "pglite") {
+      import("@workspace/db").then(({ db }) =>
+        import("@workspace/db/seed").then(({ seedFullRezz }) =>
+          seedFullRezz(db).then((r) => {
+            if (r.messagesInserted > 0) {
+              logger.info({ messagesInserted: r.messagesInserted }, "Full Rezz messages seeded in background");
+            }
+          }).catch((err) => logger.warn({ err }, "Background Full Rezz seed failed (non-fatal)"))
+        )
+      ).catch(() => {/* ignore if module unavailable */});
+    }
   };
 
   const server = host
