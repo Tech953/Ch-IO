@@ -87,6 +87,20 @@ jobs:
       - name: Build API server bundle
         run: pnpm --filter @workspace/api-server run build
 
+      - name: Fetch lightningcss native binary for this platform
+        shell: bash
+        run: |
+          # pnpm's cross-platform supportedArchitectures downloads ALL platform
+          # binaries into the store, but the virtual store may still link the wrong one.
+          # Force-reinstall lightningcss so Node.js resolves the correct .node file
+          # for this runner's OS/arch by running npm install directly in the package dir.
+          LCSS_DIR=$(node -e "require.resolve('lightningcss/package.json')" | sed 's|/package.json||')
+          echo "lightningcss location: $LCSS_DIR"
+          cd "$LCSS_DIR"
+          npm install --ignore-scripts=false --force 2>/dev/null || true
+          ls *.node 2>/dev/null || echo "No .node files yet — checking node/ subdir"
+          ls node/*.node 2>/dev/null || true
+
       - name: Build web dashboard
         env:
           PORT: "5000"
