@@ -52,6 +52,7 @@ mac:
   target:
     - dmg
   category: public.app-category.productivity
+  identity: null
 
 win:
   target:
