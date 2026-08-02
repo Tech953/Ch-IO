@@ -30,6 +30,10 @@ function NativeTabLayout() {
         <Icon sf={{ default: "questionmark.circle", selected: "questionmark.circle.fill" }} />
         <Label>{t("tabs.inquiry")}</Label>
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="settings">
+        <Icon sf={{ default: "gearshape", selected: "gearshape.fill" }} />
+        <Label>{t("tabs.settings")}</Label>
+      </NativeTabs.Trigger>
     </NativeTabs>
   );
 }
