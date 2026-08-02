@@ -4,9 +4,6 @@ packages:
   - lib/integrations/*
   - scripts
 
-allowBuilds:
-  esbuild: true
-  ffmpeg-static: true
 
 autoInstallPeers: false
 
