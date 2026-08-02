@@ -29,6 +29,9 @@ import {
   useListEngrams,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { ConnectPrompt } from "@/components/ConnectPrompt";
+import { useServer } from "@/context/server-context";
+import { useOfflineCache } from "@/hooks/useOfflineCache";
 
 export default function EngramsScreen() {
   const { locale, setLocale, t } = useMobileI18n();
@@ -37,8 +40,24 @@ export default function EngramsScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { selectedEngramId, setSelectedEngramId } = useEngram();
-  const { data: engrams, isLoading, isError, refetch, isRefetching } =
-    useListEngrams();
+  const { isConfigured, offlineMode } = useServer();
+  const engramCache = useOfflineCache<any[]>("engrams");
+  const { data: liveEngrams, isLoading, isError, refetch, isRefetching } =
+    useListEngrams({ query: { enabled: isConfigured && !offlineMode } } as any);
+
+  React.useEffect(() => {
+    if (liveEngrams) engramCache.write(liveEngrams as any);
+  }, [liveEngrams]);
+
+  const [cachedEngrams, setCachedEngrams] = React.useState<any[] | null>(null);
+  React.useEffect(() => {
+    if (offlineMode || !isConfigured) {
+      engramCache.read().then(r => r && setCachedEngrams(r.data));
+    }
+  }, [offlineMode, isConfigured]);
+
+  const engrams = liveEngrams ?? cachedEngrams;
+  if (!isConfigured && !offlineMode) return <ConnectPrompt />;
   const activate = useActivateEngram();
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
