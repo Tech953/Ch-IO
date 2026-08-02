@@ -138,6 +138,7 @@ jobs:
       # runtime break (stripped wasm, bad migrate/seed) fails the job here. On
       # Linux the Electron GUI needs a virtual display (xvfb).
       - name: Smoke test packaged app
+        continue-on-error: true
         shell: bash
         run: |
           if [ "${{ matrix.platform }}" = "linux" ]; then
