@@ -1,89 +1,174 @@
+/**
+ * Settings screen — configure the Engram server URL.
+ *
+ * Supports:
+ * - localhost (offline, desktop on same device or ADB port-forward)
+ * - Local network IP (e.g. 192.168.1.x) for same-WiFi access
+ * - Any remote/cloud server URL
+ */
 import { Feather } from "@expo/vector-icons";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
-  ActivityIndicator, KeyboardAvoidingView, Platform, Pressable,
-  ScrollView, StyleSheet, Switch, Text, TextInput, View,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+
 import { useColors } from "@/hooks/useColors";
 import { useMobileI18n } from "@/i18n";
-import { useServer } from "@/context/server-context";
+import { DEFAULT_SERVER_URL, useServer } from "@/context/server-context";
 
-type Status = "idle" | "testing" | "ok" | "error";
+const PRESETS = [
+  { label: "Localhost (same device)", url: "http://localhost:5000" },
+  { label: "Local network (edit IP)", url: "http://192.168.1.100:5000" },
+  { label: "Custom / Cloud", url: "" },
+];
+
+type StatusColor = { bg: string; text: string; icon: "wifi" | "wifi-off" | "loader" | "help-circle" };
+
+function statusStyle(status: string, colors: ReturnType<typeof useColors>): StatusColor {
+  switch (status) {
+    case "connected":   return { bg: `${colors.success}22`, text: colors.success,        icon: "wifi" };
+    case "unreachable": return { bg: `${colors.destructive}22`, text: colors.destructive, icon: "wifi-off" };
+    case "checking":    return { bg: `${colors.primary}22`, text: colors.primary,         icon: "loader" };
+    default:            return { bg: `${colors.muted}`, text: colors.mutedForeground,     icon: "help-circle" };
+  }
+}
 
 export default function SettingsScreen() {
+  const { t } = useMobileI18n();
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { t } = useMobileI18n();
-  const { serverUrl, offlineMode, setServerUrl, setOfflineMode, testConnection } = useServer();
-  const [inputUrl, setInputUrl] = useState(serverUrl ?? "");
-  const [status, setStatus] = useState<Status>("idle");
-  const [statusMsg, setStatusMsg] = useState("");
+  const { serverUrl, connectionStatus, updateServerUrl, checkConnection } = useServer();
+  const [inputUrl, setInputUrl] = useState(serverUrl);
   const topPad = Platform.OS === "web" ? 67 : insets.top;
+  const st = statusStyle(connectionStatus, colors);
 
-  const onTest = async () => {
-    if (!inputUrl.trim()) { setStatus("error"); setStatusMsg("Please enter a server URL first."); return; }
-    setStatus("testing"); setStatusMsg("");
-    const result = await testConnection(inputUrl.trim());
-    setStatus(result.ok ? "ok" : "error");
-    setStatusMsg(result.ok ? "Connected successfully ✓" : (result.error ?? "Connection failed."));
+  useEffect(() => { setInputUrl(serverUrl); }, [serverUrl]);
+
+  const onSave = async () => {
+    await updateServerUrl(inputUrl);
+    await checkConnection();
   };
 
-  const onSave = async () => { await setServerUrl(inputUrl.trim() || null); setStatus("ok"); setStatusMsg("Server URL saved."); };
-  const onClear = async () => { setInputUrl(""); await setServerUrl(null); setStatus("idle"); setStatusMsg(""); };
+  const onPreset = async (url: string) => {
+    if (!url) return;
+    setInputUrl(url);
+    await updateServerUrl(url);
+    await checkConnection();
+  };
 
-  const statusColor = status === "ok" ? colors.success : status === "error" ? colors.destructive : colors.mutedForeground;
+  const statusLabel: Record<string, string> = {
+    unknown: "Not checked",
+    checking: "Checking...",
+    connected: "Connected",
+    unreachable: "Unreachable",
+  };
 
   return (
-    <KeyboardAvoidingView style={[styles.flex, { backgroundColor: colors.background }]} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-      <ScrollView contentContainerStyle={[styles.container, { paddingTop: topPad + 12 }]} keyboardShouldPersistTaps="handled">
-        <Text style={[styles.kicker, { color: colors.primary }]}>{"⚙ CONFIGURATION"}</Text>
-        <Text style={[styles.h1, { color: colors.foreground }]}>Settings</Text>
+    <KeyboardAvoidingView
+      style={{ flex: 1, backgroundColor: colors.background }}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+    >
+      <ScrollView
+        contentContainerStyle={[styles.container, { paddingTop: topPad + 12 }]}
+        keyboardShouldPersistTaps="handled"
+      >
+        {/* Header */}
+        <Text style={[styles.kicker, { color: colors.primary }]}>CONFIGURATION</Text>
+        <Text style={[styles.h1, { color: colors.foreground }]}>Server</Text>
         <Text style={[styles.sub, { color: colors.mutedForeground }]}>
-          Point the app at your Engram server — a local desktop install, home server, or any reachable URL.
+          Point the app at a running Engram server. Use localhost for offline / desktop mode.
         </Text>
-        <Text style={[styles.label, { color: colors.foreground }]}>Engram Server URL</Text>
-        <TextInput
-          style={[styles.input, { backgroundColor: colors.card, borderColor: status === "error" ? colors.destructive : colors.border, color: colors.foreground }]}
-          value={inputUrl} onChangeText={v => { setInputUrl(v); setStatus("idle"); setStatusMsg(""); }}
-          placeholder="http://192.168.1.x:5000" placeholderTextColor={colors.mutedForeground}
-          autoCapitalize="none" autoCorrect={false} keyboardType="url" returnKeyType="done"
-        />
-        <Text style={[styles.hint, { color: colors.mutedForeground }]}>
-          e.g. http://192.168.1.42:5000 · http://10.0.0.5:5000 · https://engram.yourserver.com
-        </Text>
-        {statusMsg !== "" && <Text style={[styles.statusMsg, { color: statusColor }]}>{statusMsg}</Text>}
+
+        {/* Status pill */}
+        <View style={[styles.statusPill, { backgroundColor: st.bg, borderColor: st.text }]}>
+          {connectionStatus === "checking" ? (
+            <ActivityIndicator color={st.text} size="small" />
+          ) : (
+            <Feather name={st.icon} size={14} color={st.text} />
+          )}
+          <Text style={[styles.statusText, { color: st.text }]}>
+            {statusLabel[connectionStatus]}  ·  {serverUrl}
+          </Text>
+        </View>
+
+        {/* URL Input */}
+        <Text style={[styles.label, { color: colors.mutedForeground }]}>Server URL</Text>
+        <View style={[styles.inputRow, { borderColor: colors.border, backgroundColor: colors.card }]}>
+          <TextInput
+            style={[styles.input, { color: colors.foreground }]}
+            value={inputUrl}
+            onChangeText={setInputUrl}
+            placeholder="http://localhost:5000"
+            placeholderTextColor={colors.mutedForeground}
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="url"
+            returnKeyType="done"
+            onSubmitEditing={onSave}
+          />
+        </View>
+
+        {/* Save + Test buttons */}
         <View style={styles.buttonRow}>
-          <Pressable style={[styles.btn, { backgroundColor: colors.secondary, flex: 1 }]} onPress={onTest} disabled={status === "testing"}>
-            {status === "testing" ? <ActivityIndicator color={colors.primary} size="small" /> : <Feather name="wifi" size={14} color={colors.primary} />}
-            <Text style={[styles.btnText, { color: colors.primary }]}>Test</Text>
+          <Pressable
+            style={[styles.btn, styles.btnPrimary, { backgroundColor: colors.primary }]}
+            onPress={onSave}
+          >
+            <Feather name="save" size={15} color={colors.primaryForeground} />
+            <Text style={[styles.btnText, { color: colors.primaryForeground }]}>Save & Test</Text>
           </Pressable>
-          <Pressable style={[styles.btn, { backgroundColor: colors.primary, flex: 2 }]} onPress={onSave}>
-            <Feather name="save" size={14} color={colors.primaryForeground} />
-            <Text style={[styles.btnText, { color: colors.primaryForeground }]}>Save</Text>
-          </Pressable>
-          <Pressable style={[styles.btn, { backgroundColor: colors.secondary, flex: 1 }]} onPress={onClear}>
-            <Feather name="x" size={14} color={colors.mutedForeground} />
-            <Text style={[styles.btnText, { color: colors.mutedForeground }]}>Clear</Text>
+          <Pressable
+            style={[styles.btn, { borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card }]}
+            onPress={checkConnection}
+          >
+            <Feather name="refresh-cw" size={15} color={colors.foreground} />
+            <Text style={[styles.btnText, { color: colors.foreground }]}>Retest</Text>
           </Pressable>
         </View>
-        <View style={[styles.divider, { backgroundColor: colors.border }]} />
-        <View style={styles.row}>
-          <View style={styles.rowText}>
-            <Text style={[styles.rowTitle, { color: colors.foreground }]}>Offline Mode</Text>
-            <Text style={[styles.rowSub, { color: colors.mutedForeground }]}>
-              Use cached data when the server is unreachable. The app stays readable without a live connection.
+
+        {/* Presets */}
+        <Text style={[styles.label, { color: colors.mutedForeground, marginTop: 28 }]}>Quick Presets</Text>
+        {PRESETS.map((p) => (
+          <Pressable
+            key={p.label}
+            style={[styles.preset, { borderColor: colors.border, backgroundColor: colors.card }]}
+            onPress={() => p.url ? onPreset(p.url) : null}
+          >
+            <Text style={[styles.presetLabel, { color: colors.foreground }]}>{p.label}</Text>
+            {p.url ? (
+              <Text style={[styles.presetUrl, { color: colors.mutedForeground }]}>{p.url}</Text>
+            ) : (
+              <Text style={[styles.presetUrl, { color: colors.primary }]}>Enter URL above</Text>
+            )}
+          </Pressable>
+        ))}
+
+        {/* Offline note */}
+        <View style={[styles.note, { backgroundColor: colors.muted, borderColor: colors.border }]}>
+          <Feather name="info" size={14} color={colors.primary} style={{ marginTop: 2 }} />
+          <Text style={[styles.noteText, { color: colors.mutedForeground }]}>
+            <Text style={{ color: colors.foreground, fontFamily: "JetBrainsMono_500Medium" }}>
+              Offline / local mode:{" "}
             </Text>
-          </View>
-          <Switch value={offlineMode} onValueChange={setOfflineMode}
-            trackColor={{ false: colors.border, true: `${colors.primary}80` }}
-            thumbColor={offlineMode ? colors.primary : colors.mutedForeground} />
-        </View>
-        <View style={[styles.infoBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Text style={[styles.infoLabel, { color: colors.mutedForeground }]}>Current server</Text>
-          <Text style={[styles.infoValue, { color: serverUrl ? colors.foreground : colors.mutedForeground }]}>{serverUrl ?? "Not configured"}</Text>
-          <Text style={[styles.infoLabel, { color: colors.mutedForeground, marginTop: 8 }]}>Mode</Text>
-          <Text style={[styles.infoValue, { color: offlineMode ? colors.accent : colors.success }]}>{offlineMode ? "Offline (cached data)" : "Online (live server)"}</Text>
+            Run the ENGRAM desktop app on the same machine, enable ADB USB debugging or set up port forwarding, and use{" "}
+            <Text style={{ color: colors.primary, fontFamily: "JetBrainsMono_500Medium" }}>
+              http://localhost:5000
+            </Text>
+            . On the same WiFi network, use your machine's local IP (e.g.{" "}
+            <Text style={{ color: colors.primary, fontFamily: "JetBrainsMono_500Medium" }}>
+              http://192.168.x.x:5000
+            </Text>
+            ).
+          </Text>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -91,24 +176,26 @@ export default function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1 },
-  container: { paddingHorizontal: 20, paddingBottom: 120, gap: 8 },
-  kicker: { fontFamily: "JetBrainsMono_500Medium", fontSize: 11, letterSpacing: 2 },
-  h1: { fontFamily: "Rajdhani_700Bold", fontSize: 34, letterSpacing: 0.5 },
-  sub: { fontFamily: "Inter_400Regular", fontSize: 13, lineHeight: 19, marginTop: 2, marginBottom: 8 },
-  label: { fontFamily: "Inter_600SemiBold", fontSize: 13, marginTop: 8 },
-  input: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 12, fontFamily: "JetBrainsMono_400Regular", fontSize: 13 },
-  hint: { fontFamily: "Inter_400Regular", fontSize: 11, lineHeight: 16 },
-  statusMsg: { fontFamily: "Inter_500Medium", fontSize: 13 },
-  buttonRow: { flexDirection: "row", gap: 8, marginTop: 4 },
-  btn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 12, borderRadius: 8 },
-  btnText: { fontFamily: "Rajdhani_600SemiBold", fontSize: 15 },
-  divider: { height: 1, marginVertical: 16 },
-  row: { flexDirection: "row", alignItems: "flex-start", gap: 16 },
-  rowText: { flex: 1, gap: 4 },
-  rowTitle: { fontFamily: "Inter_600SemiBold", fontSize: 14 },
-  rowSub: { fontFamily: "Inter_400Regular", fontSize: 12, lineHeight: 17 },
-  infoBox: { borderWidth: 1, borderRadius: 8, padding: 14, marginTop: 8, gap: 2 },
-  infoLabel: { fontFamily: "JetBrainsMono_500Medium", fontSize: 10, letterSpacing: 1 },
-  infoValue: { fontFamily: "Inter_500Medium", fontSize: 13 },
+  container: { paddingHorizontal: 20, paddingBottom: 120, gap: 6 },
+  kicker: { fontFamily: "JetBrainsMono_500Medium", fontSize: 11, letterSpacing: 2, marginBottom: 2 },
+  h1: { fontFamily: "Rajdhani_700Bold", fontSize: 34, letterSpacing: 0.5, marginBottom: 4 },
+  sub: { fontFamily: "Inter_400Regular", fontSize: 13, lineHeight: 19, marginBottom: 16 },
+  statusPill: {
+    flexDirection: "row", alignItems: "center", gap: 8,
+    borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8,
+    marginBottom: 20,
+  },
+  statusText: { fontFamily: "JetBrainsMono_400Regular", fontSize: 11, flex: 1 },
+  label: { fontFamily: "Inter_500Medium", fontSize: 12, letterSpacing: 0.5, marginBottom: 6, marginTop: 8 },
+  inputRow: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 2 },
+  input: { fontFamily: "JetBrainsMono_400Regular", fontSize: 13, paddingVertical: 10 },
+  buttonRow: { flexDirection: "row", gap: 10, marginTop: 12 },
+  btn: { flexDirection: "row", alignItems: "center", gap: 6, borderRadius: 8, paddingHorizontal: 16, paddingVertical: 10, flex: 1, justifyContent: "center" },
+  btnPrimary: {},
+  btnText: { fontFamily: "Inter_600SemiBold", fontSize: 13 },
+  preset: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 10, marginBottom: 6 },
+  presetLabel: { fontFamily: "Inter_500Medium", fontSize: 13 },
+  presetUrl: { fontFamily: "JetBrainsMono_400Regular", fontSize: 11, marginTop: 2 },
+  note: { flexDirection: "row", gap: 10, borderWidth: 1, borderRadius: 8, padding: 14, marginTop: 24 },
+  noteText: { fontFamily: "Inter_400Regular", fontSize: 12, lineHeight: 18, flex: 1 },
 });
