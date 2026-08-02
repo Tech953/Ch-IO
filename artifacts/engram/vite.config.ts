@@ -27,7 +27,7 @@ if (!basePath) {
 }
 
 export default defineConfig({
-  css: { transformer: 'postcss' },
+  css: { transformer: 'postcss', lightningcss: undefined },
   base: basePath,
   plugins: [
     react(),
