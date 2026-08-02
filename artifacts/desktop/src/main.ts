@@ -225,7 +225,7 @@ function findFreePort(): Promise<number> {
   });
 }
 
-function waitForHealth(port: number, timeoutMs = 60000): Promise<void> {
+function waitForHealth(port: number, timeoutMs = 300000): Promise<void> {
   const start = Date.now();
   return new Promise((resolve, reject) => {
     const attempt = (): void => {
