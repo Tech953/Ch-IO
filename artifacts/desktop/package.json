@@ -2,7 +2,7 @@
   "name": "@workspace/desktop",
   "version": "0.1.0",
   "private": true,
-  "description": "ENGRAM — PYRI AI Persona Framework, packaged as a native desktop app (Electron).",
+  "description": "ENGRAM \u2014 PYRI AI Persona Framework, packaged as a native desktop app (Electron).",
   "author": {
     "name": "ENGRAM",
     "email": "support@pyri.ai"
@@ -33,5 +33,9 @@
   "dependencies": {
     "@workspace/localization": "workspace:*",
     "electron-updater": "^6.8.9"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Tech953/Ch-IO.git"
   }
 }
