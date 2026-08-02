@@ -61,9 +61,10 @@ win:
   target:
     - nsis
     - zip
-  nsis:
-    oneClick: false
-    perMachine: false
-    allowToChangeInstallationDirectory: true
-    createDesktopShortcut: true
-    createStartMenuShortcut: true
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
