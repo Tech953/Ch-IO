@@ -129,7 +129,14 @@ jobs:
         #   - manual run (workflow_dispatch) -> `--publish never`: only the
         #     workflow-artifact upload below runs, so manual builds never create
         #     an accidental Release.
-        run: pnpm --filter @workspace/desktop exec electron-builder --${{ matrix.platform }} --publish ${{ github.ref_type == 'tag' && 'always' || 'never' }}
+        shell: bash
+        run: |
+          # Unset CSC_LINK when empty — electron-builder treats "" as a path and fails
+          if [ -z "${CSC_LINK:-}" ]; then
+            unset CSC_LINK
+            unset CSC_KEY_PASSWORD
+          fi
+          pnpm --filter @workspace/desktop exec electron-builder --${{ matrix.platform }} --publish ${{ github.ref_type == 'tag' && 'always' || 'never' }}
 
       # Confirm the packaged app actually LAUNCHES, not just that an installer was
       # produced. Launches the unpacked build via Playwright's Electron driver and
