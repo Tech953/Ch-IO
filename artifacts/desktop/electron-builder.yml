@@ -61,20 +61,9 @@ win:
   target:
     - nsis
     - zip
-  signtoolOptions:
-    signingHashAlgorithms:
-      - sha256
-    rfc3161TimeStampServer: http://timestamp.digicert.com
   nsis:
     oneClick: false
     perMachine: false
     allowToChangeInstallationDirectory: true
-    menuCategory: true
-    shortcutName: "ENGRAM"
-    installDir: "$LOCALAPPDATA\\Programs\\ENGRAM"
     createDesktopShortcut: true
     createStartMenuShortcut: true
-    installerLanguages:
-      - en_US
-      - es_ES
-      - fr_FR
