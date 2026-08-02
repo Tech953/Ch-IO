@@ -56,9 +56,6 @@ mac:
   gatekeeperAssess: false
   entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.inherit.plist
-  binaries:
-    - Contents/Resources/bin/ffmpeg
-    - Contents/Resources/bin/ffprobe
 
 win:
   target:
@@ -68,17 +65,16 @@ win:
     signingHashAlgorithms:
       - sha256
     rfc3161TimeStampServer: http://timestamp.digicert.com
-
-nsis:
-  oneClick: false
-  perMachine: false
-  allowToChangeInstallationDirectory: true
-  menuCategory: true
-  shortcutName: "ENGRAM"
-  installDir: "$LOCALAPPDATA\\Programs\\ENGRAM"
-  createDesktopShortcut: true
-  createStartMenuShortcut: true
-  installerLanguages:
-    - en_US
-    - es_ES
-    - fr_FR
+  nsis:
+    oneClick: false
+    perMachine: false
+    allowToChangeInstallationDirectory: true
+    menuCategory: true
+    shortcutName: "ENGRAM"
+    installDir: "$LOCALAPPDATA\\Programs\\ENGRAM"
+    createDesktopShortcut: true
+    createStartMenuShortcut: true
+    installerLanguages:
+      - en_US
+      - es_ES
+      - fr_FR
