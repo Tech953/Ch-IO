@@ -25,6 +25,9 @@
         "x64",
         "arm64"
       ]
-    }
+    },
+    "neverBuiltDependencies": [
+      "lightningcss"
+    ]
   }
 }
