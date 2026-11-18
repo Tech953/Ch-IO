@@ -13,9 +13,7 @@ export function ConnectPrompt() {
         <Feather name="wifi-off" size={32} color={colors.primary} />
         <Text style={[styles.title, { color: colors.foreground }]}>No Server Connected</Text>
         <Text style={[styles.sub, { color: colors.mutedForeground }]}>
-          To use ENGRAM, point the app at a running Engram server.{"
-
-"}
+          To use ENGRAM, point the app at a running Engram server.{"\n\n"}
           This can be a local desktop install on the same network, a home server, or any reachable URL.
         </Text>
         <Pressable style={[styles.btn, { backgroundColor: colors.primary }]} onPress={() => router.push("/(tabs)/settings")}>

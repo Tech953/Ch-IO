@@ -40,7 +40,7 @@ export default function EngramsScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { selectedEngramId, setSelectedEngramId } = useEngram();
-  const { isConfigured, offlineMode } = useServer();
+  const { isConfigured, offlineMode, hydrated } = useServer();
   const engramCache = useOfflineCache<any[]>("engrams");
   const { data: liveEngrams, isLoading, isError, refetch, isRefetching } =
     useListEngrams({ query: { enabled: isConfigured && !offlineMode } } as any);
@@ -57,7 +57,6 @@ export default function EngramsScreen() {
   }, [offlineMode, isConfigured]);
 
   const engrams = liveEngrams ?? cachedEngrams;
-  if (!isConfigured && !offlineMode) return <ConnectPrompt />;
   const activate = useActivateEngram();
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
@@ -78,6 +77,10 @@ export default function EngramsScreen() {
     },
     [activate, queryClient, router, setSelectedEngramId],
   );
+
+  // Early return must come after every hook call (Rules of Hooks); wait for
+  // the persisted server settings to hydrate so the prompt doesn't flash.
+  if (hydrated && !isConfigured && !offlineMode) return <ConnectPrompt />;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>

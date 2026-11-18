@@ -22,6 +22,7 @@ import { setBaseUrl } from "@workspace/api-client-react";
 
 export const DEFAULT_SERVER_URL = "http://localhost:5000";
 const STORAGE_KEY = "engram.serverUrl";
+const OFFLINE_KEY = "engram.offlineMode";
 
 export type ConnectionStatus = "unknown" | "checking" | "connected" | "unreachable";
 
@@ -29,6 +30,11 @@ interface ServerContextValue {
   serverUrl: string;
   connectionStatus: ConnectionStatus;
   hydrated: boolean;
+  /** True once the user has saved a server URL (persisted in AsyncStorage). */
+  isConfigured: boolean;
+  /** When true, screens skip network calls and read from the offline cache. */
+  offlineMode: boolean;
+  setOfflineMode: (enabled: boolean) => Promise<void>;
   updateServerUrl: (url: string) => Promise<void>;
   checkConnection: () => Promise<void>;
 }
@@ -39,14 +45,19 @@ export function ServerProvider({ children }: { children: React.ReactNode }) {
   const [serverUrl, setServerUrlState] = useState<string>(DEFAULT_SERVER_URL);
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("unknown");
   const [hydrated, setHydrated] = useState(false);
+  const [isConfigured, setIsConfigured] = useState(false);
+  const [offlineMode, setOfflineModeState] = useState(false);
 
   // Load persisted URL on boot and apply it immediately
   useEffect(() => {
-    AsyncStorage.getItem(STORAGE_KEY)
-      .then((stored) => {
-        const url = stored?.trim() || DEFAULT_SERVER_URL;
+    Promise.all([AsyncStorage.getItem(STORAGE_KEY), AsyncStorage.getItem(OFFLINE_KEY)])
+      .then(([stored, storedOffline]) => {
+        const saved = stored?.trim();
+        const url = saved || DEFAULT_SERVER_URL;
         setServerUrlState(url);
         setBaseUrl(url);
+        setIsConfigured(!!saved);
+        setOfflineModeState(storedOffline === "true");
       })
       .catch(() => {
         setBaseUrl(DEFAULT_SERVER_URL);
@@ -59,7 +70,14 @@ export function ServerProvider({ children }: { children: React.ReactNode }) {
     setServerUrlState(clean);
     setBaseUrl(clean);
     setConnectionStatus("unknown");
-    await AsyncStorage.setItem(STORAGE_KEY, clean);
+    setIsConfigured(!!clean);
+    if (clean) await AsyncStorage.setItem(STORAGE_KEY, clean);
+    else await AsyncStorage.removeItem(STORAGE_KEY);
+  }, []);
+
+  const setOfflineMode = useCallback(async (enabled: boolean) => {
+    setOfflineModeState(enabled);
+    await AsyncStorage.setItem(OFFLINE_KEY, String(enabled));
   }, []);
 
   const checkConnection = useCallback(async () => {
@@ -79,8 +97,17 @@ export function ServerProvider({ children }: { children: React.ReactNode }) {
   }, [serverUrl]);
 
   const value = useMemo(
-    () => ({ serverUrl, connectionStatus, hydrated, updateServerUrl, checkConnection }),
-    [serverUrl, connectionStatus, hydrated, updateServerUrl, checkConnection],
+    () => ({
+      serverUrl,
+      connectionStatus,
+      hydrated,
+      isConfigured,
+      offlineMode,
+      setOfflineMode,
+      updateServerUrl,
+      checkConnection,
+    }),
+    [serverUrl, connectionStatus, hydrated, isConfigured, offlineMode, setOfflineMode, updateServerUrl, checkConnection],
   );
 
   return <ServerContext.Provider value={value}>{children}</ServerContext.Provider>;
