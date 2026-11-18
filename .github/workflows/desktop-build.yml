@@ -208,6 +208,11 @@ jobs:
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          # The action's default ("tools platform-tools") fails because the
+          # legacy "tools" package is no longer in Google's SDK repository.
+          # Gradle auto-installs the platforms/build-tools it needs.
+          packages: platform-tools
 
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
